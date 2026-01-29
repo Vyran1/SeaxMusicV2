@@ -1,0 +1,83 @@
+<!-- Tu Biblioteca - Contenido dinámico que se carga en content-area -->
+<div class="library-page">
+  <!-- Header de la biblioteca -->
+  <div class="library-header">
+    <div class="library-header-bg"></div>
+    <div class="library-header-content">
+      <div class="library-icon">
+        <i class="fas fa-music"></i>
+      </div>
+      <div class="library-info">
+        <span class="library-label">COLECCIÓN</span>
+        <h1 class="library-title">Tu Biblioteca</h1>
+        <p class="library-description">
+          <span id="libraryCount">0</span> canciones que te encantan
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controles de la biblioteca -->
+  <div class="library-controls">
+    <button class="library-play-btn" id="playAllLibrary">
+      <i class="fas fa-play"></i>
+    </button>
+    <button class="library-shuffle-btn" id="shuffleLibrary">
+      <i class="fas fa-random"></i>
+    </button>
+    <div class="library-sort">
+      <select id="librarySortBy">
+        <option value="custom">Orden personalizado</option>
+        <option value="recent">Recién añadidos</option>
+        <option value="title">Título A-Z</option>
+        <option value="artist">Artista A-Z</option>
+      </select>
+    </div>
+    <div class="library-view-toggle">
+      <button class="view-btn active" data-view="grid" title="Vista de cuadrícula">
+        <i class="fas fa-th-large"></i>
+      </button>
+      <button class="view-btn" data-view="list" title="Vista de lista">
+        <i class="fas fa-list"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Contenedor de canciones (Grid/List) -->
+  <div class="library-content" id="libraryContent">
+    <!-- Vista Grid -->
+    <div class="library-grid" id="libraryGrid">
+      <!-- Las canciones se cargarán aquí dinámicamente -->
+    </div>
+
+    <!-- Vista Lista -->
+    <div class="library-list hidden" id="libraryList">
+      <div class="library-list-header">
+        <div class="list-col-drag"></div>
+        <div class="list-col-num">#</div>
+        <div class="list-col-title">Título</div>
+        <div class="list-col-artist">Artista</div>
+        <div class="list-col-duration">
+          <i class="far fa-clock"></i>
+        </div>
+        <div class="list-col-actions"></div>
+      </div>
+      <div class="library-list-body" id="libraryListBody">
+        <!-- Las canciones en lista se cargarán aquí -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Mensaje cuando no hay favoritos -->
+  <div class="library-empty hidden" id="libraryEmpty">
+    <div class="empty-icon">
+      <i class="far fa-heart"></i>
+    </div>
+    <h3>Tu biblioteca está vacía</h3>
+    <p>Las canciones que marques con ❤️ aparecerán aquí</p>
+    <button class="empty-browse-btn" id="browseMusic">
+      <i class="fas fa-search"></i>
+      Explorar música
+    </button>
+  </div>
+</div>

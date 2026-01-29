@@ -1,0 +1,112 @@
+<!-- Now Playing - Vista de reproducción en pantalla completa -->
+<div class="nowplaying-page" id="nowPlayingPage">
+  <!-- Fondo difuminado con imagen 4K -->
+  <div class="nowplaying-bg" id="nowPlayingBg">
+    <div class="nowplaying-bg-image" id="nowPlayingBgImage"></div>
+    <div class="nowplaying-bg-overlay"></div>
+  </div>
+  
+  <!-- Contenido principal -->
+  <div class="nowplaying-content">
+    <!-- Canción anterior (izquierda) -->
+    <div class="nowplaying-side nowplaying-prev" id="nowPlayingPrev">
+      <div class="side-cover-container">
+        <img class="side-cover" id="prevCover" src="" alt="Anterior">
+        <div class="side-overlay">
+          <i class="fas fa-step-backward"></i>
+        </div>
+      </div>
+      <div class="side-info">
+        <span class="side-label">ANTERIOR</span>
+        <p class="side-title" id="prevTitle">-</p>
+        <p class="side-artist" id="prevArtist">-</p>
+      </div>
+    </div>
+    
+    <!-- Canción actual (centro) -->
+    <div class="nowplaying-center">
+      <!-- Cover 4K sin efectos -->
+      <div class="nowplaying-cover-container">
+        <img class="nowplaying-cover" id="nowPlayingCover" src="" alt="Cover">
+        
+        <!-- Visualizador de audio -->
+        <div class="nowplaying-visualizer" id="nowPlayingVisualizer">
+          <div class="visualizer-bar"></div>
+          <div class="visualizer-bar"></div>
+          <div class="visualizer-bar"></div>
+          <div class="visualizer-bar"></div>
+          <div class="visualizer-bar"></div>
+        </div>
+      </div>
+      
+      <!-- Info de la canción -->
+      <div class="nowplaying-info">
+        <h1 class="nowplaying-title" id="nowPlayingTitle">SeaxMusic</h1>
+        <div class="nowplaying-artist-row">
+          <img class="nowplaying-channel-avatar" id="nowPlayingChannelAvatar" src="" alt="">
+          <span class="nowplaying-artist" id="nowPlayingArtist">Artista</span>
+        </div>
+      </div>
+      
+      <!-- Controles de reproducción -->
+      <div class="nowplaying-controls">
+        <div class="nowplaying-progress">
+          <span class="np-time" id="npCurrentTime">0:00</span>
+          <div class="np-progress-bar" id="npProgressBar">
+            <div class="np-progress-fill" id="npProgressFill"></div>
+            <div class="np-progress-handle" id="npProgressHandle"></div>
+          </div>
+          <span class="np-time" id="npDuration">0:00</span>
+        </div>
+        
+        <div class="nowplaying-buttons">
+          <button class="np-btn np-shuffle" id="npShuffle" title="Aleatorio">
+            <i class="fas fa-random"></i>
+          </button>
+          <button class="np-btn np-prev" id="npPrevBtn" title="Anterior">
+            <i class="fas fa-step-backward"></i>
+          </button>
+          <button class="np-btn np-play" id="npPlayBtn" title="Reproducir">
+            <i class="fas fa-play"></i>
+          </button>
+          <button class="np-btn np-next" id="npNextBtn" title="Siguiente">
+            <i class="fas fa-step-forward"></i>
+          </button>
+          <button class="np-btn np-repeat" id="npRepeat" title="Repetir">
+            <i class="fas fa-redo"></i>
+          </button>
+        </div>
+        
+        <div class="nowplaying-actions">
+          <button class="np-action-btn" id="npLike" title="Me gusta">
+            <i class="far fa-heart"></i>
+          </button>
+          <button class="np-action-btn" id="npQueue" title="Cola">
+            <i class="fas fa-list"></i>
+          </button>
+          <button class="np-action-btn" id="npLyrics" title="Letra">
+            <i class="fas fa-align-left"></i>
+          </button>
+          <button class="np-action-btn np-close" id="npClose" title="Cerrar">
+            <i class="fas fa-chevron-down"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Siguiente canción (derecha) -->
+    <div class="nowplaying-side nowplaying-next" id="nowPlayingNext">
+      <div class="side-cover-container">
+        <img class="side-cover" id="nextCover" src="" alt="Siguiente">
+        <div class="side-overlay">
+          <i class="fas fa-step-forward"></i>
+        </div>
+      </div>
+      <div class="side-info">
+        <span class="side-label">SIGUIENTE</span>
+        <p class="side-title" id="nextTitle">-</p>
+        <p class="side-artist" id="nextArtist">-</p>
+      </div>
+    </div>
+  </div>
+</div>

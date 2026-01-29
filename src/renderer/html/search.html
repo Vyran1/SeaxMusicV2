@@ -1,0 +1,135 @@
+<!-- Buscar - Contenido dinámico que se carga en content-area -->
+<div class="search-page">
+  <!-- Banner de búsqueda -->
+  <div class="search-banner">
+    <div class="search-banner-bg"></div>
+    <div class="search-banner-content">
+      <div class="search-banner-icon">
+        <i class="fas fa-search"></i>
+      </div>
+      <div class="search-banner-info">
+        <h1 class="search-banner-title">Buscar</h1>
+        <p class="search-banner-subtitle">Encuentra tu música favorita en YouTube</p>
+      </div>
+    </div>
+    
+    <!-- Search Box -->
+    <div class="search-box-container">
+      <div class="search-input-wrapper">
+        <i class="fas fa-search search-input-icon"></i>
+        <input 
+          type="text" 
+          id="searchInput" 
+          class="search-input" 
+          placeholder="¿Qué quieres escuchar?" 
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+        >
+        <button class="search-clear-btn" id="searchClearBtn" style="display: none;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <button class="search-submit-btn" id="searchSubmitBtn">
+        <i class="fas fa-search"></i>
+        <span>Buscar</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Categorías rápidas -->
+  <div class="search-categories" id="searchCategories">
+    <h2><i class="fas fa-fire" style="color: var(--accent-primary); margin-right: 8px;"></i>Explorar</h2>
+    <div class="category-grid">
+      <div class="category-card" data-search="musica popular 2026">
+        <div class="category-bg" style="background: linear-gradient(135deg, #E13838, #8B1E3F);"></div>
+        <span class="category-name">Top Hits</span>
+        <i class="fas fa-fire category-icon"></i>
+      </div>
+      <div class="category-card" data-search="reggaeton 2026">
+        <div class="category-bg" style="background: linear-gradient(135deg, #1DB954, #169C46);"></div>
+        <span class="category-name">Reggaeton</span>
+        <i class="fas fa-music category-icon"></i>
+      </div>
+      <div class="category-card" data-search="pop latino">
+        <div class="category-bg" style="background: linear-gradient(135deg, #8B5CF6, #6D28D9);"></div>
+        <span class="category-name">Pop Latino</span>
+        <i class="fas fa-star category-icon"></i>
+      </div>
+      <div class="category-card" data-search="rock en español">
+        <div class="category-bg" style="background: linear-gradient(135deg, #F59E0B, #D97706);"></div>
+        <span class="category-name">Rock</span>
+        <i class="fas fa-guitar category-icon"></i>
+      </div>
+      <div class="category-card" data-search="hip hop rap">
+        <div class="category-bg" style="background: linear-gradient(135deg, #3B82F6, #1D4ED8);"></div>
+        <span class="category-name">Hip Hop</span>
+        <i class="fas fa-headphones category-icon"></i>
+      </div>
+      <div class="category-card" data-search="musica electronica DJ">
+        <div class="category-bg" style="background: linear-gradient(135deg, #EC4899, #BE185D);"></div>
+        <span class="category-name">Electrónica</span>
+        <i class="fas fa-bolt category-icon"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top 100 Global -->
+  <div class="top-charts-section" id="topChartsSection">
+    <div class="top-charts-header">
+      <div class="top-charts-title">
+        <i class="fas fa-globe" style="color: var(--accent-primary); margin-right: 8px;"></i>
+        <h2>Top 100 Global</h2>
+        <span class="charts-badge">YouTube Charts</span>
+      </div>
+      <button class="refresh-charts-btn" id="refreshChartsBtn" title="Actualizar charts">
+        <i class="fas fa-sync-alt"></i>
+      </button>
+    </div>
+    
+    <!-- Loading Charts -->
+    <div class="charts-loading" id="chartsLoading">
+      <div class="charts-loading-spinner">
+        <div class="spinner-ring"></div>
+        <div class="spinner-ring"></div>
+        <div class="spinner-ring"></div>
+      </div>
+      <p>Cargando Top 100 Global...</p>
+    </div>
+    
+    <!-- Charts Grid -->
+    <div class="top-charts-grid" id="topChartsGrid">
+      <!-- Los charts se cargarán aquí -->
+    </div>
+  </div>
+
+  <!-- Resultados de búsqueda -->
+  <div class="search-results" id="searchResults" style="display: none;">
+    <div class="search-results-header">
+      <h2><i class="fas fa-list" style="color: var(--accent-primary); margin-right: 8px;"></i>Resultados</h2>
+      <span class="results-count" id="resultsCount"></span>
+    </div>
+    
+    <!-- Loading -->
+    <div class="search-loading" id="searchLoading" style="display: none;">
+      <div class="search-loading-spinner">
+        <div class="spinner-ring"></div>
+        <div class="spinner-ring"></div>
+        <div class="spinner-ring"></div>
+      </div>
+      <p>Buscando en YouTube...</p>
+    </div>
+    
+    <!-- Results Grid -->
+    <div class="search-results-grid" id="searchResultsGrid">
+      <!-- Los resultados se cargarán aquí -->
+    </div>
+    
+    <!-- No results -->
+    <div class="search-no-results" id="searchNoResults" style="display: none;">
+      <i class="fas fa-search"></i>
+      <h3>No se encontraron resultados</h3>
+      <p>Intenta con otras palabras clave</p>
+    </div>
+  </div>
+</div>

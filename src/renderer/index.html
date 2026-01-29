@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeaxMusic</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="loading-content">
+      <div class="loading-logo">
+        <img src="./assets/img/icon.png" alt="SeaxMusic" width="80" height="80">
+      </div>
+      <div class="loading-spinner">
+        <div class="spinner-ring"></div>
+        <div class="spinner-ring"></div>
+        <div class="spinner-ring"></div>
+      </div>
+      <p class="loading-text">Cargando tu música...</p>
+      <p class="loading-subtext" id="loadingStatus">Preparando sesión</p>
+    </div>
+  </div>
+
+  <!-- Now Playing - Vista de reproducción en pantalla completa -->
+  <div class="nowplaying-page" id="nowPlayingPage">
+    <!-- Fondo difuminado con imagen 4K -->
+    <div class="nowplaying-bg" id="nowPlayingBg">
+      <div class="nowplaying-bg-image" id="nowPlayingBgImage"></div>
+      <div class="nowplaying-bg-overlay"></div>
+    </div>
+    
+    <!-- Contenido principal -->
+    <div class="nowplaying-content">
+      <!-- Imágenes de fondo (prev/next detrás del cover) -->
+      <div class="nowplaying-side-bg nowplaying-prev-bg" id="nowPlayingPrev">
+        <img class="side-bg-cover" id="prevCover" src="" alt="">
+      </div>
+      <div class="nowplaying-side-bg nowplaying-next-bg" id="nowPlayingNext">
+        <img class="side-bg-cover" id="nextCover" src="" alt="">
+      </div>
+      
+      <!-- Canción actual (centro) -->
+      <div class="nowplaying-center">
+        <!-- Cover 4K sin efectos -->
+        <div class="nowplaying-cover-container">
+          <img class="nowplaying-cover" id="nowPlayingCover" src="" alt="Cover">
+          
+          <!-- Visualizador de audio -->
+          <div class="nowplaying-visualizer" id="nowPlayingVisualizer">
+            <div class="visualizer-bar"></div>
+            <div class="visualizer-bar"></div>
+            <div class="visualizer-bar"></div>
+            <div class="visualizer-bar"></div>
+            <div class="visualizer-bar"></div>
+          </div>
+        </div>
+        
+        <!-- Info de la canción -->
+        <div class="nowplaying-info">
+          <h1 class="nowplaying-title" id="nowPlayingTitle">SeaxMusic</h1>
+          <div class="nowplaying-artist-row">
+            <img class="nowplaying-channel-avatar" id="nowPlayingChannelAvatar" src="" alt="">
+            <span class="nowplaying-artist" id="nowPlayingArtist">Artista</span>
+          </div>
+        </div>
+        
+        <!-- Controles de reproducción -->
+        <div class="nowplaying-controls">
+          <div class="nowplaying-progress">
+            <span class="np-time" id="npCurrentTime">0:00</span>
+            <div class="np-progress-bar" id="npProgressBar">
+              <div class="np-progress-fill" id="npProgressFill"></div>
+              <div class="np-progress-handle" id="npProgressHandle"></div>
+            </div>
+            <span class="np-time" id="npDuration">0:00</span>
+          </div>
+          
+          <div class="nowplaying-buttons">
+            <button class="np-btn np-shuffle" id="npShuffle" title="Aleatorio">
+              <i class="fas fa-random"></i>
+            </button>
+            <button class="np-btn np-prev" id="npPrevBtn" title="Anterior">
+              <i class="fas fa-step-backward"></i>
+            </button>
+            <button class="np-btn np-play" id="npPlayBtn" title="Reproducir">
+              <i class="fas fa-play"></i>
+            </button>
+            <button class="np-btn np-next" id="npNextBtn" title="Siguiente">
+              <i class="fas fa-step-forward"></i>
+            </button>
+            <button class="np-btn np-repeat" id="npRepeat" title="Repetir">
+              <i class="fas fa-redo"></i>
+            </button>
+          </div>
+          
+          <div class="nowplaying-actions">
+            <button class="np-action-btn" id="npLike" title="Me gusta">
+              <i class="far fa-heart"></i>
+            </button>
+            <button class="np-action-btn" id="npQueue" title="Cola">
+              <i class="fas fa-list"></i>
+            </button>
+            <button class="np-action-btn" id="npLyrics" title="Letra">
+              <i class="fas fa-align-left"></i>
+            </button>
+            <button class="np-action-btn np-close" id="npClose" title="Cerrar">
+              <i class="fas fa-chevron-down"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="logo">
+        <img src="./assets/img/icon.png" alt="SeaxMusic Logo" width="45" height="45">
+        <span>SeaxMusic</span>
+      </div>
+    <line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" stroke-width="2"/>
+    <nav class="nav-menu">
+      <a href="#" class="nav-item active">
+        <i class="icon fas fa-home"></i>
+        <span>Inicio</span>
+      </a>
+      <a href="#" class="nav-item">
+        <i class="icon fas fa-search"></i>
+        <span>Buscar</span>
+      </a>
+      <a href="#" class="nav-item">
+        <i class="icon fas fa-book"></i>
+        <span>Tu Biblioteca</span>
+      </a>
+    </nav>
+
+    </div>
+    <div class="playlist-section">
+      <h3>Playlists</h3>
+      <div class="playlist-list">
+        <!-- Playlists will be populated here -->
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <button class="nav-btn" id="backBtn"><i class="fas fa-chevron-left"></i></button>
+        <button class="nav-btn" id="forwardBtn"><i class="fas fa-chevron-right"></i></button>
+      </div>
+      <div class="header-right">
+        <button class="user-profile" id="userBtn">
+          <img src="./assets/img/icon.png" alt="Avatar" class="user-avatar" id="userAvatar" style="display: none;">
+          <i class="fas fa-user-circle" id="userIcon"></i>
+          <span id="userName">Usuario</span>
+        </button>
+        <div class="profile-dropdown" id="profileDropdown" style="display: none;">
+          <!-- Profile menu will be loaded here -->
+        </div>
+      </div>
+    </header>
+
+    <!-- Content Area -->
+    <div class="content-area">
+      <!-- Banner de Inicio -->
+      <div class="home-banner">
+        <div class="home-banner-bg"></div>
+        <div class="home-banner-content">
+          <div class="home-banner-icon">
+            <i class="fas fa-headphones"></i>
+          </div>
+          <div class="home-banner-info">
+            <span class="home-banner-greeting" id="homeGreeting">🎵 Bienvenido,</span>
+            <h1 class="home-banner-title" id="homeBannerName">Usuario</h1>
+            <p class="home-banner-subtitle">¿Qué quieres escuchar hoy?</p>
+          </div>
+        </div>
+      </div>
+
+      <section class="favorites-section">
+        <h2><i class="fas fa-heart" style="color: var(--accent-primary); margin-right: 8px;"></i>Favoritos</h2>
+        <div class="card-grid" id="favoritesGrid">
+          <!-- Favorites content will be populated here -->
+        </div>
+      </section>
+
+      <section class="recently-played">
+        <h2><i class="fas fa-history" style="color: var(--accent-primary); margin-right: 8px;"></i>Reproducidos recientemente</h2>
+        <div class="card-grid" id="recentGrid">
+          <!-- Recent content will be populated here -->
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Player Bar -->
+  <div class="player-bar">
+    <div class="player-left">
+      <div class="track-info">
+        <img src="./assets/img/icon.png" alt="Album art" class="track-image" id="trackImage" title="Ver en pantalla completa">
+        <div class="track-details">
+          <div class="track-name" id="trackName">Selecciona una canción</div>
+          <div class="track-artist" id="trackArtist">SeaxMusic</div>
+        </div>
+        <button class="like-btn" id="likeBtn"><i class="far fa-heart"></i></button>
+        <button class="expand-btn" id="expandBtn" title="Pantalla completa"><i class="fas fa-expand-alt"></i></button>
+      </div>
+    </div>
+
+    <div class="player-center">
+      <div class="player-controls">
+        <button class="control-btn" id="shuffleBtn"><i class="fas fa-random"></i></button>
+        <button class="control-btn" id="prevBtn"><i class="fas fa-step-backward"></i></button>
+        <button class="control-btn play-btn" id="playBtn"><i class="fas fa-play"></i></button>
+        <button class="control-btn" id="nextBtn"><i class="fas fa-step-forward"></i></button>
+        <button class="control-btn" id="repeatBtn"><i class="fas fa-redo"></i></button>
+      </div>
+      <div class="progress-bar-container">
+        <span class="time" id="currentTime">0:00</span>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+          <div class="progress-handle" id="progressHandle"></div>
+        </div>
+        <span class="time" id="totalTime">0:00</span>
+      </div>
+    </div>
+
+    <div class="player-right">
+      <button class="volume-btn" id="volumeBtn"><i class="fas fa-volume-up"></i></button>
+      <div class="volume-container">
+        <div class="volume-bar">
+          <div class="volume-fill" id="volumeFill"></div>
+          <div class="volume-handle" id="volumeHandle"></div>
+        </div>
+        <span class="volume-percentage" id="volumePercent">70%</span>
+      </div>
+      <button class="fullscreen-btn" id="fullscreenBtn"><i class="fas fa-expand"></i></button>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/userManager.js"></script>
+  <script src="js/searchManager.js"></script>
+  <script src="js/libraryManager.js"></script>
+  <script src="js/nowPlayingManager.js"></script>
+</body>
+</html>

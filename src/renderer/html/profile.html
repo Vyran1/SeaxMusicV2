@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeaxMusic - Perfil</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="../css/profile.css">
+</head>
+<body>
+  <div class="profile-menu">
+    <!-- User Info -->
+    <div class="user-info">
+      <img id="userAvatar" src="../assets/img/icon.png" alt="Avatar" class="user-avatar">
+      <div class="user-details">
+        <div id="userName" class="user-name">Usuario</div>
+        <div id="userEmail" class="user-email">email@example.com</div>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div class="divider"></div>
+
+    <!-- Menu Items -->
+    <div class="menu-items">
+      <button class="menu-item" id="settingsBtn">
+        <i class="fas fa-cog"></i>
+        <span>Configuración</span>
+      </button>
+
+      <button class="menu-item" id="accountBtn">
+        <i class="fas fa-user"></i>
+        <span>Mi Cuenta</span>
+      </button>
+
+      <button class="menu-item" id="helpBtn">
+        <i class="fas fa-question-circle"></i>
+        <span>Ayuda</span>
+      </button>
+    </div>
+
+    <!-- Divider -->
+    <div class="divider"></div>
+
+    <!-- Logout -->
+    <button class="menu-item logout" id="logoutBtn">
+      <i class="fas fa-sign-out-alt"></i>
+      <span>Cerrar Sesión</span>
+    </button>
+  </div>
+
+  <script src="../js/profile.js"></script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+{
+  "name": "seaxmusic",
+  "version": "2.0.1",
+  "description": "SeaxMusic - Music player with YouTube backend",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder -mwl",
+    "publish": "electron-builder --publish always",
+    "publish:win": "electron-builder --win --publish always",
+    "release": "electron-builder --publish always"
+  },
+  "keywords": [
+    "music",
+    "electron",
+    "youtube",
+    "player"
+  ],
+  "author": "SeaxMusic Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Vyran1/SeaxMusicV2.git"
+  },
+  "build": {
+    "appId": "com.seaxmusic.app",
+    "productName": "SeaxMusic",
+    "copyright": "Copyright © 2026 SeaxMusic Team",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "src/renderer/assets",
+        "to": "assets"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64", "ia32"]
+        }
+      ],
+      "icon": "build/icon.png",
+      "publisherName": "SeaxMusic Team"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icon.png",
+      "uninstallerIcon": "build/icon.png",
+      "installerHeaderIcon": "build/icon.png",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SeaxMusic"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "icon": "build/icon.png",
+      "category": "public.app-category.music"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "build/icon.png",
+      "category": "Audio"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Vyran1",
+      "repo": "SeaxMusicV2",
+      "releaseType": "release"
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^26.4.0"
+  },
+  "dependencies": {
+    "discord-rpc": "^4.0.1",
+    "electron-updater": "^6.7.3"
+  }
+}
