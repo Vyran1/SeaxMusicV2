@@ -719,3 +719,22 @@ if (document.readyState === 'loading') {
 window.appState = appState;
 window.loadHistoryContent = loadRecentlyPlayed;
 window.loadRecentlyPlayed = loadRecentlyPlayed;
+
+// ⭐ Exponer favoritesManager para sincronización global
+window.favoritesManager = {
+  isFavorite: (videoId) => isFavorite(videoId),
+  addFavorite: (video) => addToFavorites(video),
+  removeFavorite: (videoId) => removeFromFavorites(videoId),
+  toggleFavorite: async (video) => {
+    if (!video || !video.videoId) return false;
+    
+    if (isFavorite(video.videoId)) {
+      await removeFromFavorites(video.videoId);
+      return false; // Ya no es favorito
+    } else {
+      await addToFavorites(video);
+      return true; // Ahora es favorito
+    }
+  },
+  getFavorites: () => appState.favorites
+};

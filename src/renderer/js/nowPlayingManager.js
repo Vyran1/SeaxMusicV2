@@ -50,6 +50,12 @@ class NowPlayingManager {
     this.prevContainer = document.getElementById('nowPlayingPrev');
     this.nextContainer = document.getElementById('nowPlayingNext');
     
+    // Prev/Next títulos y artistas
+    this.prevTitle = document.getElementById('prevTitle');
+    this.prevArtist = document.getElementById('prevArtist');
+    this.nextTitle = document.getElementById('nextTitle');
+    this.nextArtist = document.getElementById('nextArtist');
+    
     // Progreso
     this.currentTime = document.getElementById('npCurrentTime');
     this.durationEl = document.getElementById('npDuration');
@@ -265,54 +271,99 @@ class NowPlayingManager {
     console.log('[NOW PLAYING] Mostrando vista');
   }
   
-  // ⭐ Estado por defecto cuando no hay canción
-  showDefaultState() {
-    const defaultImg = './assets/img/icon.png';
-    
-    if (this.cover) this.cover.src = defaultImg;
-    if (this.bgImage) this.bgImage.style.backgroundImage = `url(${defaultImg})`;
-    if (this.title) this.title.textContent = 'SeaxMusic';
-    if (this.artist) this.artist.textContent = 'Selecciona una canción para escuchar';
-  }
+updateSideImages() {
+  const defaultImg = './assets/img/icon.png';
+  const queue = window.appState?.playQueue || [];
+  const currentIndex = window.appState?.playQueueIndex ?? -1;
+  const currentVideoId = this.currentSong?.videoId;
   
-  // ⭐ Actualizar imágenes laterales con historial
-  updateSideImages() {
-    const defaultImg = './assets/img/icon.png';
-    const queue = window.appState?.playQueue || [];
-    const currentIndex = window.appState?.playQueueIndex ?? -1;
+  console.log('[NOW PLAYING] Actualizando imágenes laterales - Cola:', queue.length, 'Índice:', currentIndex, 'VideoID actual:', currentVideoId);
+  
+  // ========== ANTERIOR ==========
+  // Prioridad: 1) Anterior en cola, 2) Historial (excluyendo canción actual)
+  if (currentIndex > 0 && queue[currentIndex - 1]) {
+    // Hay canción anterior en la cola
+    const prev = queue[currentIndex - 1];
     
-    // ANTERIOR: usar última del historial o default
-    if (currentIndex > 0 && queue[currentIndex - 1]) {
-      // Hay canción anterior en la cola
-      const prev = queue[currentIndex - 1];
+    // ⭐ NO mostrar si es la misma canción que está sonando
+    if (prev.videoId !== currentVideoId) {
+      console.log('[NOW PLAYING] Anterior de cola:', prev.title);
       this.setSideImage(this.prevCover, prev, defaultImg);
+      if (this.prevTitle) this.prevTitle.textContent = prev.title || '-';
+      if (this.prevArtist) this.prevArtist.textContent = prev.artist || prev.channel || '-';
       this.prevContainer?.classList.remove('hidden');
     } else {
-      // No hay anterior en cola, intentar historial
-      const history = window.appState?.recentHistory || [];
-      if (history.length > 0) {
-        const lastPlayed = history[0]; // El primero es el más reciente
-        this.setSideImage(this.prevCover, lastPlayed, defaultImg);
-        this.prevContainer?.classList.remove('hidden');
-      } else {
-        // Sin historial, mostrar default
-        if (this.prevCover) this.prevCover.src = defaultImg;
-        this.prevContainer?.classList.remove('hidden');
-      }
+      // Es la misma, buscar en historial
+      this.setPrevFromHistory(currentVideoId, defaultImg);
     }
-    
-    // SIGUIENTE: usar siguiente de la cola o default
-    if (currentIndex >= 0 && currentIndex < queue.length - 1 && queue[currentIndex + 1]) {
-      const next = queue[currentIndex + 1];
-      this.setSideImage(this.nextCover, next, defaultImg);
-      this.nextContainer?.classList.remove('hidden');
-    } else {
-      // Sin siguiente, mostrar default (logo)
-      if (this.nextCover) this.nextCover.src = defaultImg;
-      this.nextContainer?.classList.remove('hidden');
-    }
+  } else {
+    // No hay anterior en cola, buscar en historial
+    this.setPrevFromHistory(currentVideoId, defaultImg);
   }
   
+  // ========== SIGUIENTE ==========
+  // Usar siguiente de la cola
+  if (currentIndex >= 0 && currentIndex < queue.length - 1 && queue[currentIndex + 1]) {
+    const next = queue[currentIndex + 1];
+    console.log('[NOW PLAYING] Siguiente de cola:', next.title);
+    
+    // ⭐ Obtener la mejor calidad de imagen
+    let nextImgUrl = defaultImg;
+    if (next.videoId) {
+      nextImgUrl = `https://img.youtube.com/vi/${next.videoId}/maxresdefault.jpg`;
+    } else if (next.thumbnail) {
+      nextImgUrl = this.getHQThumbnail(next.thumbnail, next.videoId);
+    }
+    
+    // Establecer imagen con fallbacks
+    if (this.nextCover) {
+      this.nextCover.src = nextImgUrl;
+      this.nextCover.onerror = () => {
+        if (next.videoId) {
+          this.nextCover.src = `https://img.youtube.com/vi/${next.videoId}/hqdefault.jpg`;
+          this.nextCover.onerror = () => {
+            this.nextCover.src = next.thumbnail || defaultImg;
+          };
+        } else {
+          this.nextCover.src = next.thumbnail || defaultImg;
+        }
+      };
+    }
+    
+    if (this.nextTitle) this.nextTitle.textContent = next.title || '-';
+    if (this.nextArtist) this.nextArtist.textContent = next.artist || next.channel || '-';
+    this.nextContainer?.classList.remove('hidden');
+  } else {
+    // Sin siguiente en cola, mostrar default
+    if (this.nextCover) this.nextCover.src = defaultImg;
+    if (this.nextTitle) this.nextTitle.textContent = '-';
+    if (this.nextArtist) this.nextArtist.textContent = '-';
+    this.nextContainer?.classList.remove('hidden');
+  }
+}
+
+// ⭐ Helper: Establecer anterior desde historial (excluyendo canción actual)
+setPrevFromHistory(currentVideoId, defaultImg) {
+  const history = window.appState?.recentHistory || [];
+  
+  // Buscar la primera canción del historial que NO sea la actual
+  const prevFromHistory = history.find(h => h.videoId !== currentVideoId);
+  
+  if (prevFromHistory) {
+    console.log('[NOW PLAYING] Anterior de historial:', prevFromHistory.title);
+    this.setSideImage(this.prevCover, prevFromHistory, defaultImg);
+    if (this.prevTitle) this.prevTitle.textContent = prevFromHistory.title || '-';
+    if (this.prevArtist) this.prevArtist.textContent = prevFromHistory.artist || prevFromHistory.channel || '-';
+    this.prevContainer?.classList.remove('hidden');
+  } else {
+    // Sin historial válido, mostrar default
+    if (this.prevCover) this.prevCover.src = defaultImg;
+    if (this.prevTitle) this.prevTitle.textContent = '-';
+    if (this.prevArtist) this.prevArtist.textContent = '-';
+    this.prevContainer?.classList.remove('hidden');
+  }
+}
+
   // ⭐ Helper para setear imagen con fallback
   setSideImage(imgElement, song, defaultImg) {
     if (!imgElement || !song) return;
@@ -463,8 +514,16 @@ class NowPlayingManager {
     // Actualizar info
     if (this.title) this.title.textContent = song.title || 'Sin título';
     if (this.artist) this.artist.textContent = song.artist || song.channel || 'Artista desconocido';
+    
+    // ⭐ Actualizar avatar del canal
     if (this.channelAvatar) {
-      this.channelAvatar.src = song.channelAvatar || defaultImg;
+      if (song.channelAvatar && song.channelAvatar.length > 0) {
+        this.channelAvatar.src = song.channelAvatar;
+        this.channelAvatar.style.display = 'block';
+      } else {
+        // Si no hay avatar, ocultarlo
+        this.channelAvatar.style.display = 'none';
+      }
     }
     
     // Actualizar like button

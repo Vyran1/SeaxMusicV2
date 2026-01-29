@@ -355,13 +355,36 @@ class MusicPlayer {
   }
   
   toggleLike() {
+    if (!this.currentTrack) return;
+    
+    // Usar favoritesManager para toggle y persistir
+    if (window.favoritesManager) {
+      window.favoritesManager.toggleFavorite(this.currentTrack);
+    }
+    
+    // Actualizar UI de ambos lugares
+    this.updateLikeButton();
+    
+    // Sincronizar con Now Playing
+    if (window.nowPlayingManager) {
+      window.nowPlayingManager.updateLikeButton();
+    }
+  }
+  
+  // ⭐ Actualizar estado visual del like button
+  updateLikeButton() {
     const likeBtn = document.getElementById('likeBtn');
+    if (!likeBtn) return;
+    
     const icon = likeBtn.querySelector('i');
-    likeBtn.classList.toggle('liked');
-    if (likeBtn.classList.contains('liked')) {
+    const isLiked = this.currentTrack && window.favoritesManager?.isFavorite(this.currentTrack.videoId);
+    
+    if (isLiked) {
       icon.className = 'fas fa-heart';
+      likeBtn.classList.add('liked');
     } else {
       icon.className = 'far fa-heart';
+      likeBtn.classList.remove('liked');
     }
   }
   
@@ -386,6 +409,9 @@ class MusicPlayer {
     } else {
       trackImage.style.display = 'none';
     }
+    
+    // ⭐ Actualizar estado del like button en player bar
+    this.updateLikeButton();
     
     // ⭐ Actualizar Now Playing con animación de carrusel
     if (window.nowPlayingManager) {
@@ -421,14 +447,44 @@ if (window.electronAPI && window.electronAPI.onUpdateVideoInfo) {
   window.electronAPI.onUpdateVideoInfo((videoInfo) => {
     console.log('[PLAYER] Video info recibido:', videoInfo);
     
-    if (videoInfo.title || videoInfo.artist) {
-      document.getElementById('trackName').textContent = videoInfo.title || 'Desconocido';
-      document.getElementById('trackArtist').textContent = videoInfo.artist || 'Artista desconocido';
+    // Actualizar currentTrack con la nueva info
+    if (!player.currentTrack) {
+      player.currentTrack = {};
     }
     
+    // Actualizar propiedades del track actual
+    if (videoInfo.title) {
+      player.currentTrack.title = videoInfo.title;
+      document.getElementById('trackName').textContent = videoInfo.title;
+    }
+    if (videoInfo.artist) {
+      player.currentTrack.artist = videoInfo.artist;
+      document.getElementById('trackArtist').textContent = videoInfo.artist;
+    }
+    if (videoInfo.channel) {
+      player.currentTrack.channel = videoInfo.channel;
+    }
+    if (videoInfo.videoId) {
+      player.currentTrack.videoId = videoInfo.videoId;
+    }
+    if (videoInfo.thumbnail) {
+      player.currentTrack.thumbnail = videoInfo.thumbnail;
+    }
+    // ⭐ Guardar avatar del canal
+    if (videoInfo.channelAvatar) {
+      player.currentTrack.channelAvatar = videoInfo.channelAvatar;
+    }
     if (videoInfo.duration && videoInfo.duration > 0) {
       player.duration = videoInfo.duration;
       document.getElementById('totalTime').textContent = player.formatTime(videoInfo.duration);
+    }
+    
+    // ⭐ Actualizar like button
+    player.updateLikeButton();
+    
+    // ⭐ Actualizar Now Playing si está activo
+    if (window.nowPlayingManager && window.nowPlayingManager.isActive) {
+      window.nowPlayingManager.updateSong(player.currentTrack);
     }
   });
 }
@@ -447,6 +503,11 @@ if (window.electronAPI && window.electronAPI.onAudioStarted) {
   window.electronAPI.onAudioStarted(() => {
     player.isPlaying = true;
     player.updatePlayButton();
+    
+    // Sincronizar con Now Playing
+    if (window.nowPlayingManager) {
+      window.nowPlayingManager.updatePlayState(true);
+    }
   });
 }
 
@@ -454,6 +515,11 @@ if (window.electronAPI && window.electronAPI.onAudioPaused) {
   window.electronAPI.onAudioPaused(() => {
     player.isPlaying = false;
     player.updatePlayButton();
+    
+    // Sincronizar con Now Playing
+    if (window.nowPlayingManager) {
+      window.nowPlayingManager.updatePlayState(false);
+    }
   });
 }
 
@@ -465,6 +531,16 @@ if (window.electronAPI && window.electronAPI.onUpdateAlbumCover) {
     if (trackImage && coverUrl) {
       trackImage.src = coverUrl;
       trackImage.style.display = 'block';
+      
+      // Actualizar currentTrack
+      if (player.currentTrack) {
+        player.currentTrack.thumbnail = coverUrl;
+      }
+      
+      // ⭐ Actualizar Now Playing si está activo
+      if (window.nowPlayingManager && window.nowPlayingManager.isActive && player.currentTrack) {
+        window.nowPlayingManager.updateSong(player.currentTrack);
+      }
     }
   });
 }

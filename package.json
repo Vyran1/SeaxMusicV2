@@ -1,7 +1,7 @@
 {
   "name": "seaxmusic",
-  "version": "2.0.1",
-  "description": "SeaxMusic - Music player with YouTube backend",
+  "version": "2.0.2",
+  "description": "SeaxMusic",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
