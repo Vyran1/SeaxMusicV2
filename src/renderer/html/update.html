@@ -1,0 +1,33 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=900, initial-scale=1.0">
+  <title>Actualización disponible</title>
+  <link rel="stylesheet" href="../css/update.css">
+</head>
+<body>
+  <div class="update-launcher-modal">
+    <aside class="update-sidebar">
+      <div class="logo">
+        <img src="../assets/img/icon.png" alt="SeaxMusic Logo" width="45" height="45">
+        <span>SeaxMusic</span>
+      </div>
+      <div class="version-list" id="version-list"></div>
+    </aside>
+    <main class="update-content">
+      <div class="content-scroll">
+        <h1 id="main-version-title">Versión</h1>
+        <div id="main-version-date" class="main-version-date"></div>
+        <div id="main-changelog" class="main-changelog"></div>
+      </div>
+      <div class="update-actions-fixed">
+        <button id="install-btn" class="primary">Actualizar ahora</button>
+      </div>
+    </main>
+  </div>
+  <script src="../js/update.js"></script>
+</body>
+</html>

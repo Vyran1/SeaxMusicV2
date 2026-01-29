@@ -107,20 +107,58 @@ class AppUpdater {
     // Preguntar si quiere instalar la actualización
     async promptInstallUpdate(info) {
         const mainWindow = BrowserWindow.getAllWindows()[0];
-        
-        const result = await dialog.showMessageBox(mainWindow, {
-            type: 'info',
-            title: '¡Actualización Lista!',
-            message: `SeaxMusic v${info.version} está listo para instalar.`,
-            detail: 'La actualización se descargó correctamente. ¿Quieres reiniciar la aplicación ahora para aplicar los cambios?',
-            buttons: ['Reiniciar Ahora', 'Más Tarde'],
-            defaultId: 0,
-            cancelId: 1
-        });
-        
-        if (result.response === 0) {
-            this.quitAndInstall();
+        if (!mainWindow) return;
+
+        // Si ya existe una ventana de update, no crear otra
+        if (this.updateWindow && !this.updateWindow.isDestroyed()) {
+            this.updateWindow.focus();
+            return;
         }
+
+        this.updateWindow = new BrowserWindow({
+            width: 420,
+            height: 420,
+            parent: mainWindow,
+            modal: true,
+            resizable: false,
+            minimizable: false,
+            maximizable: false,
+            show: false,
+            frame: false,
+            backgroundColor: '#232323',
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                preload: require('path').join(__dirname, '../preload/updatePreload.js')
+            }
+        });
+
+        this.updateWindow.loadFile(require('path').join(__dirname, '../renderer/html/update.html'));
+
+        this.updateWindow.once('ready-to-show', () => {
+            this.updateWindow.show();
+            this.updateWindow.focus();
+            // Enviar info de update a la ventana
+            this.updateWindow.webContents.send('update-info', {
+                version: info.version,
+                releaseNotes: info.releaseNotes
+            });
+        });
+
+        // IPC para instalar update
+        const { ipcMain } = require('electron');
+        const installListener = () => {
+            if (this.updateWindow) {
+                this.updateWindow.close();
+            }
+            this.quitAndInstall();
+        };
+        ipcMain.once('update-install', installListener);
+
+        // Limpiar referencia al cerrar
+        this.updateWindow.on('closed', () => {
+            this.updateWindow = null;
+        });
     }
     
     // Enviar estado a la ventana del renderer
