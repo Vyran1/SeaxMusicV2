@@ -49,30 +49,29 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64", "ia32"]
+          "arch": ["x64"]
         }
       ],
-      "icon": "build/icon.png",
-      "publisherName": "SeaxMusic Team"
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "installerIcon": "build/icon.png",
-      "uninstallerIcon": "build/icon.png",
-      "installerHeaderIcon": "build/icon.png",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "SeaxMusic"
     },
     "mac": {
       "target": ["dmg", "zip"],
-      "icon": "build/icon.png",
+      "icon": "build/icon.ico",
       "category": "public.app-category.music"
     },
     "linux": {
       "target": ["AppImage", "deb"],
-      "icon": "build/icon.png",
+      "icon": "build/icon.ico",
       "category": "Audio"
     },
     "publish": {
