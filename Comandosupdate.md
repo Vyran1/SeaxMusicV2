@@ -7,7 +7,7 @@ Subir todo a GitHub
 git push origin main --tags
 
 npm run publish
-
+$env:GH_TOKEN = "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"; npm run publish
 
 Release v2.0.5
 

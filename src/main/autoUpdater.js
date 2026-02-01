@@ -20,7 +20,7 @@ class AppUpdater {
         // GitHub repo info para obtener releases
         this.githubOwner = 'Vyran1';
         this.githubRepo = 'SeaxMusicV2';
-        this.githubToken = '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';
+        this.githubToken = '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';
         
         // Ruta para persistir actualización pendiente
         this.updateInfoPath = path.join(app.getPath('userData'), 'pending-update.json');

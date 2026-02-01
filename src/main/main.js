@@ -2600,7 +2600,7 @@ app.whenReady().then(() => {
             }
             
             // Verificar GitHub API directamente
-            const githubToken = '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';
+            const githubToken = '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';
             const options = {
               hostname: 'api.github.com',
               path: '/repos/Vyran1/SeaxMusicV2/releases/latest',
@@ -2640,14 +2640,23 @@ app.whenReady().then(() => {
                     // Importar autoUpdater de electron-updater
                     const { autoUpdater } = require('electron-updater');
                     
+                    // ⭐ CRÍTICO: Configurar token ANTES de setFeedURL
+                    process.env.GH_TOKEN = githubToken;
+                    
                     // Configurar para GitHub privado
                     autoUpdater.setFeedURL({
                       provider: 'github',
                       owner: 'Vyran1',
                       repo: 'SeaxMusicV2',
                       private: true,
-                      token: githubToken
+                      token: githubToken,
+                      releaseType: 'release'
                     });
+                    
+                    // ⭐ También configurar headers de autenticación
+                    autoUpdater.requestHeaders = {
+                      'Authorization': `token ${githubToken}`
+                    };
                     
                     // Escuchar eventos
                     autoUpdater.on('checking-for-update', () => {
