@@ -386,61 +386,65 @@ class AppUpdater {
     
     // Verificar actualizaciones silenciosamente (al iniciar la app)
     async checkForUpdatesAndNotify() {
+        // Log inmediato al entrar
+        const mainWin = BrowserWindow.getAllWindows()[0];
+        const log = (msg) => {
+            console.log('[UPDATER] ' + msg);
+            if (mainWin && !mainWin.isDestroyed()) {
+                mainWin.webContents.send('update-log', msg);
+            }
+        };
+        
+        log('🚀 ENTRANDO a checkForUpdatesAndNotify');
+        log('🚀 app.isPackaged = ' + app.isPackaged);
+        
         if (!app.isPackaged) {
-            console.log('🔧 [UPDATE] Modo desarrollo - saltando verificación');
-            this.sendLogToRenderer('🔧 Modo desarrollo - saltando verificación');
+            log('🔧 Modo desarrollo - saltando verificación');
             return;
         }
         
-        console.log('🔍 [UPDATE] Iniciando verificación de actualizaciones...');
-        console.log('🔍 [UPDATE] Versión actual:', app.getVersion());
-        console.log('🔍 [UPDATE] Repo:', this.githubOwner + '/' + this.githubRepo);
-        
-        this.sendLogToRenderer('🔍 Verificando... Versión: ' + app.getVersion());
-        
-        // ⭐ PRIMERO: Diagnóstico de acceso a GitHub
-        const diagnosis = await this.diagnoseGitHubAccess();
-        
-        if (!diagnosis.success) {
-            this.sendLogToRenderer('❌ No se puede acceder a GitHub: ' + diagnosis.error);
-            return;
-        }
-        
-        // Verificar si hay versión más nueva
-        const latestVersion = diagnosis.release.tag_name.replace(/^v/, '');
-        const currentVersion = app.getVersion();
-        
-        this.sendLogToRenderer(`📊 Comparando: actual=${currentVersion} vs latest=${latestVersion}`);
-        
-        if (!this.isVersionGreater(latestVersion, currentVersion)) {
-            this.sendLogToRenderer('✅ Ya tienes la última versión');
-            return;
-        }
-        
-        this.sendLogToRenderer(`🆕 Nueva versión disponible: ${latestVersion}`);
+        log('🔍 Verificando... Versión actual: ' + app.getVersion());
+        log('🔍 Iniciando diagnóstico de acceso a GitHub...');
         
         try {
-            this.sendLogToRenderer('⏳ Iniciando descarga con autoUpdater...');
+            const diagnosis = await this.diagnoseGitHubAccess();
+            
+            log('📊 Diagnóstico resultado: ' + (diagnosis.success ? 'OK' : 'FALLO'));
+            
+            if (!diagnosis.success) {
+                log('❌ No se puede acceder a GitHub: ' + diagnosis.error);
+                return;
+            }
+            
+            // Verificar si hay versión más nueva
+            const latestVersion = diagnosis.release.tag_name.replace(/^v/, '');
+            const currentVersion = app.getVersion();
+            
+            log(`📊 Comparando: actual=${currentVersion} vs GitHub=${latestVersion}`);
+            
+            if (!this.isVersionGreater(latestVersion, currentVersion)) {
+                log('✅ Ya tienes la última versión!');
+                return;
+            }
+            
+            log(`🆕 Nueva versión disponible: ${latestVersion}`);
+            log('⏳ Iniciando descarga con electron-updater...');
             
             autoUpdater.checkForUpdatesAndNotify()
                 .then(result => {
-                    this.sendLogToRenderer('📩 Promise resuelta');
+                    log('📩 electron-updater Promise resuelta');
                     if (result) {
-                        console.log('✅ [UPDATE] Resultado:', JSON.stringify(result.updateInfo, null, 2));
-                        this.sendLogToRenderer('✅ Resultado: v' + result.updateInfo.version);
+                        log('✅ Resultado: v' + result.updateInfo.version);
                     } else {
-                        console.log('ℹ️ [UPDATE] No se encontraron actualizaciones o resultado null');
-                        this.sendLogToRenderer('ℹ️ Resultado: null');
+                        log('ℹ️ Resultado: null');
                     }
                 })
                 .catch(err => {
-                    console.error('❌ [UPDATE] Error verificando actualizaciones:', err.message);
-                    console.error('❌ [UPDATE] Stack:', err.stack);
-                    this.sendLogToRenderer('❌ Error en Promise: ' + err.message);
+                    log('❌ Error en electron-updater: ' + err.message);
                 });
         } catch (err) {
-            console.error('❌ [UPDATE] Error sincrónico:', err.message);
-            this.sendLogToRenderer('❌ Error sincrónico: ' + err.message);
+            log('❌ Error en diagnóstico: ' + err.message);
+            log('❌ Stack: ' + err.stack);
         }
     }
     

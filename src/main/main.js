@@ -2582,7 +2582,103 @@ app.whenReady().then(() => {
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('update-log', '🔍 Buscando nuevas actualizaciones en GitHub...');
           }
-          appUpdater.checkForUpdatesAndNotify();
+          
+          try {
+            // Log versión actual
+            const { app: electronApp } = require('electron');
+            const https = require('https');
+            const currentVer = electronApp.getVersion();
+            console.log('📌 [MAIN] Versión actual de la app:', currentVer);
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('update-log', '📌 Versión instalada: ' + currentVer);
+            }
+            
+            // ⭐ DIAGNÓSTICO DIRECTO EN MAIN.JS
+            console.log('🔬 [MAIN] Iniciando diagnóstico directo...');
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('update-log', '🔬 Diagnóstico directo de GitHub...');
+            }
+            
+            // Verificar GitHub API directamente
+            const githubToken = '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';
+            const options = {
+              hostname: 'api.github.com',
+              path: '/repos/Vyran1/SeaxMusicV2/releases/latest',
+              method: 'GET',
+              headers: {
+                'User-Agent': 'SeaxMusic-Updater',
+                'Accept': 'application/vnd.github.v3+json',
+                'Authorization': `token ${githubToken}`
+              }
+            };
+            
+            const req = https.request(options, (res) => {
+              let data = '';
+              res.on('data', chunk => data += chunk);
+              res.on('end', () => {
+                console.log('📡 [MAIN] GitHub respondió con status:', res.statusCode);
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                  mainWindow.webContents.send('update-log', '📡 GitHub status: ' + res.statusCode);
+                }
+                
+                if (res.statusCode === 200) {
+                  try {
+                    const release = JSON.parse(data);
+                    const latestVer = release.tag_name.replace(/^v/, '');
+                    console.log('📦 [MAIN] Última versión en GitHub:', latestVer);
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                      mainWindow.webContents.send('update-log', '📦 Última versión GitHub: ' + latestVer);
+                      mainWindow.webContents.send('update-log', '📊 Comparando: ' + currentVer + ' vs ' + latestVer);
+                    }
+                    
+                    // Ahora llamar al updater
+                    console.log('⏳ [MAIN] Llamando appUpdater.checkForUpdatesAndNotify()...');
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                      mainWindow.webContents.send('update-log', '⏳ Llamando checkForUpdatesAndNotify...');
+                    }
+                    
+                    appUpdater.checkForUpdatesAndNotify().then(() => {
+                      console.log('✅ [MAIN] checkForUpdatesAndNotify completado');
+                      if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('update-log', '✅ checkForUpdatesAndNotify completado');
+                      }
+                    }).catch(err => {
+                      console.error('❌ [MAIN] Error:', err);
+                      if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('update-log', '❌ Error: ' + err.message);
+                      }
+                    });
+                    
+                  } catch (e) {
+                    console.error('❌ [MAIN] Error parseando JSON:', e);
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                      mainWindow.webContents.send('update-log', '❌ Error JSON: ' + e.message);
+                    }
+                  }
+                } else {
+                  console.error('❌ [MAIN] GitHub error:', res.statusCode, data);
+                  if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('update-log', '❌ GitHub error: ' + res.statusCode);
+                  }
+                }
+              });
+            });
+            
+            req.on('error', (e) => {
+              console.error('❌ [MAIN] Error de red:', e);
+              if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('update-log', '❌ Error de red: ' + e.message);
+              }
+            });
+            
+            req.end();
+            
+          } catch (err) {
+            console.error('❌ [MAIN] Error general:', err);
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('update-log', '❌ Error: ' + err.message);
+            }
+          }
         }
       } else {
         console.log('❌ appUpdater es NULL!');
