@@ -438,11 +438,22 @@ ipcRenderer.on('youtube-control', (event, action, value) => {
       break;
     case 'previous':
       const prevButton = document.querySelector('.ytp-prev-button');
-      if (prevButton) {
+      if (prevButton && prevButton.offsetParent !== null && !prevButton.disabled) {
+        // El botón existe y está visible
         prevButton.click();
         console.log('[PREV] Previous button clicked');
       } else {
-        console.warn('Previous button not found');
+        // No hay botón prev disponible - reiniciar al inicio del video
+        // Si el video tiene menos de 3 segundos reproducidos, intentar ir al anterior
+        // Si tiene más, reiniciar al inicio
+        if (video.currentTime > 3) {
+          video.currentTime = 0;
+          console.log('[PREV] Reiniciando video al inicio (no hay historial)');
+        } else {
+          // Intentar usar history.back o simplemente reiniciar
+          video.currentTime = 0;
+          console.log('[PREV] Video reiniciado (ya estaba al inicio)');
+        }
       }
       break;
     default:
@@ -618,6 +629,29 @@ setInterval(() => {
       console.log('[VIDEO] Video URL changed:', currentVideoUrl);
       ipcRenderer.send('video-url-changed', currentVideoUrl);
       ipcRenderer.send('video-cover-updated', coverUrl);
+      
+      // ⭐ FORZAR VOLUMEN DEL USUARIO AL CAMBIAR DE VIDEO
+      // El problema es que YouTube puede resetear el volumen al cargar un nuevo video
+      // Necesitamos forzar el volumen guardado del usuario después de que el video cargue
+      if (typeof window._seaxUserVolume === 'number') {
+        console.log(`[VOLUME] 🔊 Video cambió, preparando forzar volumen: ${Math.round(window._seaxUserVolume * 100)}%`);
+        
+        // Forzar volumen varias veces en diferentes momentos para asegurar que se aplique
+        const forceVolume = () => {
+          const video = document.querySelector('video');
+          if (video && typeof window._seaxUserVolume === 'number') {
+            video.volume = window._seaxUserVolume;
+            console.log(`[VOLUME] ✅ Volumen forzado a: ${Math.round(window._seaxUserVolume * 100)}%`);
+          }
+        };
+        
+        // Múltiples intentos para asegurar que el volumen se aplique
+        setTimeout(forceVolume, 100);
+        setTimeout(forceVolume, 300);
+        setTimeout(forceVolume, 600);
+        setTimeout(forceVolume, 1000);
+        setTimeout(forceVolume, 2000);
+      }
     }
   }
 
@@ -678,6 +712,57 @@ setInterval(() => {
   // ⭐ Extraer videoId de la URL
   const urlParams = new URLSearchParams(window.location.search);
   const videoId = urlParams.get('v') || '';
+  
+  // ⭐ Extraer información del siguiente video desde ytp-next-button
+  let nextVideoInfo = null;
+  const nextButton = document.querySelector('.ytp-next-button');
+  if (nextButton) {
+    const nextPreview = nextButton.getAttribute('data-preview') || '';
+    const nextTitle = nextButton.getAttribute('data-tooltip-text') || '';
+    const nextHref = nextButton.getAttribute('href') || '';
+    
+    // Extraer videoId del href o data-preview
+    let nextVideoId = '';
+    const hrefMatch = nextHref.match(/v=([a-zA-Z0-9_-]{11})/);
+    const previewMatch = nextPreview.match(/\/vi\/([a-zA-Z0-9_-]{11})\//);
+    
+    if (hrefMatch) nextVideoId = hrefMatch[1];
+    else if (previewMatch) nextVideoId = previewMatch[1];
+    
+    if (nextVideoId || nextTitle) {
+      nextVideoInfo = {
+        videoId: nextVideoId,
+        title: nextTitle,
+        thumbnail: nextPreview || (nextVideoId ? `https://i.ytimg.com/vi/${nextVideoId}/mqdefault.jpg` : ''),
+        channel: ''
+      };
+    }
+  }
+  
+  // ⭐ Extraer información del video anterior desde ytp-prev-button
+  let prevVideoInfo = null;
+  const prevButton = document.querySelector('.ytp-prev-button');
+  if (prevButton) {
+    const prevTitle = prevButton.getAttribute('title') || prevButton.getAttribute('data-tooltip-text') || '';
+    const prevHref = prevButton.getAttribute('href') || '';
+    const prevPreview = prevButton.getAttribute('data-preview') || '';
+    
+    let prevVideoId = '';
+    const hrefMatch = prevHref.match(/v=([a-zA-Z0-9_-]{11})/);
+    const previewMatch = prevPreview.match(/\/vi\/([a-zA-Z0-9_-]{11})\//);
+    
+    if (hrefMatch) prevVideoId = hrefMatch[1];
+    else if (previewMatch) prevVideoId = previewMatch[1];
+    
+    if (prevVideoId || prevTitle) {
+      prevVideoInfo = {
+        videoId: prevVideoId,
+        title: prevTitle.replace('Ver de nuevo', '').trim() || 'Anterior',
+        thumbnail: prevPreview || (prevVideoId ? `https://i.ytimg.com/vi/${prevVideoId}/mqdefault.jpg` : ''),
+        channel: ''
+      };
+    }
+  }
 
   if (videoTitle || videoChannel) {
     ipcRenderer.send('update-video-info', {
@@ -687,7 +772,9 @@ setInterval(() => {
       channel: videoChannel,
       channelAvatar: channelAvatar,
       duration: duration,
-      thumbnail: videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : ''
+      thumbnail: videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : '',
+      nextVideo: nextVideoInfo,
+      prevVideo: prevVideoInfo
     });
   }
 }, 1000);

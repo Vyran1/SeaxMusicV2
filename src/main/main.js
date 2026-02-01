@@ -218,14 +218,11 @@ ipcMain.handle('create-backend-player', async (event, playerId) => {
   console.log('[YOUTUBE] YouTube window creada por create-backend-player');
   youtubeWindow.loadURL('https://www.youtube.com');
   
-  youtubeWindow.once('ready-to-show', () => {
-    if (process.argv.includes('--dev')) {
-      youtubeWindow.show();
-    }
-  });
-  
+  // En modo dev, mostrar ventana y DevTools inmediatamente
   if (process.argv.includes('--dev')) {
+    youtubeWindow.show();
     youtubeWindow.webContents.openDevTools({ mode: 'detach' });
+    console.log('[DEV] YouTube window visible con DevTools');
   }
   
   youtubeWindow.on('closed', () => {
@@ -1201,17 +1198,41 @@ ipcMain.handle('get-history-videos', async () => {
       auxWindow.webContents.once('did-finish-load', async () => {
         console.log('[HISTORY] Página de historial cargada, esperando contenido...');
         
-        // ⭐ Esperar a que YouTube renderice el contenido inicial
-        await new Promise(r => setTimeout(r, 3000));
-        
-        // ⭐ Hacer 4 scrolls para cargar suficiente contenido del historial
-        for (let i = 0; i < 4; i++) {
-          await auxWindow.webContents.executeJavaScript('window.scrollTo(0, document.body.scrollHeight)');
-          await new Promise(r => setTimeout(r, 1200));
-        }
-        
-        // Esperar a que se cargue el nuevo contenido
-        await new Promise(r => setTimeout(r, 1500));
+        try {
+          // Verificar si la ventana sigue existiendo
+          if (auxWindow.isDestroyed()) {
+            console.log('[HISTORY] Ventana cerrada antes de completar');
+            resolve([]);
+            return;
+          }
+          
+          // ⭐ Esperar a que YouTube renderice el contenido inicial
+          await new Promise(r => setTimeout(r, 3000));
+          
+          // Verificar de nuevo
+          if (auxWindow.isDestroyed()) {
+            resolve([]);
+            return;
+          }
+          
+          // ⭐ Hacer 4 scrolls para cargar suficiente contenido del historial
+          for (let i = 0; i < 4; i++) {
+            if (auxWindow.isDestroyed()) {
+              resolve([]);
+              return;
+            }
+            await auxWindow.webContents.executeJavaScript('window.scrollTo(0, document.body.scrollHeight)');
+            await new Promise(r => setTimeout(r, 1200));
+          }
+          
+          // Verificar de nuevo
+          if (auxWindow.isDestroyed()) {
+            resolve([]);
+            return;
+          }
+          
+          // Esperar a que se cargue el nuevo contenido
+          await new Promise(r => setTimeout(r, 1500));
         
         // Script para extraer videos del historial usando DOM específico del historial
         const extractHistoryScript = `
@@ -1382,6 +1403,13 @@ ipcMain.handle('get-history-videos', async () => {
         `;
         
         try {
+          // Verificar si la ventana sigue existiendo antes de ejecutar
+          if (auxWindow.isDestroyed()) {
+            console.log('[HISTORY] Ventana cerrada antes de extraer');
+            resolve({ success: false, videos: [] });
+            return;
+          }
+          
           const result = await auxWindow.webContents.executeJavaScript(extractHistoryScript);
           
           if (result.error === 'not-logged-in') {
@@ -1392,7 +1420,22 @@ ipcMain.handle('get-history-videos', async () => {
             resolve({ success: true, videos: result.videos });
           }
         } catch (error) {
-          console.error('[HISTORY] Error extrayendo:', error);
+          // Ignorar error si es porque la ventana fue destruida
+          if (error.message && error.message.includes('destroyed')) {
+            console.log('[HISTORY] Ventana cerrada durante extracción');
+            resolve({ success: false, videos: [] });
+          } else {
+            console.error('[HISTORY] Error extrayendo:', error);
+            resolve({ success: false, videos: [] });
+          }
+        }
+        } catch (error) {
+          // Catch del try principal del did-finish-load
+          if (error.message && error.message.includes('destroyed')) {
+            console.log('[HISTORY] Ventana cerrada durante carga');
+          } else {
+            console.error('[HISTORY] Error en carga:', error);
+          }
           resolve({ success: false, videos: [] });
         }
       });
@@ -2389,76 +2432,125 @@ ipcMain.handle('open-youtube-login-window', async () => {
 });
 
 // App lifecycle
+
+
 app.whenReady().then(() => {
   createMainWindow();
-  
+
   // ⭐ Inicializar Auto-Updater
   appUpdater = new AppUpdater();
-  
-  // Verificar actualizaciones al iniciar (después de 3 segundos)
-  setTimeout(() => {
-    if (appUpdater) {
-      appUpdater.checkForUpdatesAndNotify();
-    }
-  }, 3000);
-  
+
   // ⭐ Inicializar Discord Rich Presence
   discordRPC.initialize();
-  
+
   // Crear YouTube window automáticamente al iniciar
   setTimeout(() => {
     if (!youtubeWindow || youtubeWindow.isDestroyed()) {
       youtubeWindow = createYouTubeWindow(false);
-      
+
       console.log('[YOUTUBE] YouTube window creada al iniciar (compartiendo sesión persistente)');
       youtubeWindow.loadURL('https://www.youtube.com');
-      
-      // Mostrar solo en dev mode
+
+      // Mostrar y abrir DevTools en dev mode
       if (process.argv.includes('--dev')) {
-        youtubeWindow.once('ready-to-show', () => {
-          youtubeWindow.show();
-        });
+        youtubeWindow.show(); // Mostrar inmediatamente
         youtubeWindow.webContents.openDevTools({ mode: 'detach' });
+        console.log('[DEV] YouTube window visible con DevTools');
       }
-      
+
       // Inyectar script de monitoreo cuando cargue
       youtubeWindow.webContents.on('did-finish-load', () => {
         console.log('[YOUTUBE] YouTube cargado - Inyectando script de monitoreo');
-        
+
         const monitoringScript = `
           (function() {
             console.log('[MONITOR] YouTube monitoring iniciado');
-            
+
             window.checkYouTubeStatus = function() {
               try {
                 const hasAvatar = !!document.querySelector('#avatar img, ytd-topbar-menu-button-renderer img');
                 const hasLogout = !!document.querySelector('a[href*="logout"]');
                 const isLoggedIn = hasAvatar || hasLogout;
-                
+
                 console.log('[MONITOR] Estado actual:', isLoggedIn ? 'LOGGED IN' : 'NOT LOGGED IN');
-                
+
                 return isLoggedIn;
               } catch (e) {
                 console.error('[MONITOR] Error:', e);
                 return false;
               }
             };
-            
+
             setTimeout(() => {
               window.checkYouTubeStatus();
             }, 2000);
           })();
         `;
-        
+
         youtubeWindow.webContents.executeJavaScript(monitoringScript)
           .catch(err => console.error('[YOUTUBE] Error inyectando monitor:', err));
       });
-      
+
       youtubeWindow.on('closed', () => {
         youtubeWindow = null;
       });
     }
   }, 500);
+
+  // Forzar ventana de update en modo desarrollo DESPUÉS de que mainWindow esté completamente visible
+  // Forzar ventana de update SOLO en modo desarrollo explícito (--dev flag)
+  const isDevMode = process.argv.includes('--dev');
+  
+  if (isDevMode) {
+    console.log('🔧 Modo desarrollo detectado - forzando modal de update');
+    
+    // Notificar INMEDIATAMENTE al renderer que se va a abrir el modal
+    // para que bloquee el loader desde el inicio
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('update-modal-opened');
+      }
+    }, 500);
+    
+    // Función para mostrar el modal de update
+    const showDevUpdateModal = () => {
+      setTimeout(() => {
+        if (appUpdater && typeof appUpdater.promptInstallUpdate === 'function') {
+          console.log('🔧 Mostrando modal de update en modo dev');
+          appUpdater.promptInstallUpdate({
+            version: '2.0.99-dev',
+            releaseNotes: [
+              { version: '2.0.99-dev', notes: '<ul><li>🚀 Modo desarrollador: ventana forzada</li><li>✨ Prueba de UI de updates</li><li>📝 Notas largas para probar el layout y el scroll en la ventana de actualización.</li></ul>', date: new Date().toISOString().slice(0, 10) },
+              { version: '2.0.98-dev', notes: '<ul><li>🐛 Corrección de bugs menores</li><li>⚡ Mejoras de rendimiento</li></ul>', date: '2026-01-30' },
+              { version: '2.0.97-dev', notes: '<ul><li>🎨 Nuevo diseño del modal</li><li>🔧 Ajustes de sincronización</li></ul>', date: '2026-01-29' }
+            ]
+          });
+        }
+      }, 3500);
+    };
+    
+    // Esperar a que mainWindow esté visible
+    if (mainWindow) {
+      if (mainWindow.webContents.isLoading()) {
+        mainWindow.webContents.once('did-finish-load', showDevUpdateModal);
+      } else {
+        showDevUpdateModal();
+      }
+    }
+  } else {
+    // PRODUCCIÓN: Verificar actualizaciones pendientes o buscar nuevas
+    setTimeout(async () => {
+      if (appUpdater) {
+        // Primero verificar si hay actualización pendiente guardada
+        const hasPending = await appUpdater.checkAndShowPendingUpdate();
+        
+        // Si no hay pendiente, buscar nuevas actualizaciones
+        if (!hasPending) {
+          appUpdater.checkForUpdatesAndNotify();
+        }
+      }
+    }, 1500);
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

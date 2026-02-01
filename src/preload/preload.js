@@ -143,6 +143,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-notification', (event, data) => {
       callback(data);
     });
+  },
+  
+  // Escuchar cuando el modal de actualización se cierra
+  onUpdateModalClosed: (callback) => {
+    ipcRenderer.on('update-modal-closed', () => {
+      callback();
+    });
+  },
+  
+  // Escuchar cuando el modal de actualización se abre
+  onUpdateModalOpened: (callback) => {
+    ipcRenderer.on('update-modal-opened', () => {
+      callback();
+    });
   }
 });
 

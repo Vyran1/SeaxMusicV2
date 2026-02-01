@@ -205,7 +205,16 @@ function updateLoaderStatus(message) {
   }
 }
 
+// ⭐ Flag para bloquear el loader mientras el modal de update esté abierto
+let updateModalOpen = false;
+
 function hideLoader() {
+  // No ocultar el loader si el modal de update está abierto
+  if (updateModalOpen) {
+    console.log('⏳ Loader bloqueado: modal de actualización abierto');
+    return;
+  }
+  
   const overlay = document.getElementById('loadingOverlay');
   if (overlay) {
     overlay.classList.add('fade-out');
@@ -326,7 +335,8 @@ async function initApp() {
         title: videoInfo.title,
         artist: videoInfo.channel || videoInfo.artist,
         channel: videoInfo.channel || videoInfo.artist,
-        thumbnail: videoInfo.thumbnail || appState.currentTrack?.thumbnail
+        thumbnail: videoInfo.thumbnail || appState.currentTrack?.thumbnail,
+        channelAvatar: videoInfo.channelAvatar || appState.currentTrack?.channelAvatar
       };
       
       // Actualizar UI
@@ -335,6 +345,11 @@ async function initApp() {
       
       // Actualizar el botón de like
       updateLikeButton();
+      
+      // ⭐ Actualizar NowPlaying con info de next/prev de YouTube
+      if (window.nowPlayingManager?.isActive) {
+        window.nowPlayingManager.updateSideImages(videoInfo.nextVideo, videoInfo.prevVideo);
+      }
     });
   }
   
@@ -375,6 +390,23 @@ async function initApp() {
   
   // ⭐ Cargar favoritos del storage
   loadFavoritesFromStorage();
+  
+  // ⭐ Escuchar cuando se abre el modal de actualización
+  if (window.electronAPI && window.electronAPI.onUpdateModalOpened) {
+    window.electronAPI.onUpdateModalOpened(() => {
+      console.log('🔒 Modal de actualización abierto, bloqueando loader');
+      updateModalOpen = true;
+    });
+  }
+  
+  // ⭐ Escuchar cuando se cierra el modal de actualización
+  if (window.electronAPI && window.electronAPI.onUpdateModalClosed) {
+    window.electronAPI.onUpdateModalClosed(() => {
+      console.log('✅ Modal de actualización cerrado, desbloqueando loader');
+      updateModalOpen = false;
+      hideLoader();
+    });
+  }
   
   // ⭐ Cargar contenido inicial
   checkInitialSession();

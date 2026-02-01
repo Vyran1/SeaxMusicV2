@@ -157,43 +157,47 @@ class UserManager {
     let avatarHTML;
     
     if (this.user.avatar && this.user.avatar.startsWith('http')) {
-      avatarHTML = `<img src="${this.user.avatar}" style="
-        width: 44px;
-        height: 44px;
+      avatarHTML = `<img src="${this.user.avatar}" class="user-avatar" style="
+        width: 48px;
+        height: 48px;
         border-radius: 50%;
         object-fit: cover;
+        border: 2px solid rgba(225, 56, 56, 0.3);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
       " alt="${this.user.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-      <div style="
-        width: 44px;
-        height: 44px;
-        background: linear-gradient(135deg, #E13838, #FF0000);
+      <div class="user-avatar-fallback" style="
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #E13838, #c62828);
         border-radius: 50%;
         display: none;
         align-items: center;
         justify-content: center;
         color: white;
         font-weight: bold;
-        font-size: 18px;
+        font-size: 20px;
+        box-shadow: 0 4px 12px rgba(225, 56, 56, 0.3);
       ">${initials}</div>`;
     } else {
-      avatarHTML = `<div style="
-        width: 44px;
-        height: 44px;
-        background: linear-gradient(135deg, #E13838, #FF0000);
+      avatarHTML = `<div class="user-avatar" style="
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #E13838, #c62828);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         color: white;
         font-weight: bold;
-        font-size: 18px;
+        font-size: 20px;
+        box-shadow: 0 4px 12px rgba(225, 56, 56, 0.3);
       ">${initials}</div>`;
     }
     
     // ⭐ Mostrar handle si está disponible, sino el nombre
     const displayEmail = this.user.handle || this.user.email || '';
 
-    // Create profile menu HTML
+    // Create profile menu HTML - Premium Design
     const menuHTML = `
       <div class="profile-menu">
         <div class="user-info">
@@ -204,8 +208,6 @@ class UserManager {
           </div>
         </div>
 
-        <div class="divider"></div>
-
         <div class="menu-items">
           <button class="menu-item" id="settingsMenuItem">
             <i class="fas fa-cog"></i>
@@ -213,13 +215,13 @@ class UserManager {
           </button>
 
           <button class="menu-item" id="accountMenuItem">
-            <i class="fas fa-user"></i>
+            <i class="fas fa-user-circle"></i>
             <span>Mi Cuenta</span>
           </button>
 
           <button class="menu-item" id="helpMenuItem">
-            <i class="fas fa-question-circle"></i>
-            <span>Ayuda</span>
+            <i class="fas fa-life-ring"></i>
+            <span>Centro de Ayuda</span>
           </button>
         </div>
 
@@ -521,43 +523,187 @@ class UserManager {
   }
 
   logout() {
-    if (confirm('Estás seguro de que deseas cerrar sesión?')) {
-      this.user = null;
+    // Mostrar modal de confirmación bonito
+    this.showLogoutModal();
+  }
+  
+  showLogoutModal() {
+    // Crear modal si no existe
+    let modal = document.getElementById('logoutConfirmModal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'logoutConfirmModal';
+      modal.className = 'logout-confirm-overlay';
+      modal.innerHTML = `
+        <div class="logout-confirm-modal">
+          <div class="logout-confirm-icon">
+            <i class="fas fa-sign-out-alt"></i>
+          </div>
+          <h3 class="logout-confirm-title">¿Cerrar sesión?</h3>
+          <p class="logout-confirm-text">Tendrás que volver a iniciar sesión con tu cuenta de YouTube para acceder a tu música.</p>
+          <div class="logout-confirm-actions">
+            <button class="logout-confirm-btn cancel" id="logoutCancelBtn">Cancelar</button>
+            <button class="logout-confirm-btn confirm" id="logoutConfirmBtn">Cerrar Sesión</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
       
-      // Limpiar localStorage completamente
-      localStorage.removeItem('seaxmusic_user');
-      localStorage.clear();
+      // Estilos inline para el modal
+      const style = document.createElement('style');
+      style.textContent = `
+        .logout-confirm-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 0;
+          visibility: hidden;
+          transition: all 0.3s ease;
+          z-index: 10000;
+        }
+        .logout-confirm-overlay.active {
+          opacity: 1;
+          visibility: visible;
+        }
+        .logout-confirm-modal {
+          background: linear-gradient(180deg, #1e1e1e 0%, #121212 100%);
+          border-radius: 16px;
+          padding: 32px;
+          width: 90%;
+          max-width: 360px;
+          text-align: center;
+          border: 1px solid #333;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+          transform: scale(0.9) translateY(20px);
+          transition: all 0.3s ease;
+        }
+        .logout-confirm-overlay.active .logout-confirm-modal {
+          transform: scale(1) translateY(0);
+        }
+        .logout-confirm-icon {
+          width: 64px;
+          height: 64px;
+          background: linear-gradient(135deg, #E13838 0%, #c62828 100%);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 20px;
+          box-shadow: 0 8px 24px rgba(225, 56, 56, 0.3);
+        }
+        .logout-confirm-icon i {
+          font-size: 28px;
+          color: white;
+        }
+        .logout-confirm-title {
+          font-size: 20px;
+          font-weight: 600;
+          color: #fff;
+          margin-bottom: 12px;
+        }
+        .logout-confirm-text {
+          font-size: 14px;
+          color: #b3b3b3;
+          line-height: 1.5;
+          margin-bottom: 28px;
+        }
+        .logout-confirm-actions {
+          display: flex;
+          gap: 12px;
+        }
+        .logout-confirm-btn {
+          flex: 1;
+          padding: 12px 20px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          border: none;
+        }
+        .logout-confirm-btn.cancel {
+          background: #282828;
+          color: #fff;
+        }
+        .logout-confirm-btn.cancel:hover {
+          background: #3a3a3a;
+        }
+        .logout-confirm-btn.confirm {
+          background: linear-gradient(135deg, #E13838 0%, #c62828 100%);
+          color: white;
+          box-shadow: 0 4px 12px rgba(225, 56, 56, 0.3);
+        }
+        .logout-confirm-btn.confirm:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(225, 56, 56, 0.4);
+        }
+      `;
+      document.head.appendChild(style);
       
-      // Limpiar desde JSON file vía Electron IPC
-      if (window.electronAPI && window.electronAPI.clearUserData) {
-        window.electronAPI.clearUserData()
-          .then(() => console.log('[OK] Sesión y datos limpios'))
-          .catch(err => console.error('Error limpiando datos:', err));
-      }
-      
-      // Logout también de YouTube para limpiar sesión allá
-      if (window.electronAPI && window.electronAPI.logoutYouTube) {
-        window.electronAPI.logoutYouTube()
-          .then(() => {
-            console.log('[OK] YouTube sesión cerrada');
-            
-            // Después de hacer logout, verificar que realmente se cerró
-            // Esperar 3 segundos y luego chequear el estado
-            setTimeout(() => {
-              if (window.electronAPI && window.electronAPI.forceCheckYouTubeLogin) {
-                window.electronAPI.forceCheckYouTubeLogin()
-                  .then(() => console.log('[OK] Estado de YouTube verificado'))
-                  .catch(err => console.error('[ERROR] No se pudo verificar estado:', err));
-              }
-            }, 3000);
-          })
-          .catch(err => console.error('Error cerrando sesión de YouTube:', err));
-      }
-      
-      this.updateUserUI();
-      this.closeProfileMenu();
-      console.log('[LOGOUT] Sesión cerrada correctamente');
+      // Event listeners
+      document.getElementById('logoutCancelBtn').addEventListener('click', () => this.hideLogoutModal());
+      document.getElementById('logoutConfirmBtn').addEventListener('click', () => this.confirmLogout());
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) this.hideLogoutModal();
+      });
     }
+    
+    // Mostrar modal
+    setTimeout(() => modal.classList.add('active'), 10);
+  }
+  
+  hideLogoutModal() {
+    const modal = document.getElementById('logoutConfirmModal');
+    if (modal) {
+      modal.classList.remove('active');
+    }
+  }
+  
+  confirmLogout() {
+    this.hideLogoutModal();
+    
+    this.user = null;
+    
+    // Limpiar localStorage completamente
+    localStorage.removeItem('seaxmusic_user');
+    localStorage.clear();
+    
+    // Limpiar desde JSON file vía Electron IPC
+    if (window.electronAPI && window.electronAPI.clearUserData) {
+      window.electronAPI.clearUserData()
+        .then(() => console.log('[OK] Sesión y datos limpios'))
+        .catch(err => console.error('Error limpiando datos:', err));
+    }
+    
+    // Logout también de YouTube para limpiar sesión allá
+    if (window.electronAPI && window.electronAPI.logoutYouTube) {
+      window.electronAPI.logoutYouTube()
+        .then(() => {
+          console.log('[OK] YouTube sesión cerrada');
+          
+          // Después de hacer logout, verificar que realmente se cerró
+          // Esperar 3 segundos y luego chequear el estado
+          setTimeout(() => {
+            if (window.electronAPI && window.electronAPI.forceCheckYouTubeLogin) {
+              window.electronAPI.forceCheckYouTubeLogin()
+                .then(() => console.log('[OK] Estado de YouTube verificado'))
+                .catch(err => console.error('[ERROR] No se pudo verificar estado:', err));
+            }
+          }, 3000);
+        })
+        .catch(err => console.error('Error cerrando sesión de YouTube:', err));
+    }
+    
+    this.updateUserUI();
+    this.closeProfileMenu();
+    console.log('[LOGOUT] Sesión cerrada correctamente');
   }
 }
 

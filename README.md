@@ -1,6 +1,6 @@
 # SeaxMusic
 
-Una aplicación de música moderna construida con Electron, con interfaz inspirada en Spotify y reproducción a través de YouTube.
+Una aplicación de música moderna.
 
 ## 🎵 Características
 

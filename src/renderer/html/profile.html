@@ -39,14 +39,26 @@
       </button>
     </div>
 
-    <!-- Divider -->
-    <div class="divider"></div>
-
     <!-- Logout -->
-    <button class="menu-item logout" id="logoutBtn">
+    <button class="menu-item logout-btn" id="logoutBtn">
       <i class="fas fa-sign-out-alt"></i>
       <span>Cerrar Sesión</span>
     </button>
+  </div>
+
+  <!-- Modal de confirmación de logout -->
+  <div class="logout-modal-overlay" id="logoutModal">
+    <div class="logout-modal">
+      <div class="logout-modal-icon">
+        <i class="fas fa-sign-out-alt"></i>
+      </div>
+      <h3 class="logout-modal-title">¿Cerrar sesión?</h3>
+      <p class="logout-modal-text">Tendrás que volver a iniciar sesión con tu cuenta de YouTube para acceder a tu música.</p>
+      <div class="logout-modal-actions">
+        <button class="logout-modal-btn cancel" id="logoutCancel">Cancelar</button>
+        <button class="logout-modal-btn confirm" id="logoutConfirm">Cerrar Sesión</button>
+      </div>
+    </div>
   </div>
 
   <script src="../js/profile.js"></script>

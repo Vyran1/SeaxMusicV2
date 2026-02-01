@@ -70,6 +70,19 @@ body {
 .ver-main {
   font-size: 1.08em;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.badge-new {
+  background: linear-gradient(90deg, #ff3b3b 60%, #e22b2b 100%);
+  color: #fff;
+  font-size: 0.65em;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 .ver-date {
   font-size: 0.93em;
@@ -137,6 +150,7 @@ body {
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  gap: 14px;
   z-index: 10;
 }
 button {
@@ -159,4 +173,13 @@ button.primary {
 button.primary:hover {
   background: linear-gradient(90deg, #e22b2b 60%, #ff3b3b 100%);
   box-shadow: 0 6px 24px rgba(255,59,59,0.18);
+}
+button.secondary {
+  background: #2d2d36;
+  color: #ccc;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+button.secondary:hover {
+  background: #3a3a45;
+  color: #fff;
 }

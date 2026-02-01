@@ -73,20 +73,55 @@ class ProfileMenu {
   }
 
   logout() {
-    // Confirm logout
-    if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
-      // Clear user data
-      localStorage.removeItem('seaxmusic_user');
+    // Mostrar modal de confirmación bonito
+    const modal = document.getElementById('logoutModal');
+    if (modal) {
+      modal.classList.add('active');
+    }
+  }
+  
+  confirmLogout() {
+    // Clear user data
+    localStorage.removeItem('seaxmusic_user');
 
-      // Notify parent window
-      if (window.opener) {
-        window.opener.postMessage({
-          type: 'USER_LOGGED_OUT'
-        }, '*');
-      }
+    // Notify parent window
+    if (window.opener) {
+      window.opener.postMessage({
+        type: 'USER_LOGGED_OUT'
+      }, '*');
+    }
 
-      // Close this window/menu
-      window.close();
+    // Close this window/menu
+    window.close();
+  }
+  
+  cancelLogout() {
+    const modal = document.getElementById('logoutModal');
+    if (modal) {
+      modal.classList.remove('active');
+    }
+  }
+  
+  initializeModalEvents() {
+    const confirmBtn = document.getElementById('logoutConfirm');
+    const cancelBtn = document.getElementById('logoutCancel');
+    const modal = document.getElementById('logoutModal');
+    
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', () => this.confirmLogout());
+    }
+    
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => this.cancelLogout());
+    }
+    
+    // Cerrar al hacer clic fuera del modal
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          this.cancelLogout();
+        }
+      });
     }
   }
 }
@@ -94,8 +129,10 @@ class ProfileMenu {
 // Initialize profile menu when DOM is ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    new ProfileMenu();
+    const profile = new ProfileMenu();
+    profile.initializeModalEvents();
   });
 } else {
-  new ProfileMenu();
+  const profile = new ProfileMenu();
+  profile.initializeModalEvents();
 }

@@ -7,7 +7,15 @@ contextBridge.exposeInMainWorld('updateAPI', {
       callback(info);
     });
   },
+  onDevMode: (callback) => {
+    ipcRenderer.on('update-dev-mode', (event, data) => {
+      callback(data);
+    });
+  },
   install: () => {
     ipcRenderer.send('update-install');
+  },
+  later: () => {
+    ipcRenderer.send('update-later');
   }
 });

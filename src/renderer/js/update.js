@@ -33,8 +33,10 @@ function renderSidebar(versions, selectedIdx) {
     const item = document.createElement('div');
     item.className = 'version-item' + (i === selectedIdx ? ' selected' : '');
     item.tabIndex = 0;
+    // Badge "NUEVA" solo para la primera versión (la más reciente)
+    const badge = i === 0 ? '<span class="badge-new">NUEVA</span>' : '';
     item.innerHTML = `
-      <div class="ver-main">v${v.version}</div>
+      <div class="ver-main">v${v.version} ${badge}</div>
       <div class="ver-date">${v.date ? v.date : ''}</div>
     `;
     item.onclick = () => {
@@ -70,4 +72,49 @@ window.updateAPI.onInfo((info) => {
 
 document.getElementById('install-btn').addEventListener('click', () => {
   window.updateAPI.install();
+});
+
+document.getElementById('later-btn').addEventListener('click', () => {
+  window.updateAPI.later();
+});
+
+// Handler para modo desarrollo
+window.updateAPI.onDevMode((data) => {
+  const installBtn = document.getElementById('install-btn');
+  const laterBtn = document.getElementById('later-btn');
+  
+  // Mostrar mensaje en el changelog
+  const changelog = document.getElementById('main-changelog');
+  changelog.innerHTML = `
+    <div class="dev-mode-notice" style="
+      background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+      color: white;
+      padding: 16px 20px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    ">
+      <span style="font-size: 24px;">⚠️</span>
+      <div>
+        <strong style="display: block; margin-bottom: 4px;">Modo Desarrollo</strong>
+        <span style="opacity: 0.9;">${data.message}</span>
+      </div>
+    </div>
+  ` + changelog.innerHTML;
+  
+  // Cambiar botón install a "Entendido" 
+  installBtn.textContent = 'Entendido';
+  installBtn.style.background = 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)';
+  
+  // Ocultar botón "Más tarde"
+  laterBtn.style.display = 'none';
+  
+  // Reemplazar completamente el botón para eliminar listeners anteriores
+  const newBtn = installBtn.cloneNode(true);
+  installBtn.parentNode.replaceChild(newBtn, installBtn);
+  newBtn.addEventListener('click', () => {
+    window.updateAPI.later();
+  });
 });

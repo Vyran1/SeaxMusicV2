@@ -34,30 +34,49 @@
     
     <!-- Contenido principal -->
     <div class="nowplaying-content">
-      <!-- Imágenes de fondo (prev/next detrás del cover) -->
-      <div class="nowplaying-side-bg nowplaying-prev-bg" id="nowPlayingPrev">
-        <img class="side-bg-cover" id="prevCover" src="" alt="">
-      </div>
-      <div class="nowplaying-side-bg nowplaying-next-bg" id="nowPlayingNext">
-        <img class="side-bg-cover" id="nextCover" src="" alt="">
-      </div>
-      
-      <!-- Canción actual (centro) -->
-      <div class="nowplaying-center">
-        <!-- Cover 4K sin efectos -->
-        <div class="nowplaying-cover-container">
-          <img class="nowplaying-cover" id="nowPlayingCover" src="" alt="Cover">
-          
-          <!-- Visualizador de audio -->
-          <div class="nowplaying-visualizer" id="nowPlayingVisualizer">
-            <div class="visualizer-bar"></div>
-            <div class="visualizer-bar"></div>
-            <div class="visualizer-bar"></div>
-            <div class="visualizer-bar"></div>
-            <div class="visualizer-bar"></div>
+      <!-- ===== CARRUSEL DE COVERS ===== -->
+      <div class="carousel-track" id="carouselTrack">
+        <!-- Prev -->
+        <div class="carousel-item carousel-prev" id="carouselPrev">
+          <div class="carousel-cover-container">
+            <img class="carousel-cover" id="prevCover" src="./assets/img/icon.png" alt="">
+          </div>
+          <div class="carousel-item-info">
+            <span class="carousel-item-title" id="prevTitle">-</span>
+            <span class="carousel-item-artist" id="prevArtist">-</span>
           </div>
         </div>
         
+        <!-- Center (actual) -->
+        <div class="carousel-item carousel-center" id="carouselCenter">
+          <div class="carousel-cover-container nowplaying-cover-container">
+            <img class="carousel-cover nowplaying-cover" id="nowPlayingCover" src="" alt="Cover">
+            
+            <!-- Visualizador de audio -->
+            <div class="nowplaying-visualizer" id="nowPlayingVisualizer">
+              <div class="visualizer-bar"></div>
+              <div class="visualizer-bar"></div>
+              <div class="visualizer-bar"></div>
+              <div class="visualizer-bar"></div>
+              <div class="visualizer-bar"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Next -->
+        <div class="carousel-item carousel-next" id="carouselNext">
+          <div class="carousel-cover-container">
+            <img class="carousel-cover" id="nextCover" src="./assets/img/icon.png" alt="">
+          </div>
+          <div class="carousel-item-info">
+            <span class="carousel-item-title" id="nextTitle">-</span>
+            <span class="carousel-item-artist" id="nextArtist">-</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Canción actual (centro) - Solo info y controles -->
+      <div class="nowplaying-center">
         <!-- Info de la canción -->
         <div class="nowplaying-info">
           <h1 class="nowplaying-title" id="nowPlayingTitle">SeaxMusic</h1>
@@ -100,6 +119,18 @@
             <button class="np-action-btn" id="npLike" title="Me gusta">
               <i class="far fa-heart"></i>
             </button>
+            <div class="np-volume-wrapper">
+              <button class="np-action-btn" id="npVolumeBtn" title="Volumen">
+                <i class="fas fa-volume-up"></i>
+              </button>
+              <div class="np-volume-popup" id="npVolumePopup">
+                <div class="np-volume-bar" id="npVolumeBar">
+                  <div class="np-volume-fill" id="npVolumeFill"></div>
+                  <div class="np-volume-handle" id="npVolumeHandle"></div>
+                </div>
+                <span class="np-volume-percent" id="npVolumePercent">70%</span>
+              </div>
+            </div>
             <button class="np-action-btn" id="npQueue" title="Cola">
               <i class="fas fa-list"></i>
             </button>

@@ -100,18 +100,21 @@ class MusicPlayer {
   async previous() {
     console.log('⏮️ Previous track');
     
-    // ⭐ Solo usar cola si estamos en Tu Biblioteca
-    if (window.libraryManager && window.libraryManager.isLibraryActive) {
-      if (window.appState && window.appState.playQueue && window.appState.playQueue.length > 0) {
-        if (window.appState.playQueueIndex > 0) {
-          if (window.playPrevInQueue && window.playPrevInQueue()) {
-            return;
-          }
+    // ⭐ Verificar si estamos al inicio del video (menos de 3 segundos)
+    const isAtStart = this.currentTime < 3;
+    
+    // ⭐ Intentar usar cola si hay canciones anteriores
+    if (window.appState && window.appState.playQueue && window.appState.playQueue.length > 0) {
+      // Si estamos al inicio Y hay canción anterior en la cola, ir a ella
+      if (isAtStart && window.appState.playQueueIndex > 0) {
+        console.log('⏮️ Ir a canción anterior en cola');
+        if (window.playPrevInQueue && window.playPrevInQueue()) {
+          return;
         }
       }
     }
     
-    // Fuera de biblioteca: usar YouTube normal
+    // Si no hay cola o estamos a más de 3s, enviar a YouTube (reiniciará el video)
     if (window.electronAPI && window.electronAPI.send) {
       window.electronAPI.send('audio-control', 'previous');
     }

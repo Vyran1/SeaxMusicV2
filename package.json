@@ -1,7 +1,20 @@
 {
   "name": "seaxmusic",
-  "version": "2.0.3",
+  "version": "2.0.5",
   "description": "SeaxMusic",
+  "changelog": {
+    "2.0.5": [
+      "🎨 Player bar rediseñado con estilo premium (glassmorphism, gradientes, animaciones)",
+      "👤 Menú de perfil con diseño premium y animaciones",
+      "🎠 Carrusel NowPlaying mejorado - imágenes laterales ahora usan misma resolución que la central",
+      "⏮️ Botón anterior arreglado - fallback a seek(0) si no hay canción previa",
+      "🔊 Volumen persiste correctamente al cambiar de canción",
+      "🚪 Modal de logout rediseñado con estilo premium",
+      "🔄 Sistema de auto-update mejorado en modo desarrollo",
+      "📋 Cola de biblioteca tiene prioridad sobre sugerencias de YouTube",
+      "🎵 Botón de lyrics funciona correctamente en NowPlaying"
+    ]
+  },
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
