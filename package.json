@@ -1,6 +1,6 @@
 {
   "name": "seaxmusic",
-  "version": "2.0.27",
+  "version": "2.0.28",
   "description": "SeaxMusic",
   "main": "src/main/main.js",
   "scripts": {
