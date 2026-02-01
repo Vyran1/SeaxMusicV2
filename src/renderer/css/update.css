@@ -131,9 +131,36 @@ body {
 .main-changelog ul {
   margin: 0 0 0 18px;
   padding: 0;
+  list-style-type: disc;
 }
 .main-changelog li {
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  padding-left: 4px;
+}
+.main-changelog h1, .main-changelog h2, .main-changelog h3 {
+  color: #ff3b3b;
+  margin: 16px 0 8px 0;
+  font-weight: 600;
+}
+.main-changelog h1 { font-size: 1.4em; }
+.main-changelog h2 { font-size: 1.2em; }
+.main-changelog h3 { font-size: 1.1em; }
+.main-changelog p {
+  margin: 8px 0;
+}
+.main-changelog code {
+  background: #2d2d36;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Consolas', monospace;
+  font-size: 0.9em;
+}
+.main-changelog strong {
+  color: #fff;
+  font-weight: 600;
+}
+.main-changelog em {
+  color: #bbb;
 }
 .no-changelog {
   color: #888;

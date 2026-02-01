@@ -3,27 +3,70 @@
 let versions = [];
 let selectedIdx = 0;
 
-function normalizeReleaseNotes(releaseNotes, currentVersion) {
+function formatMarkdownToHTML(text) {
+  if (!text) return '';
+  
+  // Convertir Markdown básico a HTML
+  let html = text
+    // Escapar HTML existente primero
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    // Headers
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    // Bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // Italic
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // Code inline
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    // Lists
+    .replace(/^[\-\*] (.+)$/gm, '<li>$1</li>')
+    // Line breaks
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+  
+  // Envolver listas en <ul>
+  html = html.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+  // Limpiar múltiples <ul> consecutivos
+  html = html.replace(/<\/ul>\s*<ul>/g, '');
+  
+  return `<p>${html}</p>`;
+}
+
+function normalizeReleaseNotes(releaseNotes, version) {
+  console.log('[UPDATE-UI] Normalizando releaseNotes:', typeof releaseNotes, releaseNotes);
+  
   // Puede ser string, objeto, o array
-  if (!releaseNotes) return [];
+  if (!releaseNotes) {
+    return [{ version: version, notes: 'Sin notas de versión disponibles.', date: '' }];
+  }
+  
   if (Array.isArray(releaseNotes)) {
+    if (releaseNotes.length === 0) {
+      return [{ version: version, notes: 'Sin notas de versión disponibles.', date: '' }];
+    }
     return releaseNotes.map((r, i) => ({
-      version: r.version || currentVersion,
-      notes: r.note || r.notes || '',
+      version: r.version || version,
+      notes: formatMarkdownToHTML(r.note || r.notes || ''),
       date: r.date || ''
     }));
   }
+  
   if (typeof releaseNotes === 'string') {
-    return [{ version: currentVersion, notes: releaseNotes, date: '' }];
+    return [{ version: version, notes: formatMarkdownToHTML(releaseNotes), date: '' }];
   }
+  
   if (typeof releaseNotes === 'object') {
     return [{
-      version: releaseNotes.version || currentVersion,
-      notes: releaseNotes.note || releaseNotes.notes || '',
+      version: releaseNotes.version || version,
+      notes: formatMarkdownToHTML(releaseNotes.note || releaseNotes.notes || ''),
       date: releaseNotes.date || ''
     }];
   }
-  return [];
+  
+  return [{ version: version, notes: 'Sin notas de versión disponibles.', date: '' }];
 }
 
 function renderSidebar(versions, selectedIdx) {
@@ -62,7 +105,27 @@ function selectVersion(idx) {
 }
 
 window.updateAPI.onInfo((info) => {
+  console.log('[UPDATE-UI] Recibida info:', info);
+  
   versions = normalizeReleaseNotes(info.releaseNotes, info.version);
+  
+  // Si no hay versiones, crear una por defecto
+  if (versions.length === 0) {
+    versions = [{
+      version: info.version,
+      notes: 'Nueva versión disponible.',
+      date: info.releaseDate ? info.releaseDate.split('T')[0] : ''
+    }];
+  }
+  
+  // Asegurar que la fecha esté formateada
+  versions = versions.map(v => ({
+    ...v,
+    date: v.date ? v.date.split('T')[0] : (info.releaseDate ? info.releaseDate.split('T')[0] : '')
+  }));
+  
+  console.log('[UPDATE-UI] Versiones procesadas:', versions);
+  
   // Ordenar de más nueva a más vieja (si hay varias)
   versions.sort((a, b) => (b.version || '').localeCompare(a.version || ''));
   selectedIdx = 0;
