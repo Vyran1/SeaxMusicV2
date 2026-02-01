@@ -20,6 +20,7 @@ class AppUpdater {
         // GitHub repo info para obtener releases
         this.githubOwner = 'Vyran1';
         this.githubRepo = 'SeaxMusicV2';
+        this.githubToken = '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';
         
         // Ruta para persistir actualización pendiente
         this.updateInfoPath = path.join(app.getPath('userData'), 'pending-update.json');
@@ -27,6 +28,11 @@ class AppUpdater {
         // Configuración del auto-updater
         autoUpdater.autoDownload = true;
         autoUpdater.autoInstallOnAppQuit = false; // NO instalar automáticamente
+        
+        // Token para repos privados
+        autoUpdater.requestHeaders = { 
+            Authorization: `token ${this.githubToken}` 
+        };
         
         this.setupEventListeners();
     }
@@ -61,7 +67,8 @@ class AppUpdater {
                 method: 'GET',
                 headers: {
                     'User-Agent': 'SeaxMusic-Updater',
-                    'Accept': 'application/vnd.github.v3+json'
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Authorization': `token ${this.githubToken}`
                 }
             };
             
