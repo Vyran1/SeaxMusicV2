@@ -101,18 +101,10 @@ function createMainWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
-  // Open DevTools in development mode
+  // Open DevTools in development mode only
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
   }
-  
-  // ⭐ Permitir abrir DevTools con F12 o Ctrl+Shift+I en producción
-  mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.key === 'F12' || 
-        (input.control && input.shift && input.key.toLowerCase() === 'i')) {
-      mainWindow.webContents.toggleDevTools();
-    }
-  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
