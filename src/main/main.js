@@ -2623,13 +2623,71 @@ app.whenReady().then(() => {
                       mainWindow.webContents.send('update-log', '📊 Comparando: ' + currentVer + ' vs ' + latestVer);
                     }
                     
-                    // Ahora llamar al updater
-                    console.log('⏳ [MAIN] Llamando appUpdater.checkForUpdatesAndNotify()...');
+                    // Ahora llamar al updater DIRECTAMENTE
+                    console.log('⏳ [MAIN] Llamando electron-updater directamente...');
                     if (mainWindow && !mainWindow.isDestroyed()) {
-                      mainWindow.webContents.send('update-log', '⏳ Llamando checkForUpdatesAndNotify...');
+                      mainWindow.webContents.send('update-log', '⏳ Llamando electron-updater directamente...');
                     }
                     
-                    appUpdater.checkForUpdatesAndNotify().then(() => {
+                    // Importar autoUpdater de electron-updater
+                    const { autoUpdater } = require('electron-updater');
+                    
+                    // Configurar para GitHub privado
+                    autoUpdater.setFeedURL({
+                      provider: 'github',
+                      owner: 'Vyran1',
+                      repo: 'SeaxMusicV2',
+                      private: true,
+                      token: githubToken
+                    });
+                    
+                    // Escuchar eventos
+                    autoUpdater.on('checking-for-update', () => {
+                      console.log('🔍 [ELECTRON-UPDATER] Verificando...');
+                      if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('update-log', '🔍 electron-updater: Verificando...');
+                      }
+                    });
+                    
+                    autoUpdater.on('update-available', (info) => {
+                      console.log('✅ [ELECTRON-UPDATER] Update disponible:', info.version);
+                      if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('update-log', '✅ Update disponible: ' + info.version);
+                      }
+                    });
+                    
+                    autoUpdater.on('update-not-available', (info) => {
+                      console.log('ℹ️ [ELECTRON-UPDATER] No hay updates');
+                      if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('update-log', 'ℹ️ No hay actualizaciones disponibles');
+                      }
+                    });
+                    
+                    autoUpdater.on('error', (err) => {
+                      console.error('❌ [ELECTRON-UPDATER] Error:', err.message);
+                      if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('update-log', '❌ Error electron-updater: ' + err.message);
+                      }
+                    });
+                    
+                    autoUpdater.on('download-progress', (progress) => {
+                      console.log('📥 [ELECTRON-UPDATER] Descargando:', Math.round(progress.percent) + '%');
+                      if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('update-log', '📥 Descargando: ' + Math.round(progress.percent) + '%');
+                      }
+                    });
+                    
+                    autoUpdater.on('update-downloaded', (info) => {
+                      console.log('✅ [ELECTRON-UPDATER] Descargado:', info.version);
+                      if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send('update-log', '✅ Descargado: ' + info.version + ' - Mostrando modal...');
+                      }
+                      // Mostrar modal usando appUpdater
+                      appUpdater.promptInstallUpdate(info);
+                    });
+                    
+                    // Llamar checkForUpdatesAndNotify
+                    autoUpdater.checkForUpdatesAndNotify().then((result) => {
                       console.log('✅ [MAIN] checkForUpdatesAndNotify completado');
                       if (mainWindow && !mainWindow.isDestroyed()) {
                         mainWindow.webContents.send('update-log', '✅ checkForUpdatesAndNotify completado');
