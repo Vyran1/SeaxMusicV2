@@ -314,10 +314,11 @@ class LibraryManager {
         </div>
         <div class="list-col-num">${index + 1}</div>
         <div class="list-col-title">
-          <img class="list-item-image" 
-               src="${fav.thumbnail || `https://i.ytimg.com/vi/${fav.videoId}/maxresdefault.jpg`}" 
-               alt="${fav.title}"
-               onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${fav.videoId}/hqdefault.jpg'; this.onerror=function(){this.src='./assets/img/icon.png'};">
+          <div class="list-item-image">
+            <img src="${fav.thumbnail || `https://i.ytimg.com/vi/${fav.videoId}/maxresdefault.jpg`}" 
+                 alt="${fav.title}"
+                 onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${fav.videoId}/hqdefault.jpg'; this.onerror=function(){this.src='./assets/img/icon.png'};">
+          </div>
           <div class="list-item-info">
             <span class="list-item-name">${fav.title || 'Sin título'}</span>
           </div>

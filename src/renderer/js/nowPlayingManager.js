@@ -10,6 +10,12 @@ class NowPlayingManager {
     this.nextSong = null;
     this.isAnimating = false; // Prevenir múltiples animaciones
     
+    // Lyrics state
+    this.lyricsAnimationId = null;
+    this.currentPlaybackTime = 0;
+    this.lastHighlightedLine = -1;
+    this.lyricsLoadingForSong = null; // Track qué canción está cargando letras
+    
     this.init();
   }
   
@@ -202,10 +208,10 @@ class NowPlayingManager {
       // TODO: Implementar panel de cola
     });
     
-    // Lyrics - abrir panel de letras
+    // Lyrics - toggle panel de letras
     this.lyricsBtn?.addEventListener('click', () => {
       console.log('[NOW PLAYING] Lyrics button clicked');
-      // TODO: Implementar panel de letras
+      this.toggleLyricsMode();
     });
     
     // ⭐ Click en items del carrusel
@@ -779,6 +785,13 @@ updateSideImages(nextVideoInfo = null, prevVideoInfo = null) {
     
     // Actualizar imágenes laterales
     this.updateSideImages();
+    
+    // ⭐ Actualizar letras si el modo está activo
+    const content = document.getElementById('nowPlayingContent');
+    if (content?.classList.contains('lyrics-active')) {
+      this.updateMiniCarousel();
+      this.loadLyrics();
+    }
   }
   
   // ⭐ Función legacy para compatibilidad
@@ -810,6 +823,9 @@ updateSideImages(nextVideoInfo = null, prevVideoInfo = null) {
   
   updateProgress(currentTime, duration) {
     if (!this.isActive) return;
+    
+    // Guardar tiempo para sincronización de letras
+    this.currentPlaybackTime = currentTime;
     
     const percent = duration > 0 ? (currentTime / duration) * 100 : 0;
     
@@ -856,6 +872,309 @@ updateSideImages(nextVideoInfo = null, prevVideoInfo = null) {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+  
+  // ===== LYRICS MODE =====
+  
+  /**
+   * Toggle modo letras
+   */
+  toggleLyricsMode() {
+    const content = document.getElementById('nowPlayingContent');
+    const lyricsBtn = this.lyricsBtn;
+    
+    if (!content) return;
+    
+    const isLyricsActive = content.classList.contains('lyrics-active');
+    
+    if (isLyricsActive) {
+      // Desactivar modo letras
+      content.classList.remove('lyrics-active');
+      lyricsBtn?.classList.remove('active');
+      this.stopLyricsSync();
+      window.lyricsService?.cancel();
+      this.lyricsLoadingForSong = null;
+      console.log('[NOW PLAYING] Modo letras desactivado');
+    } else {
+      // Activar modo letras
+      content.classList.add('lyrics-active');
+      lyricsBtn?.classList.add('active');
+      this.loadLyrics();
+      this.updateMiniCarousel();
+      console.log('[NOW PLAYING] Modo letras activado');
+    }
+  }
+  
+  /**
+   * Cargar letras para la canción actual
+   */
+  async loadLyrics() {
+    if (!this.currentSong) return;
+    
+    const songId = this.currentSong.videoId;
+    
+    // Si ya estamos cargando letras para esta canción, no hacer nada
+    if (this.lyricsLoadingForSong === songId) {
+      console.log('[LYRICS] Ya cargando para esta canción');
+      return;
+    }
+    
+    // Cancelar búsqueda anterior
+    window.lyricsService?.cancel();
+    this.stopLyricsSync();
+    this.lastHighlightedLine = -1;
+    
+    // Marcar que estamos cargando para esta canción
+    this.lyricsLoadingForSong = songId;
+    
+    const lyricsLoading = document.getElementById('lyricsLoading');
+    const lyricsContent = document.getElementById('lyricsContent');
+    const lyricsNotFound = document.getElementById('lyricsNotFound');
+    
+    // Reset UI
+    lyricsLoading?.classList.add('active');
+    if (lyricsContent) lyricsContent.innerHTML = '';
+    lyricsNotFound?.classList.remove('active');
+    
+    try {
+      const trackName = this.currentSong.title || '';
+      const artistName = this.currentSong.artist || this.currentSong.channel || '';
+      
+      console.log('[LYRICS] Buscando:', trackName, '-', artistName);
+      
+      const lyrics = await window.lyricsService?.searchLyrics(trackName, artistName, songId);
+      
+      // Verificar que seguimos en la misma canción
+      if (this.currentSong?.videoId !== songId) {
+        console.log('[LYRICS] Canción cambió, ignorando resultado');
+        return;
+      }
+      
+      // Limpiar flag de carga
+      this.lyricsLoadingForSong = null;
+      
+      // Ocultar loading
+      lyricsLoading?.classList.remove('active');
+      
+      if (lyrics && window.lyricsService?.parsedLyrics?.length > 0) {
+        this.renderLyrics();
+        this.startLyricsSync();
+        
+        // ⭐ Precargar letras de la siguiente canción
+        this.preloadNextLyrics();
+      } else {
+        lyricsNotFound?.classList.add('active');
+      }
+    } catch (error) {
+      console.error('[LYRICS] Error:', error);
+      if (this.currentSong?.videoId === songId) {
+        this.lyricsLoadingForSong = null;
+        lyricsLoading?.classList.remove('active');
+        lyricsNotFound?.classList.add('active');
+      }
+    }
+  }
+  
+  /**
+   * Precargar letras de la siguiente canción
+   */
+  preloadNextLyrics() {
+    if (!this.nextSong || !window.lyricsService) return;
+    
+    const trackName = this.nextSong.title || '';
+    const artistName = this.nextSong.artist || this.nextSong.channel || '';
+    
+    if (trackName) {
+      window.lyricsService.preloadLyrics(trackName, artistName);
+    }
+  }
+  
+  /**
+   * Renderizar letras en el panel
+   */
+  renderLyrics() {
+    const lyricsContent = document.getElementById('lyricsContent');
+    if (!lyricsContent || !window.lyricsService) return;
+    
+    const lyrics = window.lyricsService.getAllLyrics();
+    const hasSynced = window.lyricsService.hasSyncedLyrics();
+    
+    lyricsContent.innerHTML = '';
+    lyricsContent.classList.toggle('plain', !hasSynced);
+    
+    lyrics.forEach((line, index) => {
+      const lineEl = document.createElement('div');
+      lineEl.className = 'lyrics-line';
+      lineEl.dataset.index = index;
+      lineEl.dataset.time = line.time;
+      lineEl.textContent = line.text;
+      
+      // Click para saltar a esa línea (solo si tiene tiempo)
+      if (hasSynced && line.time >= 0) {
+        lineEl.addEventListener('click', () => {
+          this.seekToLyricLine(line.time);
+        });
+      }
+      
+      lyricsContent.appendChild(lineEl);
+    });
+    
+    console.log('[LYRICS] Renderizadas', lyrics.length, 'líneas', hasSynced ? '(sincronizadas)' : '(planas)');
+  }
+  
+  /**
+   * Saltar a una línea específica
+   */
+  seekToLyricLine(time) {
+    if (window.electronAPI?.seekTo) {
+      window.electronAPI.seekTo(time);
+    }
+  }
+  
+  /**
+   * Iniciar sincronización de letras
+   */
+  startLyricsSync() {
+    // Detener sync anterior primero
+    this.stopLyricsSync();
+    
+    if (!window.lyricsService?.hasSyncedLyrics()) {
+      console.log('[LYRICS] Sin letras sincronizadas');
+      return;
+    }
+    
+    this.lastHighlightedLine = -1;
+    this.lyricsAnimationId = requestAnimationFrame(() => this.updateLyricsHighlight());
+    console.log('[LYRICS] Sincronización iniciada');
+  }
+  
+  /**
+   * Detener sincronización de letras
+   */
+  stopLyricsSync() {
+    if (this.lyricsAnimationId) {
+      cancelAnimationFrame(this.lyricsAnimationId);
+      this.lyricsAnimationId = null;
+    }
+    this.lastHighlightedLine = -1;
+  }
+  
+  /**
+   * Actualizar highlight de la línea actual
+   */
+  updateLyricsHighlight() {
+    const content = document.getElementById('nowPlayingContent');
+    
+    // Verificar que seguimos en modo letras
+    if (!content?.classList.contains('lyrics-active')) {
+      this.stopLyricsSync();
+      return;
+    }
+    
+    // Usar el tiempo guardado (más preciso)
+    const currentTime = this.currentPlaybackTime || 0;
+    
+    // Obtener línea actual
+    window.lyricsService?.getCurrentLine(currentTime);
+    const currentIndex = window.lyricsService?.currentLineIndex ?? -1;
+    
+    // Solo actualizar si cambió la línea (optimización)
+    if (currentIndex !== this.lastHighlightedLine) {
+      this.lastHighlightedLine = currentIndex;
+      
+      const lyricsContent = document.getElementById('lyricsContent');
+      const lines = lyricsContent?.querySelectorAll('.lyrics-line');
+      
+      lines?.forEach((line, index) => {
+        line.classList.remove('active', 'passed', 'upcoming');
+        
+        if (index === currentIndex) {
+          line.classList.add('active');
+          this.scrollToLyricLine(line);
+        } else if (index < currentIndex) {
+          line.classList.add('passed');
+        } else if (index === currentIndex + 1) {
+          line.classList.add('upcoming');
+        }
+      });
+    }
+    
+    // Continuar loop
+    this.lyricsAnimationId = requestAnimationFrame(() => this.updateLyricsHighlight());
+  }
+  
+  /**
+   * Scroll suave a la línea activa - Estilo Spotify
+   */
+  scrollToLyricLine(lineEl) {
+    const container = document.getElementById('lyricsContainer');
+    if (!container || !lineEl) return;
+    
+    // Calcular posición para centrar la línea
+    const containerHeight = container.clientHeight;
+    const lineOffset = lineEl.offsetTop;
+    const lineHeight = lineEl.offsetHeight;
+    
+    // Centrar la línea en el contenedor
+    const scrollTarget = lineOffset - (containerHeight / 2) + (lineHeight / 2);
+    
+    // Scroll suave
+    container.scrollTo({
+      top: scrollTarget,
+      behavior: 'smooth'
+    });
+  }
+  
+  /**
+   * Actualizar mini carrusel en modo letras
+   */
+  updateMiniCarousel() {
+    // Actualizar covers
+    const miniPrevCover = document.getElementById('miniPrevCover');
+    const miniCurrentCover = document.getElementById('miniCurrentCover');
+    const miniNextCover = document.getElementById('miniNextCover');
+    
+    // Actualizar títulos
+    const miniPrevTitle = document.getElementById('miniPrevTitle');
+    const miniPrevArtist = document.getElementById('miniPrevArtist');
+    const miniCurrentTitle = document.getElementById('miniCurrentTitle');
+    const miniCurrentArtist = document.getElementById('miniCurrentArtist');
+    const miniNextTitle = document.getElementById('miniNextTitle');
+    const miniNextArtist = document.getElementById('miniNextArtist');
+    
+    // Prev
+    if (this.prevSong) {
+      if (miniPrevCover) miniPrevCover.src = this.prevSong.thumbnail || './assets/img/icon.png';
+      if (miniPrevTitle) miniPrevTitle.textContent = this.prevSong.title || '-';
+      if (miniPrevArtist) miniPrevArtist.textContent = this.prevSong.artist || '-';
+    }
+    
+    // Current
+    if (this.currentSong) {
+      if (miniCurrentCover) miniCurrentCover.src = this.currentSong.thumbnail || './assets/img/icon.png';
+      if (miniCurrentTitle) miniCurrentTitle.textContent = this.currentSong.title || '-';
+      if (miniCurrentArtist) miniCurrentArtist.textContent = this.currentSong.artist || '-';
+    }
+    
+    // Next
+    if (this.nextSong) {
+      if (miniNextCover) miniNextCover.src = this.nextSong.thumbnail || './assets/img/icon.png';
+      if (miniNextTitle) miniNextTitle.textContent = this.nextSong.title || '-';
+      if (miniNextArtist) miniNextArtist.textContent = this.nextSong.artist || '-';
+    }
+    
+    // Click handlers para mini carrusel
+    document.getElementById('miniPrev')?.addEventListener('click', () => {
+      if (this.prevSong && window.musicPlayer) {
+        window.musicPlayer.previous();
+      }
+    });
+    
+    document.getElementById('miniNext')?.addEventListener('click', () => {
+      if (this.nextSong && window.musicPlayer) {
+        window.musicPlayer.next();
+      }
+    });
   }
 }
 

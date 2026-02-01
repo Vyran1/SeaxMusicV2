@@ -27,6 +27,76 @@
   --shadow: rgba(0, 0, 0, 0.5);
 }
 
+/* ===== ESTILOS GLOBALES PREMIUM PARA IMÁGENES ===== */
+/* Eliminar bordes negros de YouTube - TODAS las imágenes cuadradas con cover */
+
+/* Todos los contenedores de imágenes DEBEN ser cuadrados con estilo premium */
+.card-image,
+.library-card-image,
+.chart-thumbnail,
+.track-image-container,
+.carousel-item-image,
+.search-result-card .card-image,
+.music-card .card-image,
+.recent-card .card-image {
+  aspect-ratio: 1 / 1 !important;
+  overflow: hidden !important;
+  position: relative !important;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* ⭐ TODAS las imágenes de música: recorte cuadrado premium SIN bordes negros */
+img[src*="youtube.com/vi"],
+img[src*="ytimg.com"],
+img[src*="i.ytimg.com"],
+img[src*="img.youtube.com"],
+.card-img,
+.card-image img,
+.library-card-image img,
+.list-item-image img,
+.carousel-cover,
+.chart-thumbnail img,
+.search-result-card .card-img,
+.search-result-card img,
+.music-card .card-img,
+.music-card img,
+.library-card img,
+.recent-card img,
+.history-item img,
+.queue-item img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+  /* ⭐ ZOOM 35% para eliminar bordes negros de YouTube */
+  transform: scale(1.35);
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Efecto hover en imágenes - zoom extra */
+.music-card:hover .card-img,
+.music-card:hover img,
+.library-card:hover img,
+.search-result-card:hover .card-img {
+  transform: scale(1.45);
+}
+
+/* Track image del player bar - tamaño fijo SIN zoom */
+.player-bar .track-image {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  flex-shrink: 0 !important;
+  object-fit: cover;
+  object-position: center center;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  /* ⭐ Sin zoom - ya está bien encuadrada */
+  transform: scale(1) !important;
+}
+
 /* ===== LOADING OVERLAY ===== */
 .loading-overlay {
   position: fixed;
@@ -514,17 +584,37 @@ body {
 
 /* Music Cards */
 .music-card {
-  background-color: var(--bg-secondary);
-  border-radius: 8px;
+  background: linear-gradient(145deg, rgba(40, 40, 40, 0.6) 0%, rgba(25, 25, 25, 0.8) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 16px;
   padding: 16px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.music-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
 }
 
 .music-card:hover {
-  background-color: var(--bg-tertiary);
-  transform: translateY(-4px);
+  background: linear-gradient(145deg, rgba(50, 50, 50, 0.8) 0%, rgba(30, 30, 30, 0.9) 100%);
+  transform: translateY(-8px) scale(1.02);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.music-card:hover::before {
+  opacity: 1;
 }
 
 .music-card:hover .card-overlay {
@@ -536,16 +626,17 @@ body {
   opacity: 1;
 }
 
-/* ⭐ Botón de quitar favorito */
+/* ⭐ Botón de quitar favorito - Premium */
 .remove-favorite-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 32px;
-  height: 32px;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background-color: rgba(0, 0, 0, 0.7);
-  border: none;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(30, 30, 30, 0.9) 100%);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--accent-primary);
   font-size: 14px;
   cursor: pointer;
@@ -553,18 +644,26 @@ body {
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: all 0.3s ease;
+  transform: scale(0.8);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   z-index: 10;
 }
 
 .music-card:hover .remove-favorite-btn {
   opacity: 1;
+  transform: scale(1);
 }
 
 .remove-favorite-btn:hover {
-  background-color: var(--accent-primary);
+  background: linear-gradient(135deg, var(--accent-primary) 0%, #ff4444 100%);
   color: white;
-  transform: scale(1.1);
+  transform: scale(1.15) !important;
+  border-color: transparent;
+  box-shadow: 0 4px 16px rgba(229, 57, 53, 0.4);
+}
+
+.remove-favorite-btn:active {
+  transform: scale(0.95) !important;
 }
 
 /* Empty favorites placeholder */
@@ -585,75 +684,110 @@ body {
 .card-image {
   width: 100%;
   aspect-ratio: 1;
-  border-radius: 6px;
-  background-color: var(--bg-tertiary);
-  margin-bottom: 12px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+  margin-bottom: 14px;
   position: relative;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+}
+
+.music-card:hover .card-image {
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+  transform: scale(1.02);
 }
 
 .card-image .card-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center center;
   position: absolute;
   top: 0;
   left: 0;
+  /* ⭐ ZOOM 35% para eliminar bordes negros de YouTube (igual que modo letras) */
+  transform: scale(1.35) !important;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), filter 0.3s ease;
+}
+
+.music-card:hover .card-img {
+  transform: scale(1.45) !important;
+  filter: brightness(0.95);
 }
 
 .card-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.7) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.4s ease;
 }
 
 .play-card-btn {
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
-  background-color: var(--accent-primary);
+  background: linear-gradient(135deg, var(--accent-primary) 0%, #ff4444 100%);
   border: none;
   color: white;
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transform: translateY(8px);
+  transform: translateY(12px) scale(0.8);
   opacity: 0;
-  transition: all 0.3s ease;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 8px 24px rgba(229, 57, 53, 0.4);
+}
+
+.music-card:hover .play-card-btn {
+  transform: translateY(0) scale(1);
+  opacity: 1;
 }
 
 .play-card-btn:hover {
-  background-color: var(--accent-hover);
-  transform: translateY(0) scale(1.05);
+  background: linear-gradient(135deg, var(--accent-hover) 0%, #ff5555 100%);
+  transform: translateY(0) scale(1.1) !important;
+  box-shadow: 0 12px 32px rgba(229, 57, 53, 0.5);
+}
+
+.play-card-btn:active {
+  transform: scale(0.95) !important;
 }
 
 .card-duration {
   position: absolute;
-  bottom: 8px;
-  right: 8px;
-  background-color: rgba(0, 0, 0, 0.8);
+  bottom: 10px;
+  right: 10px;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(20, 20, 20, 0.95) 100%);
   color: white;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .card-info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  padding: 4px 2px 0;
 }
 
 .card-title {
@@ -664,6 +798,11 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   margin: 0;
+  transition: color 0.3s ease;
+}
+
+.music-card:hover .card-title {
+  color: white;
 }
 
 .card-artist {
@@ -673,6 +812,11 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   margin: 0;
+  transition: color 0.3s ease;
+}
+
+.music-card:hover .card-artist {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .placeholder-card {
@@ -1226,10 +1370,10 @@ body {
 
 .library-header {
   position: relative;
-  height: 300px;
+  height: 320px;
   overflow: hidden;
   margin: -24px -24px 0 -24px;
-  padding: 24px;
+  padding: 32px 40px;
   display: flex;
   align-items: flex-end;
   z-index: 1;
@@ -1241,8 +1385,8 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, var(--accent-primary) 0%, #8B1E3F 50%, #3D1308 100%);
-  opacity: 0.8;
+  background: linear-gradient(135deg, #e13838 0%, #8B1E3F 40%, #1a0a0a 100%);
+  opacity: 1;
   z-index: 0;
 }
 
@@ -1252,7 +1396,7 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 150px;
+  height: 200px;
   background: linear-gradient(transparent, var(--bg-primary));
 }
 
@@ -1261,50 +1405,54 @@ body {
   z-index: 1;
   display: flex;
   align-items: flex-end;
-  gap: 24px;
+  gap: 32px;
 }
 
 .library-icon {
-  width: 200px;
-  height: 200px;
-  background: linear-gradient(135deg, var(--accent-primary), #8B1E3F);
-  border-radius: 8px;
+  width: 220px;
+  height: 220px;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, #ff4444 50%, #8B1E3F 100%);
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 
+    0 25px 80px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .library-icon i {
-  font-size: 80px;
+  font-size: 90px;
   color: white;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .library-info {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .library-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-primary);
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .library-title {
-  font-size: 72px;
+  font-size: 80px;
   font-weight: 900;
-  color: var(--text-primary);
+  color: #ffffff;
   line-height: 1;
-  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+  letter-spacing: -2px;
 }
 
 .library-description {
-  font-size: 14px;
-  color: var(--text-secondary);
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.7);
   margin-top: 8px;
 }
 
@@ -1320,39 +1468,42 @@ body {
 }
 
 .library-play-btn {
-  width: 56px;
-  height: 56px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   border: none;
-  background: var(--accent-primary);
+  background: linear-gradient(135deg, var(--accent-primary) 0%, #ff4444 100%);
   color: white;
-  font-size: 22px;
+  font-size: 24px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 8px 30px rgba(229, 57, 53, 0.4);
 }
 
 .library-play-btn:hover {
-  transform: scale(1.06);
-  background: var(--accent-hover);
+  transform: scale(1.08);
+  box-shadow: 0 12px 40px rgba(229, 57, 53, 0.5);
 }
 
 .library-shuffle-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  border: none;
-  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-secondary);
   font-size: 18px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
 }
 
 .library-shuffle-btn:hover {
   color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .library-sort select {
@@ -1422,86 +1573,107 @@ body {
 }
 
 .library-card {
-  background: var(--bg-secondary);
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
   padding: 16px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   z-index: 1;
+  border: 1px solid transparent;
 }
 
 .library-card:hover {
-  background: var(--bg-tertiary);
-  transform: translateY(-4px);
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-6px);
+  border-color: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
 }
 
 .library-card.dragging {
   opacity: 0.5;
   transform: scale(1.02);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
 }
 
 .library-card.drag-over {
   border: 2px dashed var(--accent-primary);
 }
 
+/* ⭐ IMAGEN DE BIBLIOTECA - PREMIUM CON ZOOM */
 .library-card-image {
   position: relative;
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 1 / 1;
   margin-bottom: 16px;
-  border-radius: 6px;
-  overflow: hidden;
+  border-radius: 12px;
+  overflow: hidden !important;
+  background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .library-card-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+  /* ⭐ ZOOM 35% para eliminar bordes negros de YouTube */
+  transform: scale(1.35) !important;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.library-card:hover .library-card-image img {
+  transform: scale(1.45) !important;
 }
 
 .library-card-play {
   position: absolute;
-  bottom: 8px;
-  right: 8px;
-  width: 48px;
-  height: 48px;
+  bottom: 10px;
+  right: 10px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
-  background: var(--accent-primary);
+  background: linear-gradient(135deg, var(--accent-primary) 0%, #ff4444 100%);
   color: white;
   border: none;
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
   opacity: 0;
-  transform: translateY(8px);
-  transition: all 0.3s ease;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  transform: translateY(10px) scale(0.9);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 8px 25px rgba(229, 57, 53, 0.4);
 }
 
 .library-card:hover .library-card-play {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
 }
 
 .library-card-play:hover {
-  transform: scale(1.06);
-  background: var(--accent-hover);
+  transform: scale(1.1);
+  box-shadow: 0 12px 35px rgba(229, 57, 53, 0.5);
 }
 
 .library-card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 4px;
+  color: #ffffff;
+  margin-bottom: 6px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.3s ease;
+}
+
+.library-card:hover .library-card-title {
+  color: var(--accent-primary);
 }
 
 .library-card-artist {
-  font-size: 14px;
-  color: var(--text-secondary);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1567,23 +1739,36 @@ body {
 }
 
 /* Library List View */
+/* ===== VISTA LISTA - ULTRA PREMIUM ===== */
 .library-list {
   width: 100%;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.15) 100%);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 .library-list.hidden {
   display: none;
 }
 
+/* Header de la lista - Elegante */
 .library-list-header {
   display: grid;
-  grid-template-columns: 40px 50px 1fr 200px 80px 50px;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  font-size: 12px;
+  grid-template-columns: 40px 45px minmax(200px, 1fr) minmax(120px, 180px) 80px 50px;
+  padding: 14px 24px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 1.8px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(20px);
 }
 
 .library-list-body {
@@ -1591,90 +1776,211 @@ body {
   flex-direction: column;
 }
 
+/* Item de la lista - Premium con micro-interacciones */
 .library-list-item {
   display: grid;
-  grid-template-columns: 40px 50px 1fr 200px 80px 50px;
-  padding: 8px 16px;
+  grid-template-columns: 40px 45px minmax(200px, 1fr) minmax(120px, 180px) 80px 50px;
+  padding: 10px 24px;
   align-items: center;
-  border-radius: 4px;
-  transition: background 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  position: relative;
+}
+
+.library-list-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent-primary);
+  opacity: 0;
+  transform: scaleY(0);
+  transition: all 0.3s ease;
+}
+
+.library-list-item:last-child {
+  border-bottom: none;
 }
 
 .library-list-item:hover {
-  background: var(--bg-hover);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
 }
 
+.library-list-item:hover::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.library-list-item:hover .list-item-name {
+  color: var(--accent-primary);
+}
+
+/* Estado reproduciendo */
+.library-list-item.playing {
+  background: linear-gradient(90deg, rgba(229, 57, 53, 0.15) 0%, rgba(229, 57, 53, 0.05) 100%);
+}
+
+.library-list-item.playing::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.library-list-item.playing .list-item-name {
+  color: var(--accent-primary);
+  font-weight: 700;
+}
+
+.library-list-item.playing .list-col-num {
+  color: var(--accent-primary);
+}
+
+/* Estados de drag */
 .library-list-item.dragging {
-  opacity: 0.5;
-  background: var(--bg-tertiary);
+  opacity: 0.4;
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(0.98);
 }
 
 .library-list-item.drag-over {
-  border-top: 2px solid var(--accent-primary);
+  border-top: 3px solid var(--accent-primary);
+  background: rgba(229, 57, 53, 0.08);
 }
 
+/* Columna Drag */
 .list-col-drag {
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.25);
   cursor: grab;
   display: flex;
   align-items: center;
   justify-content: center;
+  opacity: 0;
+  transition: all 0.2s ease;
+  font-size: 12px;
+}
+
+.library-list-item:hover .list-col-drag {
+  opacity: 1;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.list-col-drag:hover {
+  color: rgba(255, 255, 255, 0.8) !important;
 }
 
 .list-col-drag:active {
   cursor: grabbing;
+  color: var(--accent-primary) !important;
 }
 
+/* Columna Número */
 .list-col-num {
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.35);
   font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.2s ease;
 }
 
+.library-list-item:hover .list-col-num {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Columna Título - Con imagen y nombre */
 .list-col-title {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
+  min-width: 0;
+  overflow: hidden;
 }
 
+/* ⭐ Imagen de lista - tamaño compacto */
 .list-item-image {
   width: 40px;
   height: 40px;
   border-radius: 4px;
-  object-fit: cover;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #1a1a1a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  position: relative;
+  transition: all 0.3s ease;
 }
 
+.library-list-item:hover .list-item-image {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.list-item-image img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  /* ⭐ ZOOM para eliminar bordes negros de YouTube */
+  transform: scale(1.35) !important;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.library-list-item:hover .list-item-image img {
+  transform: scale(1.45) !important;
+}
+
+/* Info del item */
 .list-item-info {
   display: flex;
   flex-direction: column;
+  gap: 3px;
+  min-width: 0;
   overflow: hidden;
 }
 
 .list-item-name {
-  font-size: 16px;
-  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.25s ease;
+  letter-spacing: 0.01em;
 }
 
+/* Columna Artista */
 .list-col-artist {
-  color: var(--text-secondary);
-  font-size: 14px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.25s ease;
+  padding-right: 10px;
 }
 
+.library-list-item:hover .list-col-artist {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Columna Duración */
 .list-col-duration {
-  color: var(--text-secondary);
-  font-size: 14px;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 13px;
   text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  transition: color 0.2s ease;
 }
 
+.library-list-item:hover .list-col-duration {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Columna Acciones */
 .list-col-actions {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   justify-content: center;
 }
 
@@ -1683,11 +1989,15 @@ body {
   height: 32px;
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.35);
   border-radius: 50%;
   cursor: pointer;
   opacity: 0;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
 }
 
 .library-list-item:hover .list-action-btn {
@@ -1695,11 +2005,17 @@ body {
 }
 
 .list-action-btn:hover {
-  color: #ff4444;
-  background: rgba(255, 68, 68, 0.1);
+  color: #ff5252;
+  background: rgba(255, 82, 82, 0.15);
+  transform: scale(1.15);
 }
 
-/* Library Empty State */
+.list-action-btn:active {
+  transform: scale(0.95);
+}
+ 
+
+/* Library Empty State - Premium */
 .library-empty {
   display: flex;
   flex-direction: column;
@@ -1707,6 +2023,7 @@ body {
   justify-content: center;
   min-height: 400px;
   text-align: center;
+  padding: 60px 20px;
 }
 
 .library-empty.hidden {
@@ -1714,37 +2031,42 @@ body {
 }
 
 .empty-icon {
-  width: 120px;
-  height: 120px;
+  width: 140px;
+  height: 140px;
   border-radius: 50%;
-  background: var(--bg-tertiary);
+  background: linear-gradient(135deg, rgba(229, 57, 53, 0.15) 0%, rgba(139, 30, 63, 0.1) 100%);
+  border: 2px solid rgba(229, 57, 53, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
 }
 
 .empty-icon i {
-  font-size: 48px;
-  color: var(--text-secondary);
+  font-size: 56px;
+  color: var(--accent-primary);
+  opacity: 0.8;
 }
 
 .library-empty h3 {
-  font-size: 24px;
-  color: var(--text-primary);
-  margin-bottom: 8px;
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 12px;
 }
 
 .library-empty p {
-  color: var(--text-secondary);
-  margin-bottom: 24px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 16px;
+  margin-bottom: 32px;
 }
 
 .empty-browse-btn {
-  padding: 12px 32px;
-  border-radius: 24px;
+  padding: 14px 40px;
+  border-radius: 30px;
   border: none;
-  background: var(--accent-primary);
+  background: linear-gradient(135deg, var(--accent-primary) 0%, #ff4444 100%);
+  box-shadow: 0 8px 30px rgba(229, 57, 53, 0.4);
   color: white;
   font-size: 14px;
   font-weight: 600;
@@ -2083,51 +2405,81 @@ body {
   color: var(--text-secondary);
 }
 
-/* Search Result Card (extends music-card) */
+/* Search Result Card - Premium Style (extends music-card) */
 .search-result-card {
-  background-color: var(--bg-secondary);
-  border-radius: 8px;
+  background: linear-gradient(145deg, rgba(40, 40, 40, 0.6) 0%, rgba(25, 25, 25, 0.8) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 16px;
   padding: 16px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.search-result-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.08) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
 }
 
 .search-result-card:hover {
-  background-color: var(--bg-tertiary);
-  transform: translateY(-4px);
+  background: linear-gradient(145deg, rgba(50, 50, 50, 0.8) 0%, rgba(30, 30, 30, 0.9) 100%);
+  transform: translateY(-8px) scale(1.02);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.search-result-card:hover::before {
+  opacity: 1;
 }
 
 .search-result-card:hover .play-card-btn {
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
   opacity: 1;
 }
 
 .search-result-card .card-image {
   width: 100%;
-  aspect-ratio: 1;
-  border-radius: 6px;
-  background-color: var(--bg-tertiary);
-  margin-bottom: 12px;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+  margin-bottom: 14px;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 .search-result-card .card-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center center;
+  position: absolute;
+  top: 0;
+  left: 0;
+  transition: transform 0.4s ease;
+}
+
+.search-result-card:hover .card-img {
+  transform: scale(1.05);
 }
 
 .search-result-card .card-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.7) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.4s ease;
 }
 
 .search-result-card:hover .card-overlay {
@@ -2283,16 +2635,24 @@ body {
 .chart-thumbnail {
   width: 56px;
   height: 56px;
-  border-radius: 6px;
+  border-radius: 10px;
   overflow: hidden;
   position: relative;
   flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
 }
 
 .chart-thumbnail img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center center;
+  transition: transform 0.3s ease;
+}
+
+.chart-item:hover .chart-thumbnail img {
+  transform: scale(1.1);
 }
 
 .chart-play-btn {
@@ -2704,7 +3064,9 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease, opacity 0.3s ease;
+  /* ⭐ Zoom para eliminar bordes negros de YouTube */
+  transform: scale(1.15);
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
 }
 
 /* Visualizador de audio */
@@ -3040,6 +3402,425 @@ body {
 
 .np-volume-wrapper.muted .np-volume-handle {
   background: #ff4444;
+}
+
+/* ===== MODO LETRAS - LYRICS MODE ===== */
+
+/* Contenedor principal de modos */
+.nowplaying-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== MODO LETRAS - DISEÑO ULTRA PREMIUM ===== */
+.nowplaying-lyrics-mode {
+  display: none;
+  width: 100%;
+  height: calc(100vh - 160px);
+  gap: 40px;
+  padding: 30px 60px 20px;
+  opacity: 0;
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  align-items: center;
+}
+
+/* Cuando el modo letras está activo */
+.nowplaying-content.lyrics-active .nowplaying-main {
+  display: none;
+}
+
+.nowplaying-content.lyrics-active .nowplaying-lyrics-mode {
+  display: flex;
+  opacity: 1;
+}
+
+/* ===== CONTROLES FIJOS ABAJO EN MODO LETRAS ===== */
+.nowplaying-content.lyrics-active .nowplaying-center {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: 100%;
+  width: 100%;
+  z-index: 100;
+  padding: 0;
+}
+
+.nowplaying-content.lyrics-active .nowplaying-info {
+  display: none !important;
+}
+
+.nowplaying-content.lyrics-active .nowplaying-controls {
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.95) 100%);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  padding: 20px 50px 24px;
+  border-radius: 0;
+  border: none;
+}
+
+/* ===== SECCIÓN IZQUIERDA: COVER + INFO ===== */
+.lyrics-mini-carousel {
+  flex: 0 0 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 20px;
+}
+
+/* ⭐ COVER PRINCIPAL - ESTILO PREMIUM COMO NOWPLAYING */
+.mini-carousel-item.mini-current {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  width: 100%;
+}
+
+/* ⭐ Contenedor del cover para controlar overflow y zoom */
+.mini-cover-container {
+  width: 300px;
+  height: 300px;
+  border-radius: 12px;
+  overflow: hidden !important;
+  box-shadow: 
+    0 25px 80px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  background: #000;
+}
+
+.mini-cover-container:hover {
+  box-shadow: 
+    0 30px 100px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+  transform: scale(1.02);
+}
+
+/* ⭐ IMAGEN CON ZOOM PARA ELIMINAR BORDES NEGROS DE YOUTUBE */
+.mini-cover-container .mini-cover {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+  /* ⭐ ZOOM 35% para recortar bordes negros de YouTube 16:9 → 1:1 */
+  transform: scale(1.35) !important;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.mini-cover-container:hover .mini-cover {
+  transform: scale(1.45) !important;
+}
+
+/* Info de la canción actual - debajo del cover */
+.mini-current .mini-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  width: 100%;
+  max-width: 280px;
+}
+
+.mini-current .mini-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.mini-current .mini-artist {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+/* Visualizador en el cover */
+.mini-visualizer {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  height: 24px;
+  margin-top: 8px;
+}
+
+.mini-bar {
+  width: 4px;
+  background: var(--accent-primary);
+  border-radius: 2px;
+  animation: miniVisualize 0.5s ease infinite alternate;
+}
+
+.mini-bar:nth-child(1) { animation-delay: 0s; height: 8px; }
+.mini-bar:nth-child(2) { animation-delay: 0.15s; height: 18px; }
+.mini-bar:nth-child(3) { animation-delay: 0.3s; height: 12px; }
+
+@keyframes miniVisualize {
+  0% { transform: scaleY(0.5); }
+  100% { transform: scaleY(1.3); }
+}
+
+/* Canciones prev/next - pequeñas y sutiles */
+.mini-carousel-item.mini-prev,
+.mini-carousel-item.mini-next {
+  display: none; /* Ocultar las laterales, solo mostrar la actual */
+}
+
+/* ===== PANEL DE LETRAS - ESTILO SPOTIFY PREMIUM ===== */
+.lyrics-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  border-radius: 0;
+  border: none;
+  overflow: hidden;
+  min-height: 0;
+  max-height: calc(100vh - 240px);
+}
+
+.lyrics-header {
+  display: none; /* Ocultar header, no necesario */
+}
+
+/* Contenedor de letras */
+.lyrics-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 60px 40px 120px;
+  scroll-behavior: smooth;
+  position: relative;
+  /* Fade elegante arriba y abajo */
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 12%,
+    black 80%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 12%,
+    black 80%,
+    transparent 100%
+  );
+}
+
+/* Scrollbar invisible */
+.lyrics-container::-webkit-scrollbar {
+  width: 0;
+  display: none;
+}
+
+/* Estados de loading y error */
+.lyrics-loading,
+.lyrics-not-found {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.lyrics-loading.show,
+.lyrics-not-found.show {
+  display: flex;
+}
+
+.lyrics-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.lyrics-loading span,
+.lyrics-not-found span {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.lyrics-not-found i {
+  font-size: 48px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.lyrics-not-found p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ===== ESTILOS DE LETRAS - SPOTIFY STYLE ===== */
+
+/* Contenido de letras */
+.lyrics-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 15vh 0; /* Espacio para centrar la línea activa */
+}
+
+.lyrics-not-found span {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.lyrics-not-found p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ===== LETRAS ESTILO SPOTIFY - SUTIL Y ELEGANTE ===== */
+.lyrics-line {
+  font-size: 24px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.35);
+  line-height: 1.7;
+  padding: 8px 0;
+  /* Transición suave solo en color - SIN zoom */
+  transition: color 0.4s ease-out, opacity 0.4s ease-out;
+  cursor: pointer;
+  letter-spacing: -0.01em;
+}
+
+.lyrics-line:hover {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* 🎵 LÍNEA ACTIVA - Solo cambio de color, SIN zoom */
+.lyrics-line.active {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+}
+
+/* Líneas pasadas */
+.lyrics-line.passed {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+/* Línea siguiente */
+.lyrics-line.upcoming {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Letras sin sincronización */
+.lyrics-content.plain .lyrics-line {
+  font-size: 22px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: default;
+}
+
+.lyrics-content.plain .lyrics-line:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Botón de letras activo */
+#npLyrics.active {
+  color: var(--accent-primary);
+  background: rgba(229, 57, 53, 0.2);
+  box-shadow: 0 0 20px rgba(229, 57, 53, 0.3);
+}
+
+#npLyrics.active i {
+  color: var(--accent-primary);
+  text-shadow: 0 0 10px var(--accent-primary);
+}
+
+/* ===== RESPONSIVE PARA MODO LETRAS ===== */
+@media (max-width: 1000px) {
+  .nowplaying-lyrics-mode {
+    flex-direction: column;
+    padding: 20px 30px;
+    gap: 24px;
+  }
+  
+  .lyrics-mini-carousel {
+    flex: 0 0 auto;
+    flex-direction: row;
+    gap: 16px;
+  }
+  
+  .mini-carousel-item.mini-current {
+    flex-direction: row;
+    gap: 16px;
+  }
+  
+  .mini-current .mini-cover {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .mini-current .mini-info {
+    text-align: left;
+    align-items: flex-start;
+  }
+  
+  .mini-current .mini-title {
+    font-size: 16px;
+  }
+  
+  .mini-current .mini-artist {
+    font-size: 12px;
+  }
+  
+  .lyrics-line {
+    font-size: 22px;
+  }
+  
+  .lyrics-line.active {
+    font-size: 26px;
+  }
+}
+
+@media (max-width: 768px) {
+  .nowplaying-lyrics-mode {
+    padding: 15px 20px;
+  }
+  
+  .lyrics-mini-carousel {
+    display: none;
+  }
+  
+  .lyrics-line {
+    font-size: 20px;
+  }
+  
+  .lyrics-line.active {
+    font-size: 24px;
+  }
 }
 
 .np-volume-wrapper.muted .np-volume-percent {

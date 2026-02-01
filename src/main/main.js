@@ -105,6 +105,14 @@ function createMainWindow() {
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
   }
+  
+  // ⭐ Permitir abrir DevTools con F12 o Ctrl+Shift+I en producción
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' || 
+        (input.control && input.shift && input.key.toLowerCase() === 'i')) {
+      mainWindow.webContents.toggleDevTools();
+    }
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -2500,6 +2508,15 @@ app.whenReady().then(() => {
   // Forzar ventana de update en modo desarrollo DESPUÉS de que mainWindow esté completamente visible
   // Forzar ventana de update SOLO en modo desarrollo explícito (--dev flag)
   const isDevMode = process.argv.includes('--dev');
+  const isPackaged = app.isPackaged;
+  
+  console.log('========================================');
+  console.log('🔍 DIAGNÓSTICO DE ENTORNO:');
+  console.log('   app.isPackaged:', isPackaged);
+  console.log('   isDevMode (--dev flag):', isDevMode);
+  console.log('   process.argv:', process.argv);
+  console.log('   Versión:', app.getVersion());
+  console.log('========================================');
   
   if (isDevMode) {
     console.log('🔧 Modo desarrollo detectado - forzando modal de update');
@@ -2539,14 +2556,38 @@ app.whenReady().then(() => {
     }
   } else {
     // PRODUCCIÓN: Verificar actualizaciones pendientes o buscar nuevas
+    console.log('🚀 MODO PRODUCCIÓN - Iniciando verificación de actualizaciones...');
+    
+    // Enviar log al renderer
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('update-log', '🚀 MODO PRODUCCIÓN - Verificando actualizaciones...');
+    }
+    
     setTimeout(async () => {
       if (appUpdater) {
+        console.log('📦 appUpdater existe, verificando...');
+        
+        // Enviar log al renderer
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('update-log', '📦 Verificando actualizaciones pendientes...');
+        }
+        
         // Primero verificar si hay actualización pendiente guardada
         const hasPending = await appUpdater.checkAndShowPendingUpdate();
+        console.log('📦 ¿Hay actualización pendiente?', hasPending);
         
         // Si no hay pendiente, buscar nuevas actualizaciones
         if (!hasPending) {
+          console.log('🔍 No hay pendiente, buscando nuevas actualizaciones...');
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('update-log', '🔍 Buscando nuevas actualizaciones en GitHub...');
+          }
           appUpdater.checkForUpdatesAndNotify();
+        }
+      } else {
+        console.log('❌ appUpdater es NULL!');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('update-log', '❌ ERROR: appUpdater es NULL');
         }
       }
     }, 1500);

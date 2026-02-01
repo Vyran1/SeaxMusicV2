@@ -25,16 +25,118 @@ class AppUpdater {
         // Ruta para persistir actualización pendiente
         this.updateInfoPath = path.join(app.getPath('userData'), 'pending-update.json');
         
-        // Configuración del auto-updater
-        autoUpdater.autoDownload = true;
-        autoUpdater.autoInstallOnAppQuit = false; // NO instalar automáticamente
+        this.configureAutoUpdater();
+        this.setupEventListeners();
+    }
+    
+    configureAutoUpdater() {
+        console.log('🔧 [AUTO-UPDATER] Configurando...');
         
-        // Token para repos privados
-        autoUpdater.requestHeaders = { 
-            Authorization: `token ${this.githubToken}` 
+        // Configuración básica
+        autoUpdater.autoDownload = true;
+        autoUpdater.autoInstallOnAppQuit = false;
+        
+        // ⭐ CRÍTICO: Configurar para GitHub privado
+        // El token debe tener permisos 'repo' completos
+        const feedURL = {
+            provider: 'github',
+            owner: this.githubOwner,
+            repo: this.githubRepo,
+            private: true,
+            token: this.githubToken,
+            releaseType: 'release'
         };
         
-        this.setupEventListeners();
+        console.log('🔧 [AUTO-UPDATER] Feed URL config:', JSON.stringify({...feedURL, token: '***hidden***'}));
+        
+        try {
+            autoUpdater.setFeedURL(feedURL);
+            console.log('✅ [AUTO-UPDATER] Feed URL configurado correctamente');
+        } catch (err) {
+            console.error('❌ [AUTO-UPDATER] Error configurando Feed URL:', err.message);
+        }
+        
+        // Headers adicionales para autenticación
+        autoUpdater.requestHeaders = {
+            'Authorization': `token ${this.githubToken}`,
+            'Accept': 'application/octet-stream'
+        };
+    }
+    
+    /**
+     * 🔍 DIAGNÓSTICO: Verificar acceso a GitHub y latest release
+     */
+    async diagnoseGitHubAccess() {
+        const mainWindow = BrowserWindow.getAllWindows()[0];
+        const sendLog = (msg) => {
+            console.log(msg);
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('update-log', msg);
+            }
+        };
+        
+        sendLog('🔍 [DIAGNÓSTICO] Verificando acceso a GitHub...');
+        
+        return new Promise((resolve) => {
+            // Verificar latest release
+            const options = {
+                hostname: 'api.github.com',
+                path: `/repos/${this.githubOwner}/${this.githubRepo}/releases/latest`,
+                method: 'GET',
+                headers: {
+                    'User-Agent': 'SeaxMusic-Updater',
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Authorization': `token ${this.githubToken}`
+                }
+            };
+            
+            sendLog(`🔍 [DIAGNÓSTICO] URL: https://api.github.com${options.path}`);
+            
+            const req = https.request(options, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                    sendLog(`🔍 [DIAGNÓSTICO] Status: ${res.statusCode}`);
+                    
+                    if (res.statusCode === 200) {
+                        try {
+                            const release = JSON.parse(data);
+                            sendLog(`✅ [DIAGNÓSTICO] Latest release: v${release.tag_name}`);
+                            sendLog(`✅ [DIAGNÓSTICO] Assets: ${release.assets.map(a => a.name).join(', ')}`);
+                            
+                            // Verificar si latest.yml existe
+                            const latestYml = release.assets.find(a => a.name === 'latest.yml');
+                            if (latestYml) {
+                                sendLog(`✅ [DIAGNÓSTICO] latest.yml encontrado!`);
+                            } else {
+                                sendLog(`❌ [DIAGNÓSTICO] latest.yml NO encontrado en assets!`);
+                            }
+                            
+                            resolve({ success: true, release });
+                        } catch (e) {
+                            sendLog(`❌ [DIAGNÓSTICO] Error parseando: ${e.message}`);
+                            resolve({ success: false, error: e.message });
+                        }
+                    } else if (res.statusCode === 401) {
+                        sendLog(`❌ [DIAGNÓSTICO] ERROR 401: Token inválido o sin permisos`);
+                        resolve({ success: false, error: 'Token inválido' });
+                    } else if (res.statusCode === 404) {
+                        sendLog(`❌ [DIAGNÓSTICO] ERROR 404: Repo no encontrado o sin releases`);
+                        resolve({ success: false, error: 'Repo no encontrado' });
+                    } else {
+                        sendLog(`❌ [DIAGNÓSTICO] ERROR ${res.statusCode}: ${data}`);
+                        resolve({ success: false, error: `Status ${res.statusCode}` });
+                    }
+                });
+            });
+            
+            req.on('error', (e) => {
+                sendLog(`❌ [DIAGNÓSTICO] Error de red: ${e.message}`);
+                resolve({ success: false, error: e.message });
+            });
+            
+            req.end();
+        });
     }
     
     /**
@@ -204,27 +306,34 @@ class AppUpdater {
     setupEventListeners() {
         // Verificando actualizaciones
         autoUpdater.on('checking-for-update', () => {
-            console.log('🔍 Buscando actualizaciones...');
+            console.log('🔍 [UPDATE-EVENT] Buscando actualizaciones...');
             this.sendStatusToWindow('checking-for-update');
+            this.sendLogToRenderer('🔍 Buscando actualizaciones...');
         });
         
         // Actualización disponible
         autoUpdater.on('update-available', (info) => {
-            console.log('✅ Actualización disponible:', info.version);
+            console.log('✅ [UPDATE-EVENT] Actualización disponible:', info.version);
+            console.log('✅ [UPDATE-EVENT] Info completa:', JSON.stringify(info, null, 2));
             this.updateAvailable = true;
             this.sendStatusToWindow('update-available', info);
+            this.sendLogToRenderer('✅ Actualización disponible: ' + info.version);
         });
         
         // No hay actualizaciones
         autoUpdater.on('update-not-available', (info) => {
-            console.log('ℹ️ No hay actualizaciones disponibles');
+            console.log('ℹ️ [UPDATE-EVENT] No hay actualizaciones disponibles');
+            console.log('ℹ️ [UPDATE-EVENT] Versión actual es la más reciente:', info ? info.version : 'unknown');
             this.sendStatusToWindow('update-not-available', info);
+            this.sendLogToRenderer('ℹ️ No hay actualizaciones - versión actual: ' + (info ? info.version : 'unknown'));
         });
         
         // Error en la actualización
         autoUpdater.on('error', (err) => {
-            console.error('❌ Error en auto-updater:', err);
+            console.error('❌ [UPDATE-EVENT] Error en auto-updater:', err.message);
+            console.error('❌ [UPDATE-EVENT] Stack:', err.stack);
             this.sendStatusToWindow('error', err.message);
+            this.sendLogToRenderer('❌ ERROR: ' + err.message);
         });
         
         // Progreso de descarga
@@ -234,11 +343,13 @@ class AppUpdater {
                               `${this.formatBytes(progressObj.transferred)} / ${this.formatBytes(progressObj.total)}`;
             console.log('📥', logMessage);
             this.sendStatusToWindow('download-progress', progressObj);
+            this.sendLogToRenderer('📥 Descargando: ' + Math.round(progressObj.percent) + '%');
         });
         
         // Actualización descargada
         autoUpdater.on('update-downloaded', async (info) => {
             console.log('✅ Actualización descargada:', info.version);
+            this.sendLogToRenderer('✅ Actualización descargada: ' + info.version);
             this.updateDownloaded = true;
             
             // Obtener releases de GitHub para mostrar en el modal
@@ -274,12 +385,63 @@ class AppUpdater {
     }
     
     // Verificar actualizaciones silenciosamente (al iniciar la app)
-    checkForUpdatesAndNotify() {
+    async checkForUpdatesAndNotify() {
         if (!app.isPackaged) {
+            console.log('🔧 [UPDATE] Modo desarrollo - saltando verificación');
+            this.sendLogToRenderer('🔧 Modo desarrollo - saltando verificación');
             return;
         }
         
-        autoUpdater.checkForUpdatesAndNotify();
+        console.log('🔍 [UPDATE] Iniciando verificación de actualizaciones...');
+        console.log('🔍 [UPDATE] Versión actual:', app.getVersion());
+        console.log('🔍 [UPDATE] Repo:', this.githubOwner + '/' + this.githubRepo);
+        
+        this.sendLogToRenderer('🔍 Verificando... Versión: ' + app.getVersion());
+        
+        // ⭐ PRIMERO: Diagnóstico de acceso a GitHub
+        const diagnosis = await this.diagnoseGitHubAccess();
+        
+        if (!diagnosis.success) {
+            this.sendLogToRenderer('❌ No se puede acceder a GitHub: ' + diagnosis.error);
+            return;
+        }
+        
+        // Verificar si hay versión más nueva
+        const latestVersion = diagnosis.release.tag_name.replace(/^v/, '');
+        const currentVersion = app.getVersion();
+        
+        this.sendLogToRenderer(`📊 Comparando: actual=${currentVersion} vs latest=${latestVersion}`);
+        
+        if (!this.isVersionGreater(latestVersion, currentVersion)) {
+            this.sendLogToRenderer('✅ Ya tienes la última versión');
+            return;
+        }
+        
+        this.sendLogToRenderer(`🆕 Nueva versión disponible: ${latestVersion}`);
+        
+        try {
+            this.sendLogToRenderer('⏳ Iniciando descarga con autoUpdater...');
+            
+            autoUpdater.checkForUpdatesAndNotify()
+                .then(result => {
+                    this.sendLogToRenderer('📩 Promise resuelta');
+                    if (result) {
+                        console.log('✅ [UPDATE] Resultado:', JSON.stringify(result.updateInfo, null, 2));
+                        this.sendLogToRenderer('✅ Resultado: v' + result.updateInfo.version);
+                    } else {
+                        console.log('ℹ️ [UPDATE] No se encontraron actualizaciones o resultado null');
+                        this.sendLogToRenderer('ℹ️ Resultado: null');
+                    }
+                })
+                .catch(err => {
+                    console.error('❌ [UPDATE] Error verificando actualizaciones:', err.message);
+                    console.error('❌ [UPDATE] Stack:', err.stack);
+                    this.sendLogToRenderer('❌ Error en Promise: ' + err.message);
+                });
+        } catch (err) {
+            console.error('❌ [UPDATE] Error sincrónico:', err.message);
+            this.sendLogToRenderer('❌ Error sincrónico: ' + err.message);
+        }
     }
     
     // Instalar actualización y reiniciar
@@ -488,6 +650,14 @@ class AppUpdater {
         const mainWindow = BrowserWindow.getAllWindows()[0];
         if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('update-status', { status, data });
+        }
+    }
+    
+    // Enviar logs al renderer para debug
+    sendLogToRenderer(message) {
+        const mainWindow = BrowserWindow.getAllWindows()[0];
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('update-log', message);
         }
     }
     

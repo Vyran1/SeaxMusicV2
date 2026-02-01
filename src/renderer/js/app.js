@@ -235,6 +235,13 @@ function checkAllContentLoaded() {
 async function initApp() {
   console.log('🚀 Initializing SeaxMusic...');
   
+  // ⭐ Escuchar logs del auto-updater para debug
+  if (window.electronAPI && window.electronAPI.onUpdateLog) {
+    window.electronAPI.onUpdateLog((message) => {
+      console.log('[AUTO-UPDATE]', message);
+    });
+  }
+  
   // ⭐ Actualizar saludo del banner según la hora
   const homeGreeting = document.getElementById('homeGreeting');
   if (homeGreeting) {
@@ -249,18 +256,12 @@ async function initApp() {
   }
   
   try {
-    // En desarrollo, abre YouTube automáticamente
-    if (window.location.href.includes('localhost') || window.location.href.includes('file://')) {
-      // Dev mode - abrir YouTube automáticamente
-      console.log('🎬 Dev mode: Abriendo YouTube backend...');
-      const result = await window.electronAPI.createBackendPlayer('youtube-backend');
-      if (result.success) {
-        appState.currentPlayerId = result.playerId;
-        console.log('✅ YouTube Backend window opened:', result.playerId);
-      }
-    } else {
-      // Production mode - YouTube solo cuando se necesita
-      console.log('✅ YouTube backend will open when needed');
+    // Siempre abrir YouTube backend al iniciar (necesario para reproducción)
+    console.log('🎬 Abriendo YouTube backend...');
+    const result = await window.electronAPI.createBackendPlayer('youtube-backend');
+    if (result.success) {
+      appState.currentPlayerId = result.playerId;
+      console.log('✅ YouTube Backend window opened:', result.playerId);
     }
   } catch (error) {
     console.error('❌ Error during initialization:', error);

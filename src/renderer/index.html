@@ -33,44 +33,106 @@
     </div>
     
     <!-- Contenido principal -->
-    <div class="nowplaying-content">
-      <!-- ===== CARRUSEL DE COVERS ===== -->
-      <div class="carousel-track" id="carouselTrack">
-        <!-- Prev -->
-        <div class="carousel-item carousel-prev" id="carouselPrev">
-          <div class="carousel-cover-container">
-            <img class="carousel-cover" id="prevCover" src="./assets/img/icon.png" alt="">
+    <div class="nowplaying-content" id="nowPlayingContent">
+      <!-- ===== MODO NORMAL: CARRUSEL CENTRADO ===== -->
+      <div class="nowplaying-main" id="nowPlayingMain">
+        <!-- ===== CARRUSEL DE COVERS ===== -->
+        <div class="carousel-track" id="carouselTrack">
+          <!-- Prev -->
+          <div class="carousel-item carousel-prev" id="carouselPrev">
+            <div class="carousel-cover-container">
+              <img class="carousel-cover" id="prevCover" src="./assets/img/icon.png" alt="">
+            </div>
+            <div class="carousel-item-info">
+              <span class="carousel-item-title" id="prevTitle">-</span>
+              <span class="carousel-item-artist" id="prevArtist">-</span>
+            </div>
           </div>
-          <div class="carousel-item-info">
-            <span class="carousel-item-title" id="prevTitle">-</span>
-            <span class="carousel-item-artist" id="prevArtist">-</span>
+          
+          <!-- Center (actual) -->
+          <div class="carousel-item carousel-center" id="carouselCenter">
+            <div class="carousel-cover-container nowplaying-cover-container">
+              <img class="carousel-cover nowplaying-cover" id="nowPlayingCover" src="" alt="Cover">
+              
+              <!-- Visualizador de audio -->
+              <div class="nowplaying-visualizer" id="nowPlayingVisualizer">
+                <div class="visualizer-bar"></div>
+                <div class="visualizer-bar"></div>
+                <div class="visualizer-bar"></div>
+                <div class="visualizer-bar"></div>
+                <div class="visualizer-bar"></div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Next -->
+          <div class="carousel-item carousel-next" id="carouselNext">
+            <div class="carousel-cover-container">
+              <img class="carousel-cover" id="nextCover" src="./assets/img/icon.png" alt="">
+            </div>
+            <div class="carousel-item-info">
+              <span class="carousel-item-title" id="nextTitle">-</span>
+              <span class="carousel-item-artist" id="nextArtist">-</span>
+            </div>
           </div>
         </div>
-        
-        <!-- Center (actual) -->
-        <div class="carousel-item carousel-center" id="carouselCenter">
-          <div class="carousel-cover-container nowplaying-cover-container">
-            <img class="carousel-cover nowplaying-cover" id="nowPlayingCover" src="" alt="Cover">
-            
-            <!-- Visualizador de audio -->
-            <div class="nowplaying-visualizer" id="nowPlayingVisualizer">
-              <div class="visualizer-bar"></div>
-              <div class="visualizer-bar"></div>
-              <div class="visualizer-bar"></div>
-              <div class="visualizer-bar"></div>
-              <div class="visualizer-bar"></div>
+      </div>
+      
+      <!-- ===== MODO LETRAS: CARRUSEL IZQUIERDA + LETRAS DERECHA ===== -->
+      <div class="nowplaying-lyrics-mode" id="nowPlayingLyricsMode">
+        <!-- Mini carrusel a la izquierda -->
+        <div class="lyrics-mini-carousel" id="lyricsMiniCarousel">
+          <div class="mini-carousel-item mini-prev" id="miniPrev">
+            <img class="mini-cover" id="miniPrevCover" src="./assets/img/icon.png" alt="">
+            <div class="mini-info">
+              <span class="mini-title" id="miniPrevTitle">-</span>
+              <span class="mini-artist" id="miniPrevArtist">-</span>
+            </div>
+          </div>
+          <div class="mini-carousel-item mini-current" id="miniCurrent">
+            <div class="mini-cover-container">
+              <img class="mini-cover" id="miniCurrentCover" src="" alt="">
+            </div>
+            <div class="mini-info">
+              <span class="mini-title" id="miniCurrentTitle">-</span>
+              <span class="mini-artist" id="miniCurrentArtist">-</span>
+            </div>
+            <div class="mini-visualizer">
+              <div class="mini-bar"></div>
+              <div class="mini-bar"></div>
+              <div class="mini-bar"></div>
+            </div>
+          </div>
+          <div class="mini-carousel-item mini-next" id="miniNext">
+            <img class="mini-cover" id="miniNextCover" src="./assets/img/icon.png" alt="">
+            <div class="mini-info">
+              <span class="mini-title" id="miniNextTitle">-</span>
+              <span class="mini-artist" id="miniNextArtist">-</span>
             </div>
           </div>
         </div>
         
-        <!-- Next -->
-        <div class="carousel-item carousel-next" id="carouselNext">
-          <div class="carousel-cover-container">
-            <img class="carousel-cover" id="nextCover" src="./assets/img/icon.png" alt="">
+        <!-- Panel de letras a la derecha -->
+        <div class="lyrics-panel" id="lyricsPanel">
+          <div class="lyrics-header">
+            <div class="lyrics-source">
+              <i class="fas fa-music"></i>
+              <span>Letra sincronizada</span>
+            </div>
           </div>
-          <div class="carousel-item-info">
-            <span class="carousel-item-title" id="nextTitle">-</span>
-            <span class="carousel-item-artist" id="nextArtist">-</span>
+          <div class="lyrics-container" id="lyricsContainer">
+            <div class="lyrics-loading" id="lyricsLoading">
+              <div class="lyrics-spinner"></div>
+              <span>Buscando letra...</span>
+            </div>
+            <div class="lyrics-content" id="lyricsContent">
+              <!-- Las líneas de letra se insertan aquí dinámicamente -->
+            </div>
+            <div class="lyrics-not-found" id="lyricsNotFound">
+              <i class="fas fa-music-slash"></i>
+              <span>No se encontró la letra</span>
+              <p>Intenta con otra canción</p>
+            </div>
           </div>
         </div>
       </div>
@@ -282,6 +344,7 @@
   <script src="js/userManager.js"></script>
   <script src="js/searchManager.js"></script>
   <script src="js/libraryManager.js"></script>
+  <script src="js/lyricsService.js"></script>
   <script src="js/nowPlayingManager.js"></script>
 </body>
 </html>

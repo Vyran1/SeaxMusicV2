@@ -138,6 +138,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     });
   },
   
+  // Escuchar logs del updater (debug)
+  onUpdateLog: (callback) => {
+    ipcRenderer.on('update-log', (event, message) => {
+      console.log('[UPDATE-MAIN]', message);
+      callback(message);
+    });
+  },
+  
   // Escuchar notificaciones de actualización
   onUpdateNotification: (callback) => {
     ipcRenderer.on('update-notification', (event, data) => {
