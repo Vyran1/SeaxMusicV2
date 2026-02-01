@@ -105,6 +105,14 @@ function createMainWindow() {
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools();
   }
+  
+  // ⭐ Permitir abrir DevTools con F12 o Ctrl+Shift+I en producción
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' || 
+        (input.control && input.shift && input.key.toLowerCase() === 'i')) {
+      mainWindow.webContents.toggleDevTools();
+    }
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
