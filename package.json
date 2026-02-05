@@ -1,6 +1,6 @@
 {
   "name": "seaxmusic",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "SeaxMusic",
   "main": "src/main/main.js",
   "scripts": {
@@ -31,6 +31,7 @@
     "appId": "com.seaxmusic.app",
     "productName": "SeaxMusic",
     "copyright": "Copyright © 2026 SeaxMusic Team",
+    "generateReleaseNotes": true,
     "directories": {
       "output": "dist",
       "buildResources": "build"
