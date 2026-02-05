@@ -31,7 +31,6 @@
     "appId": "com.seaxmusic.app",
     "productName": "SeaxMusic",
     "copyright": "Copyright © 2026 SeaxMusic Team",
-    "generateReleaseNotes": true,
     "directories": {
       "output": "dist",
       "buildResources": "build"
