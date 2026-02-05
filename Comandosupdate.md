@@ -29,3 +29,13 @@ Release v2.0.5
 🔧 Técnico
 - Auto-update salta modal en modo desarrollo
 - Fallback chain para thumbnails de YouTube
+
+
+
+git status
+
+git add .
+git commit -m 
+git tag v2.0.30
+npm run publish
+$env:GH_TOKEN = "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"; npm run publish

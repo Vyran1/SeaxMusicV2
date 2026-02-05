@@ -53,6 +53,10 @@ const navigationHistory = {
       if (window.libraryManager) {
         window.libraryManager.showLibrary(addToHistory);
       }
+    } else if (page === 'playlists') {
+      if (window.libraryManager) {
+        window.libraryManager.showPlaylistsSection(addToHistory);
+      }
     } else if (page === 'search') {
       if (window.searchManager) {
         window.searchManager.showSearchPage(addToHistory);
@@ -110,10 +114,8 @@ function showHomePage(addToHistory = true) {
     }
   });
   
-  // Limpiar cola de reproducción al salir de biblioteca
-  if (window.clearPlayQueue) {
-    window.clearPlayQueue();
-  }
+  // ⭐ NO limpiar cola de reproducción al navegar - la música debe seguir reproduciendo
+  // La cola solo se limpia cuando el usuario inicia una nueva reproducción
   
   // Marcar biblioteca como no activa
   if (window.libraryManager) {
@@ -128,35 +130,92 @@ function showHomePage(addToHistory = true) {
     const greeting = getGreeting();
     
     contentArea.innerHTML = `
-      <!-- Banner de Inicio -->
-      <div class="home-banner">
-        <div class="home-banner-bg"></div>
-        <div class="home-banner-content">
-          <div class="home-banner-icon">
-            <i class="fas fa-headphones"></i>
+      <div class="home-hero">
+        <div class="home-hero-bg"></div>
+        <div class="home-hero-content">
+          <div class="hero-mark">
+            <span class="hero-chip">Seax Vibes</span>
+            <div class="hero-icon"><i class="fas fa-wave-square"></i></div>
           </div>
-          <div class="home-banner-info">
-            <span class="home-banner-greeting">${greeting}</span>
-            <h1 class="home-banner-title">${userName}</h1>
-            <p class="home-banner-subtitle">¿Qué quieres escuchar hoy?</p>
+          <div class="home-hero-text">
+            <span class="home-hero-greeting" id="homeGreeting">${greeting}</span>
+            <h1 class="home-hero-title" id="homeBannerName">${userName}</h1>
+            <p class="home-hero-subtitle">Tu mundo musical, curado para este momento.</p>
           </div>
+          <div class="home-hero-actions">
+            <button class="hero-btn primary" id="heroPlayMix"><i class="fas fa-play"></i> Reproducir Seax Vibes</button>
+            <button class="hero-btn ghost" id="heroExplore"><i class="fas fa-compass"></i> Explorar</button>
+          </div>
+        </div>
+        <div class="home-hero-panel" id="heroResumeCard">
+          <div class="hero-resume-cover">
+            <img id="heroResumeCover" src="./assets/img/icon.png" alt="">
+          </div>
+          <div class="hero-resume-info">
+            <span class="hero-resume-label">Reanudar</span>
+            <h3 id="heroResumeTitle">Sin reproducción</h3>
+            <p id="heroResumeArtist">Pon algo para empezar</p>
+          </div>
+          <button class="hero-resume-btn" id="heroResumeBtn">
+            <i class="fas fa-play"></i>
+          </button>
         </div>
       </div>
 
-      <section class="favorites-section">
-        <h2><i class="fas fa-heart" style="color: var(--accent-primary); margin-right: 8px;"></i>Favoritos</h2>
-        <div class="card-grid" id="favoritesGrid">
-          <!-- Favorites content will be populated here -->
+      <section class="home-row">
+        <div class="home-row-header">
+          <div>
+            <h2>Para ti</h2>
+            <span>Accesos dinámicos</span>
+          </div>
         </div>
+        <div class="home-action-cards" id="homeActionCards"></div>
       </section>
 
-      <section class="recently-played">
-        <h2><i class="fas fa-history" style="color: var(--accent-primary); margin-right: 8px;"></i>Reproducidos recientemente</h2>
-        <div class="card-grid" id="recentGrid">
-          <!-- Recent content will be populated here -->
+      <section class="home-row">
+        <div class="home-row-header">
+          <div>
+            <h2>Seax Vibes</h2>
+            <span>Mix automático según tu historial</span>
+          </div>
         </div>
+        <div class="card-grid vibes-grid" id="seaxVibesGrid"></div>
+      </section>
+
+      <section class="home-row home-moments">
+        <div class="home-row-header">
+          <div>
+            <h2>Momentos</h2>
+            <span id="momentsSubtitle">Elige un mood para esta hora</span>
+          </div>
+        </div>
+        <div class="moments-grid" id="momentsGrid"></div>
+      </section>
+
+      <section class="home-row">
+        <div class="home-row-header">
+          <div>
+            <h2>Tu Playlist</h2>
+            <span>Likes recientes y favoritos</span>
+          </div>
+        </div>
+        <div class="card-grid" id="userPlaylistGrid"></div>
+      </section>
+
+      <section class="home-row recently-played">
+        <div class="home-row-header">
+          <div>
+            <h2>Reproducidos recientemente</h2>
+            <span>Tu rastro musical</span>
+          </div>
+        </div>
+        <div class="card-grid" id="recentGrid"></div>
       </section>
     `;
+    
+    if (window.wireHomeActions) {
+      window.wireHomeActions();
+    }
     
     // Recargar contenido
     if (window.loadFavoritesContent) {
@@ -164,6 +223,9 @@ function showHomePage(addToHistory = true) {
     }
     if (window.loadRecentlyPlayed) {
       window.loadRecentlyPlayed();
+    }
+    if (window.renderHomeModules) {
+      window.renderHomeModules();
     }
   }
 }
@@ -194,6 +256,11 @@ document.querySelectorAll('.nav-item').forEach(item => {
     // Si es "Tu Biblioteca", dejar que libraryManager lo maneje
     if (navText.includes('Tu Biblioteca')) {
       return; // libraryManager.js ya tiene su propio listener
+    }
+    
+    // Si es "Playlists", dejar que libraryManager lo maneje
+    if (navText.includes('Playlists')) {
+      return;
     }
     
     // Si es "Inicio", mostrar la página de inicio
@@ -376,3 +443,5 @@ window.uiUtils = {
   addPlaylistToSidebar,
   showNotification
 };
+
+

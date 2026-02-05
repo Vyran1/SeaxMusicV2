@@ -121,18 +121,20 @@ class MusicPlayer {
   }
   
   async next() {
-    console.log('⏭️ Next track');
+    console.log('⏭️ Next track - Cola:', window.appState?.playQueue?.length, 'Índice:', window.appState?.playQueueIndex);
     
-    // ⭐ Solo usar cola si estamos en Tu Biblioteca
-    if (window.libraryManager && window.libraryManager.isLibraryActive) {
-      if (window.appState && window.appState.playQueue && window.appState.playQueue.length > 0) {
-        if (window.playNextInQueue && window.playNextInQueue()) {
-          return;
-        }
+    // ⭐ Usar cola de reproducción si hay tracks
+    if (window.appState && window.appState.playQueue && window.appState.playQueue.length > 0) {
+      console.log('⏭️ Intentando usar cola de playlist...');
+      if (window.playNextInQueue && window.playNextInQueue()) {
+        console.log('⏭️ ✅ Usando siguiente de cola');
+        return;
       }
+      console.log('⏭️ Cola terminada o error');
     }
     
-    // Fuera de biblioteca: usar YouTube normal
+    // Si no hay cola o llegamos al final: usar YouTube normal
+    console.log('⏭️ Usando YouTube autoplay');
     if (window.electronAPI && window.electronAPI.send) {
       window.electronAPI.send('audio-control', 'next');
     }

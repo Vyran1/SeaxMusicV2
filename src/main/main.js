@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const discordRPC = require('./discordRPC');
 const AppUpdater = require('./autoUpdater');
 
@@ -37,16 +38,70 @@ let backendWindows = [];
 
 // User data file path
 const userDataPath = path.join(app.getPath('userData'), 'user-data.json');
-// ⭐ Favorites file path (persistencia real)
-const favoritesPath = path.join(app.getPath('userData'), 'favorites.json');
+// ⭐ Favorites legacy path (compat)
+const legacyFavoritesPath = path.join(app.getPath('userData'), 'favorites.json');
+const favoritesMigrationFlagPath = path.join(app.getPath('userData'), 'favorites.migrated');
+
+function safeReadJson(filePath) {
+  try {
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (e) {
+    console.error('[JSON] Error leyendo:', filePath, e);
+  }
+  return null;
+}
+
+function getCurrentUserData() {
+  return safeReadJson(userDataPath);
+}
+
+function buildUserKey(user) {
+  if (!user) return 'guest';
+  const name = (user.name || '').trim().toLowerCase();
+  const email = (user.email || '').trim().toLowerCase();
+  const handle = (user.handle || '').trim().toLowerCase();
+  const base = (email && name) ? `${email}|${name}` : (email || handle || name || 'guest');
+  return base;
+}
+
+function getFavoritesPathForUser(user) {
+  const userKey = buildUserKey(user);
+  if (userKey === 'guest') {
+    // Mantener compatibilidad con favoritos sin usuario
+    return legacyFavoritesPath;
+  }
+  const hash = crypto.createHash('sha256').update(userKey).digest('hex').slice(0, 12);
+  return path.join(app.getPath('userData'), `favorites-${hash}.json`);
+}
+
+function migrateLegacyFavoritesIfNeeded(user) {
+  if (!user) return;
+  const userFavoritesPath = getFavoritesPathForUser(user);
+  try {
+    if (!fs.existsSync(userFavoritesPath) && fs.existsSync(legacyFavoritesPath) && !fs.existsSync(favoritesMigrationFlagPath)) {
+      const legacyData = safeReadJson(legacyFavoritesPath);
+      if (Array.isArray(legacyData) && legacyData.length > 0) {
+        fs.writeFileSync(userFavoritesPath, JSON.stringify(legacyData, null, 2), 'utf8');
+        console.log('[FAVORITES] Migrados favoritos legacy a usuario actual');
+        fs.writeFileSync(favoritesMigrationFlagPath, new Date().toISOString(), 'utf8');
+      }
+    }
+  } catch (e) {
+    console.error('[FAVORITES] Error migrando favoritos legacy:', e);
+  }
+}
 
 // ===== SISTEMA DE FAVORITOS PERSISTENTE =====
 function loadFavorites() {
   try {
-    if (fs.existsSync(favoritesPath)) {
-      const data = fs.readFileSync(favoritesPath, 'utf8');
-      return JSON.parse(data);
-    }
+    const user = getCurrentUserData();
+    migrateLegacyFavoritesIfNeeded(user);
+    const favoritesPath = getFavoritesPathForUser(user);
+    const data = safeReadJson(favoritesPath);
+    if (Array.isArray(data)) return data;
   } catch (e) {
     console.error('[FAVORITES] Error cargando favoritos:', e);
   }
@@ -55,6 +110,8 @@ function loadFavorites() {
 
 function saveFavorites(favorites) {
   try {
+    const user = getCurrentUserData();
+    const favoritesPath = getFavoritesPathForUser(user);
     fs.writeFileSync(favoritesPath, JSON.stringify(favorites, null, 2), 'utf8');
     console.log('[FAVORITES] Guardados:', favorites.length, 'favoritos');
     return true;
@@ -357,12 +414,26 @@ ipcMain.on('retry-youtube-control', (event, { action, value }) => {
   }
 });
 
-ipcMain.on('play-audio', (event, { url, title, artist }) => {
+ipcMain.on('play-audio', (event, { url, title, artist, playlistInfo }) => {
   console.log(`[PLAY] Playing: ${title} by ${artist}`);
   
-  // ⭐ Discord: Desbloquear cover para nueva canción y mostrar que está cargando
+  // ⭐ Guardar info de playlist si viene
+  if (playlistInfo) {
+    global.currentPlaylistInfo = playlistInfo;
+    console.log('[PLAY] Playing from playlist:', playlistInfo.name, '- Cover:', playlistInfo.cover);
+  } else {
+    global.currentPlaylistInfo = null;
+  }
+  
+  // ⭐ Discord: Desbloquear cover para nueva canción
   discordRPC.unlockCover();
-  discordRPC.setPlayingActivity(title, artist, null, 0);
+  
+  // ⭐ Si hay playlist, mostrar info de playlist en Discord
+  if (playlistInfo) {
+    discordRPC.setPlaylistActivity(playlistInfo.name, title, artist, playlistInfo.cover || null, 0);
+  } else {
+    discordRPC.setPlayingActivity(title, artist, null, 0);
+  }
   
   if (youtubeWindow && !youtubeWindow.isDestroyed()) {
     // ⭐ Navegar directamente sin log extra
@@ -370,6 +441,18 @@ ipcMain.on('play-audio', (event, { url, title, artist }) => {
   } else {
     console.warn('[WARNING] YouTube window not open');
   }
+});
+
+// ⭐ Establecer info de playlist actual
+ipcMain.on('set-current-playlist', (event, playlistInfo) => {
+  global.currentPlaylistInfo = playlistInfo;
+  console.log('[PLAYLIST] Playlist info establecida:', playlistInfo?.name);
+});
+
+// ⭐ Limpiar info de playlist actual
+ipcMain.on('clear-current-playlist', (event) => {
+  global.currentPlaylistInfo = null;
+  console.log('[PLAYLIST] Playlist info limpiada');
 });
 
 ipcMain.on('seek-audio', (event, time) => {
@@ -473,10 +556,6 @@ ipcMain.on('update-video-info', (event, videoInfo) => {
   
   // ⭐ Actualizar Discord Rich Presence con la canción
   if (videoInfo.title) {
-    const thumbnail = videoInfo.videoId 
-      ? `https://i.ytimg.com/vi/${videoInfo.videoId}/hqdefault.jpg`
-      : null;
-    
     // ⭐ Convertir duración a segundos si viene como string "MM:SS" o "H:MM:SS"
     let durationSeconds = 0;
     if (typeof videoInfo.duration === 'number') {
@@ -492,12 +571,28 @@ ipcMain.on('update-video-info', (event, videoInfo) => {
       }
     }
     
-    discordRPC.setPlayingActivity(
-      videoInfo.title,
-      videoInfo.channel || videoInfo.artist || 'YouTube',
-      thumbnail,
-      durationSeconds
-    );
+    // ⭐ Si hay playlist activa, usar su cover y mostrar info de playlist
+    const playlistInfo = global.currentPlaylistInfo;
+    if (playlistInfo && playlistInfo.cover) {
+      discordRPC.setPlaylistActivity(
+        playlistInfo.name,
+        videoInfo.title,
+        videoInfo.channel || videoInfo.artist || 'YouTube',
+        playlistInfo.cover,
+        durationSeconds
+      );
+    } else {
+      const thumbnail = videoInfo.videoId 
+        ? `https://i.ytimg.com/vi/${videoInfo.videoId}/hqdefault.jpg`
+        : null;
+      
+      discordRPC.setPlayingActivity(
+        videoInfo.title,
+        videoInfo.channel || videoInfo.artist || 'YouTube',
+        thumbnail,
+        durationSeconds
+      );
+    }
   }
 });
 

@@ -1,0 +1,43 @@
+<!-- Playlists - Vista dedicada -->
+<div class="playlists-page">
+  <div class="playlists-hero">
+    <div class="playlists-hero-bg"></div>
+    <div class="playlists-hero-content">
+      <div class="hero-mark">
+        <span class="hero-chip">Tu espacio creativo</span>
+        <div class="hero-icon"><i class="fas fa-layer-group"></i></div>
+      </div>
+      <div class="playlists-hero-text">
+        <span class="home-hero-greeting">Playlists</span>
+        <h1>Tu biblioteca de playlists</h1>
+        <p>Crea, comparte y escucha tus listas con tu propio estilo.</p>
+      </div>
+      <div class="playlists-hero-actions">
+        <button class="playlist-action-btn primary" id="playlistsCreateBtn">
+          <i class="fas fa-plus"></i> Nueva playlist
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <section class="playlists-section">
+    <div class="playlists-section-header">
+      <div>
+        <h2>Mis playlists</h2>
+        <span id="userPlaylistsCount">0</span>
+      </div>
+    </div>
+    <div class="playlists-grid" id="userPlaylistsGrid"></div>
+    <div class="playlist-empty-state hidden" id="userPlaylistsEmpty">
+      No tienes playlists aun. Crea la primera.
+    </div>
+  </section>
+
+  <section class="playlists-section">
+    <div class="library-global-header">
+      <h2>Playlists de la comunidad</h2>
+      <span>Explora lo que otros crearon</span>
+    </div>
+    <div class="library-global-grid" id="globalPlaylistsGrid"></div>
+  </section>
+</div>

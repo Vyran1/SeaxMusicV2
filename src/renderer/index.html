@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SeaxMusic</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -229,15 +229,14 @@
         <i class="icon fas fa-book"></i>
         <span>Tu Biblioteca</span>
       </a>
+      <a href="#" class="nav-item">
+        <i class="icon fas fa-layer-group"></i>
+        <span>Playlists</span>
+      </a>
     </nav>
 
     </div>
-    <div class="playlist-section">
-      <h3>Playlists</h3>
-      <div class="playlist-list">
-        <!-- Playlists will be populated here -->
-      </div>
-    </div>
+    <div id="playlistSidebarSlot"></div>
   </aside>
 
   <!-- Main Content -->
@@ -261,34 +260,99 @@
     </header>
 
     <!-- Content Area -->
-    <div class="content-area">
-      <!-- Banner de Inicio -->
-      <div class="home-banner">
-        <div class="home-banner-bg"></div>
-        <div class="home-banner-content">
-          <div class="home-banner-icon">
-            <i class="fas fa-headphones"></i>
+    <div class="content-area">      <div class="home-hero">
+        <div class="home-hero-bg"></div>
+        <div class="home-hero-content">
+          <div class="hero-mark">
+            <span class="hero-chip">Seax Vibes</span>
+            <div class="hero-icon"><i class="fas fa-wave-square"></i></div>
           </div>
-          <div class="home-banner-info">
-            <span class="home-banner-greeting" id="homeGreeting">🎵 Bienvenido,</span>
-            <h1 class="home-banner-title" id="homeBannerName">Usuario</h1>
-            <p class="home-banner-subtitle">¿Qué quieres escuchar hoy?</p>
+          <div class="home-hero-text">
+            <span class="home-hero-greeting" id="homeGreeting">Bienvenido,</span>
+            <h1 class="home-hero-title" id="homeBannerName">Usuario</h1>
+            <p class="home-hero-subtitle">Tu mundo musical, curado para este momento.</p>
           </div>
+          <div class="home-hero-actions">
+            <button class="hero-btn primary" id="heroPlayMix"><i class="fas fa-play"></i> Reproducir Seax Vibes</button>
+            <button class="hero-btn ghost" id="heroExplore"><i class="fas fa-compass"></i> Explorar</button>
+          </div>
+        </div>
+        <div class="home-hero-panel" id="heroResumeCard">
+          <div class="hero-resume-cover">
+            <img id="heroResumeCover" src="./assets/img/icon.png" alt="">
+          </div>
+          <div class="hero-resume-info">
+            <span class="hero-resume-label">Reanudar</span>
+            <h3 id="heroResumeTitle">Sin reproducción</h3>
+            <p id="heroResumeArtist">Pon algo para empezar</p>
+          </div>
+          <button class="hero-resume-btn" id="heroResumeBtn">
+            <i class="fas fa-play"></i>
+          </button>
         </div>
       </div>
 
-      <section class="favorites-section">
-        <h2><i class="fas fa-heart" style="color: var(--accent-primary); margin-right: 8px;"></i>Favoritos</h2>
-        <div class="card-grid" id="favoritesGrid">
-          <!-- Favorites content will be populated here -->
+      <section class="home-row">
+        <div class="home-row-header">
+          <div>
+            <h2>Para ti</h2>
+            <span>Accesos dinámicos</span>
+          </div>
         </div>
+        <div class="home-action-cards" id="homeActionCards"></div>
       </section>
 
-      <section class="recently-played">
-        <h2><i class="fas fa-history" style="color: var(--accent-primary); margin-right: 8px;"></i>Reproducidos recientemente</h2>
-        <div class="card-grid" id="recentGrid">
-          <!-- Recent content will be populated here -->
+      <section class="home-row">
+        <div class="home-row-header">
+          <div>
+            <h2>Seax Vibes</h2>
+            <span>Mix automático según tu historial</span>
+          </div>
         </div>
+        <div class="card-grid vibes-grid" id="seaxVibesGrid"></div>
+      </section>
+
+      <section class="home-row dj-section">
+        <div class="home-row-header">
+          <div>
+            <h2><i class="fas fa-headphones-alt"></i> DJ Seax</h2>
+            <span>Playlists creadas especialmente para ti</span>
+          </div>
+          <button class="dj-publish-btn" id="djPublishBtn" title="Publicar en Comunidad">
+            <i class="fas fa-share"></i> Publicar
+          </button>
+        </div>
+        <div class="dj-playlists-grid" id="djPlaylistsGrid"></div>
+      </section>
+
+      <section class="home-row home-moments">
+        <div class="home-row-header">
+          <div>
+            <h2>Momentos</h2>
+            <span id="momentsSubtitle">Elige un mood para esta hora</span>
+          </div>
+        </div>
+        <div class="moments-grid" id="momentsGrid"></div>
+      </section>
+
+      <section class="home-row">
+        <div class="home-row-header">
+          <div>
+            <h2>Tus Playlists</h2>
+            <span>Tus listas personalizadas</span>
+          </div>
+        </div>
+        <div class="card-grid" id="userPlaylistGrid"></div>
+      </section>
+
+      <section class="home-row recently-played">
+        <div class="home-row-header">
+          <div>
+            <h2>Reproducidos recientemente</h2>
+            <span>Tu rastro musical</span>
+          </div>
+        </div>
+        <div class="card-grid" id="recentGrid"></div>
       </section>
     </div>
   </div>
@@ -334,7 +398,128 @@
         </div>
         <span class="volume-percentage" id="volumePercent">70%</span>
       </div>
-      <button class="fullscreen-btn" id="fullscreenBtn"><i class="fas fa-expand"></i></button>
+      <button class="fullscreen-btn" id="fullscreenBtn"><i class="fas fa-cog"></i></button>
+      <span class="app-version" id="appVersion">v0.0.0</span>
+    </div>
+  </div>
+  
+  <!-- Playlist Modal - PREMIUM REDESIGN -->
+  <div class="playlist-modal" id="playlistModal">
+    <div class="playlist-modal-card premium">
+      <div class="playlist-modal-glow"></div>
+      <div class="playlist-modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon">
+            <i class="fas fa-compact-disc"></i>
+          </div>
+          <div class="modal-title-group">
+            <h3 id="playlistModalTitle">Nueva playlist</h3>
+            <span class="modal-subtitle">Crea tu colección perfecta</span>
+          </div>
+        </div>
+        <button class="playlist-modal-close" id="playlistModalClose">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="playlist-modal-body">
+        <div class="playlist-form-row">
+          <div class="playlist-cover-upload" id="playlistCoverUpload">
+            <div class="playlist-preview-cover" id="playlistLogoPreview">
+              <i class="fas fa-music"></i>
+              <div class="cover-upload-overlay">
+                <i class="fas fa-camera"></i>
+                <span>Cambiar</span>
+              </div>
+            </div>
+            <input type="file" id="playlistLogoFile" accept="image/*" hidden>
+          </div>
+          <div class="playlist-form-fields">
+            <div class="playlist-form-group">
+              <label for="playlistNameInput">
+                <i class="fas fa-heading"></i>
+                Nombre
+              </label>
+              <input type="text" id="playlistNameInput" placeholder="Mi playlist favorita">
+            </div>
+            <div class="playlist-form-group">
+              <label for="playlistDescInput">
+                <i class="fas fa-align-left"></i>
+                Descripción
+              </label>
+              <input type="text" id="playlistDescInput" placeholder="Vibes para este momento...">
+            </div>
+          </div>
+        </div>
+        <div class="playlist-form-group url-group">
+          <label for="playlistLogoInput">
+            <i class="fas fa-link"></i>
+            URL de imagen (opcional)
+          </label>
+          <input type="text" id="playlistLogoInput" placeholder="https://ejemplo.com/imagen.jpg">
+        </div>
+        <div class="playlist-preview-card">
+          <div class="preview-label">Vista previa</div>
+          <div class="playlist-preview-content">
+            <div class="preview-cover-mini" id="previewCoverMini">
+              <i class="fas fa-music"></i>
+            </div>
+            <div class="playlist-preview-info">
+              <span class="playlist-preview-title" id="playlistPreviewTitle">Nombre de la playlist</span>
+              <span class="playlist-preview-subtitle">Lista personalizada • 0 canciones</span>
+            </div>
+            <div class="preview-play-btn">
+              <i class="fas fa-play"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="playlist-modal-actions">
+        <button class="playlist-btn ghost" id="playlistModalCancel">
+          <i class="fas fa-times"></i>
+          Cancelar
+        </button>
+        <button class="playlist-btn primary" id="playlistModalSave">
+          <i class="fas fa-check"></i>
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Playlist Copy Modal -->
+  <div class="playlist-modal" id="playlistCopyModal">
+    <div class="playlist-modal-card">
+      <div class="playlist-modal-header">
+        <h3>Copiar playlist</h3>
+        <button class="playlist-modal-close" id="playlistCopyClose">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="playlist-modal-body">
+        <p class="playlist-modal-note">Selecciona una cuenta destino.</p>
+        <div class="account-switch-list" id="playlistCopyList"></div>
+      </div>
+      <div class="playlist-modal-actions">
+        <button class="playlist-btn ghost" id="playlistCopyCancel">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Account Switch Modal -->
+  <div class="playlist-modal" id="accountSwitchModal">
+    <div class="playlist-modal-card">
+      <div class="playlist-modal-header">
+        <h3>Cambiar cuenta</h3>
+        <button class="playlist-modal-close" id="accountSwitchClose">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="playlist-modal-body">
+        <div class="account-switch-list" id="accountSwitchList"></div>
+      </div>
+      <div class="playlist-modal-actions">
+        <button class="playlist-btn ghost" id="accountSwitchCancel">Cerrar</button>
+      </div>
     </div>
   </div>
 
@@ -342,9 +527,14 @@
   <script src="js/player.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/userManager.js"></script>
+  <script src="js/playlistManager.js"></script>
   <script src="js/searchManager.js"></script>
   <script src="js/libraryManager.js"></script>
   <script src="js/lyricsService.js"></script>
   <script src="js/nowPlayingManager.js"></script>
+  <script src="js/djEngine.js"></script>
 </body>
 </html>
+
+
+

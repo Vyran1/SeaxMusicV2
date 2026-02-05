@@ -22,6 +22,12 @@ class LibraryManager {
           this.showLibrary(true);
         });
       }
+      if (item.textContent.includes('Playlists')) {
+        item.addEventListener('click', (e) => {
+          e.preventDefault();
+          this.showPlaylistsSection(true);
+        });
+      }
     });
   }
   
@@ -56,6 +62,48 @@ class LibraryManager {
     } catch (error) {
       console.error('[LIBRARY] Error cargando biblioteca:', error);
       this.showInlineLibrary(contentArea);
+    }
+  }
+  
+  async showPlaylistsSection(addToHistory = true) {
+    console.log('[PLAYLISTS] Mostrando secciÃ³n de playlists...');
+
+    if (addToHistory && window.navigationHistory) {
+      window.navigationHistory.navigateTo('playlists');
+    }
+
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.classList.remove('active');
+      if (item.textContent.includes('Playlists')) {
+        item.classList.add('active');
+      }
+    });
+
+    const contentArea = document.querySelector('.content-area');
+    if (!contentArea) return;
+
+    try {
+      const response = await fetch('./html/playlists.html');
+      const html = await response.text();
+      contentArea.innerHTML = html;
+
+      this.isLibraryActive = false;
+
+      const createBtn = document.getElementById('playlistsCreateBtn');
+      createBtn?.addEventListener('click', () => {
+        window.playlistManager?.openModal?.();
+      });
+
+      if (window.playlistManager?.renderPlaylistsHome) {
+        window.playlistManager.renderPlaylistsHome();
+      } else if (window.libraryManager?.renderGlobalPlaylists) {
+        this.renderGlobalPlaylists();
+      }
+    } catch (error) {
+      console.error('[PLAYLISTS] Error cargando playlists:', error);
+      if (window.playlistManager?.renderPlaylistsHome) {
+        window.playlistManager.renderPlaylistsHome();
+      }
     }
   }
   
@@ -123,12 +171,20 @@ class LibraryManager {
           <div class="empty-icon">
             <i class="far fa-heart"></i>
           </div>
-          <h3>Tu biblioteca está vacía</h3>
-          <p>Las canciones que marques con ❤️ aparecerán aquí</p>
+          <h3 id="libraryEmptyTitle">Tu biblioteca está vacía</h3>
+          <p id="libraryEmptyDesc">Las canciones que marques con ❤️ aparecerán aquí</p>
           <button class="empty-browse-btn" id="browseMusic">
             <i class="fas fa-search"></i>
             Explorar música
           </button>
+        </div>
+
+        <div class="library-global-playlists">
+          <div class="library-global-header">
+            <h2>Playlists de la comunidad</h2>
+            <span>Explora lo que otros crearon</span>
+          </div>
+          <div class="library-global-grid" id="globalPlaylistsGrid"></div>
         </div>
       </div>
     `;
@@ -172,6 +228,13 @@ class LibraryManager {
     const browseBtn = document.getElementById('browseMusic');
     if (browseBtn) {
       browseBtn.addEventListener('click', () => {
+        const currentUser = this.getCurrentUser();
+        if (!currentUser) {
+          if (window.electronAPI && window.electronAPI.openYouTubeLoginWindow) {
+            window.electronAPI.openYouTubeLoginWindow();
+          }
+          return;
+        }
         // Volver a inicio
         document.querySelectorAll('.nav-item').forEach(item => {
           item.classList.remove('active');
@@ -181,6 +244,32 @@ class LibraryManager {
           }
         });
       });
+    }
+  }
+  
+  getCurrentUser() {
+    try {
+      const userData = localStorage.getItem('seaxmusic_user');
+      return userData ? JSON.parse(userData) : null;
+    } catch (e) {
+      console.error('[LIBRARY] Error leyendo usuario:', e);
+      return null;
+    }
+  }
+  
+  updateEmptyState(isLoggedOut) {
+    const titleEl = document.getElementById('libraryEmptyTitle');
+    const descEl = document.getElementById('libraryEmptyDesc');
+    const browseBtn = document.getElementById('browseMusic');
+    
+    if (isLoggedOut) {
+      if (titleEl) titleEl.textContent = 'Inicia sesiÃ³n para ver tu biblioteca';
+      if (descEl) descEl.textContent = 'Tus favoritos siguen guardados, inicia sesiÃ³n para verlos';
+      if (browseBtn) browseBtn.innerHTML = '<i class="fas fa-user-circle"></i> Iniciar sesiÃ³n';
+    } else {
+      if (titleEl) titleEl.textContent = 'Tu biblioteca estÃ¡ vacÃ­a';
+      if (descEl) descEl.textContent = 'Las canciones que marques con â¤ï¸ aparecerÃ¡n aquÃ­';
+      if (browseBtn) browseBtn.innerHTML = '<i class="fas fa-search"></i> Explorar mÃºsica';
     }
   }
   
@@ -207,6 +296,21 @@ class LibraryManager {
   
   async loadFavorites() {
     console.log('[LIBRARY] Cargando favoritos...');
+    
+    const currentUser = this.getCurrentUser();
+    if (!currentUser) {
+      const countEl = document.getElementById('libraryCount');
+      if (countEl) countEl.textContent = '0';
+      
+      const emptyEl = document.getElementById('libraryEmpty');
+      const contentEl = document.getElementById('libraryContent');
+      
+      this.updateEmptyState(true);
+      emptyEl?.classList.remove('hidden');
+      contentEl?.classList.add('hidden');
+      this.renderGlobalPlaylists();
+      return;
+    }
     
     let favorites = [];
     
@@ -235,6 +339,7 @@ class LibraryManager {
     const contentEl = document.getElementById('libraryContent');
     
     if (favorites.length === 0) {
+      this.updateEmptyState(false);
       emptyEl?.classList.remove('hidden');
       contentEl?.classList.add('hidden');
     } else {
@@ -244,6 +349,66 @@ class LibraryManager {
       this.renderGrid(favorites);
       this.renderList(favorites);
     }
+
+    this.renderGlobalPlaylists();
+  }
+
+  renderGlobalPlaylists() {
+    const grid = document.getElementById('globalPlaylistsGrid');
+    if (!grid) return;
+    if (!window.playlistManager || typeof window.playlistManager.getGlobalPlaylists !== 'function') {
+      grid.innerHTML = `<div class="playlist-empty-state">No hay playlists globales aún.</div>`;
+      return;
+    }
+
+    const playlists = window.playlistManager.getGlobalPlaylists();
+    if (!playlists || playlists.length === 0) {
+      grid.innerHTML = `<div class="playlist-empty-state">No hay playlists globales aún.</div>`;
+      return;
+    }
+
+    grid.innerHTML = '';
+    playlists.forEach(playlist => {
+      const card = document.createElement('div');
+      card.className = 'global-playlist-card';
+      const liked = window.playlistManager.isPlaylistLiked(playlist);
+      const coverHtml = window.playlistManager.getPlaylistCoverHtml(playlist, 'large');
+      const creatorName = playlist.creator?.name || 'Usuario';
+      const creatorAvatar = playlist.creator?.avatar
+        ? `<img src="${playlist.creator.avatar}" alt="">`
+        : `<i class="fas fa-user"></i>`;
+      const likeCount = playlist.likeCount || 0;
+
+      card.innerHTML = `
+        <div class="global-playlist-cover">
+          ${coverHtml}
+          <button class="global-like-btn ${liked ? 'liked' : ''}" title="Me gusta">
+            <i class="${liked ? 'fas' : 'far'} fa-heart"></i>
+          </button>
+          <div class="global-like-count">${likeCount} likes</div>
+        </div>
+        <div class="global-playlist-info">
+          <div class="global-playlist-title">${playlist.name}</div>
+          <div class="global-playlist-creator">
+            <span class="creator-avatar">${creatorAvatar}</span>
+            <span class="creator-name">${creatorName}</span>
+          </div>
+        </div>
+      `;
+
+      card.querySelector('.global-like-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.playlistManager.togglePlaylistLike(playlist);
+        this.renderGlobalPlaylists();
+        window.playlistManager.refreshSidebar();
+      });
+
+      card.addEventListener('click', () => {
+        window.playlistManager.showPlaylist(playlist.globalId || playlist.id);
+      });
+
+      grid.appendChild(card);
+    });
   }
   
   sortFavorites(favorites) {
@@ -621,3 +786,4 @@ const libraryManager = new LibraryManager();
 
 // Exportar para uso global
 window.libraryManager = libraryManager;
+

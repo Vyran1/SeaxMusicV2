@@ -39,12 +39,173 @@ class UserManager {
       userBtn.addEventListener('click', () => this.toggleProfileMenu());
     }
   }
+  
+  getStoredUser() {
+    try {
+      const userData = localStorage.getItem('seaxmusic_user');
+      return userData ? JSON.parse(userData) : null;
+    } catch (e) {
+      console.error('[USER] Error leyendo usuario almacenado:', e);
+      return null;
+    }
+  }
+  
+  buildUserKey(user) {
+    if (!user) return '';
+    const name = (user.name || '').trim().toLowerCase();
+    const email = (user.email || '').trim().toLowerCase();
+    const handle = (user.handle || '').trim().toLowerCase();
+    const stable = `${email}|${name}|${handle}`.replace(/\|+$/, '');
+    if (stable && stable !== '||') return stable;
+    const id = (user.id || '').toString().trim();
+    return id || 'guest';
+  }
+
+  getAccounts() {
+    try {
+      const raw = localStorage.getItem('seaxmusic_accounts');
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      console.error('[ACCOUNTS] Error leyendo cuentas:', e);
+      return [];
+    }
+  }
+
+  saveAccounts(accounts) {
+    localStorage.setItem('seaxmusic_accounts', JSON.stringify(accounts));
+  }
+
+  upsertAccount(user) {
+    if (!user) return;
+    const accounts = this.getAccounts();
+    const key = this.buildUserKey(user);
+    const index = accounts.findIndex(acc => acc.key === key);
+    const payload = { key, user };
+    if (index === -1) {
+      accounts.unshift(payload);
+    } else {
+      accounts[index] = payload;
+    }
+    this.saveAccounts(accounts);
+  }
+
+  removeAccount(key) {
+    const accounts = this.getAccounts().filter(acc => acc.key !== key);
+    this.saveAccounts(accounts);
+  }
+
+  openAccountSwitcher() {
+    this.closeProfileMenu();
+    const modal = document.getElementById('accountSwitchModal');
+    const list = document.getElementById('accountSwitchList');
+    const closeBtn = document.getElementById('accountSwitchClose');
+    const cancelBtn = document.getElementById('accountSwitchCancel');
+    if (!modal || !list) return;
+
+    list.innerHTML = '';
+    const accounts = this.getAccounts();
+    const currentKey = this.buildUserKey(this.user);
+
+    if (accounts.length === 0) {
+      list.innerHTML = `<div class="playlist-empty-state">Aún no hay cuentas guardadas.</div>`;
+    } else {
+      accounts.forEach(acc => {
+        const isActive = acc.key === currentKey;
+        const item = document.createElement('div');
+        item.className = 'account-switch-item';
+        item.innerHTML = `
+          <div class="account-avatar">
+            ${acc.user.avatar ? `<img src="${acc.user.avatar}" alt="">` : `<i class="fas fa-user"></i>`}
+          </div>
+          <div class="account-info">
+            <div class="account-name">${acc.user.name || 'Usuario'}</div>
+            <div class="account-email">${acc.user.email || acc.user.handle || 'sin correo'}</div>
+          </div>
+          <div class="account-actions">
+            ${isActive ? `<span class="account-active">Activa</span>` : `<button class="account-use-btn">Usar</button>`}
+            <button class="account-remove-btn" title="Eliminar cuenta"><i class="fas fa-trash"></i></button>
+          </div>
+        `;
+
+        item.querySelector('.account-use-btn')?.addEventListener('click', () => {
+          this.switchAccount(acc.user);
+          modal.classList.remove('active');
+        });
+
+        item.querySelector('.account-remove-btn')?.addEventListener('click', () => {
+          this.removeAccount(acc.key);
+          if (acc.key === currentKey) {
+            localStorage.removeItem('seaxmusic_user');
+            this.user = null;
+            this.updateUserUI();
+          }
+          this.openAccountSwitcher();
+        });
+
+        list.appendChild(item);
+      });
+    }
+
+    closeBtn?.addEventListener('click', () => modal.classList.remove('active'));
+    cancelBtn?.addEventListener('click', () => modal.classList.remove('active'));
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.classList.remove('active');
+    });
+    modal.classList.add('active');
+  }
+
+  switchAccount(user) {
+    if (!user) return;
+    if (typeof showLoader === 'function') {
+      showLoader('Cambiando de cuenta...');
+    }
+    if (typeof updateLoaderStatus === 'function') {
+      updateLoaderStatus('Sincronizando tu música...');
+    }
+    if (window.appState) {
+      window.appState.contentLoaded.favorites = false;
+      window.appState.contentLoaded.history = false;
+    }
+    localStorage.setItem('seaxmusic_user', JSON.stringify(user));
+    this.user = user;
+    this.upsertAccount(user);
+    if (window.electronAPI && window.electronAPI.saveUserData) {
+      window.electronAPI.saveUserData(user).catch(err => console.error('Error saving user data:', err));
+    }
+    this.updateUserUI();
+    this.closeProfileMenu();
+    if (typeof loadFavoritesFromStorage === 'function') {
+      loadFavoritesFromStorage();
+    }
+    if (typeof loadFavoritesContent === 'function') {
+      loadFavoritesContent();
+    }
+    if (typeof loadRecentlyPlayed === 'function') {
+      loadRecentlyPlayed(true);
+    }
+    if (window.renderHomeModules) {
+      window.renderHomeModules();
+    }
+    if (window.wireHomeActions) {
+      window.wireHomeActions();
+    }
+    if (window.libraryManager) {
+      window.libraryManager.refresh();
+    }
+    if (window.playlistManager) {
+      window.playlistManager.refreshSidebar();
+    }
+    if (window.navigationHistory) {
+      window.navigationHistory.loadPage('home', false);
+    }
+  }
 
   loadUserData() {
     const userData = localStorage.getItem('seaxmusic_user');
     if (userData) {
       try {
         this.user = JSON.parse(userData);
+        this.upsertAccount(this.user);
       } catch (error) {
         console.error('Error parsing user data:', error);
         this.user = null;
@@ -214,6 +375,11 @@ class UserManager {
             <span>Configuración</span>
           </button>
 
+          <button class="menu-item" id="switchAccountMenuItem">
+            <i class="fas fa-users"></i>
+            <span>Cambiar cuenta</span>
+          </button>
+
           <button class="menu-item" id="accountMenuItem">
             <i class="fas fa-user-circle"></i>
             <span>Mi Cuenta</span>
@@ -238,6 +404,7 @@ class UserManager {
 
     // Add event listeners
     document.getElementById('settingsMenuItem')?.addEventListener('click', () => this.openSettings());
+    document.getElementById('switchAccountMenuItem')?.addEventListener('click', () => this.openAccountSwitcher());
     document.getElementById('accountMenuItem')?.addEventListener('click', () => this.openAccount());
     document.getElementById('helpMenuItem')?.addEventListener('click', () => this.openHelp());
     document.getElementById('logoutMenuItem')?.addEventListener('click', () => this.logout());
@@ -262,11 +429,17 @@ class UserManager {
       
       console.log('👤 Usuario logueado:', user.name);
       
+      const previousUser = this.getStoredUser();
+      const previousKey = this.buildUserKey(previousUser);
+      const nextKey = this.buildUserKey(user);
+      
       // Update user
       this.user = user;
       
       // Save user to localStorage
       localStorage.setItem('seaxmusic_user', JSON.stringify(user));
+
+      this.upsertAccount(user);
       
       // Save user to JSON file via Electron IPC
       if (window.electronAPI && window.electronAPI.saveUserData) {
@@ -281,6 +454,31 @@ class UserManager {
       
       // Show notification
       this.showLoginNotification(user.name);
+      
+      if (previousKey !== nextKey) {
+        if (typeof loadFavoritesFromStorage === 'function') {
+          loadFavoritesFromStorage();
+        }
+        if (typeof loadFavoritesContent === 'function') {
+          loadFavoritesContent();
+        }
+        if (typeof loadRecentlyPlayed === 'function') {
+          loadRecentlyPlayed();
+        }
+      }
+      
+      if (window.renderHomeModules) {
+        window.renderHomeModules();
+      }
+      if (window.wireHomeActions) {
+        window.wireHomeActions();
+      }
+      if (window.libraryManager) {
+        window.libraryManager.refresh();
+      }
+      if (window.playlistManager) {
+        window.playlistManager.refreshSidebar();
+      }
       
     } else if (event.data && event.data.type === 'USER_LOGGED_OUT') {
       console.log('🚪 Sesión cerrada');
@@ -300,11 +498,31 @@ class UserManager {
       // Update UI
       this.updateUserUI();
       this.closeProfileMenu();
+      
+      if (window.appState) {
+        window.appState.favorites = [];
+        window.appState.recentHistory = [];
+      }
+      if (window.renderHomeModules) {
+        window.renderHomeModules();
+      }
+      if (window.wireHomeActions) {
+        window.wireHomeActions();
+      }
+      if (window.libraryManager) {
+        window.libraryManager.refresh();
+      }
+      if (window.playlistManager) {
+        window.playlistManager.refreshSidebar();
+      }
     }
   }
-
   handleYouTubeLogin(user) {
     console.log('✅ YouTube login manejado:', user);
+    
+    const previousUser = this.getStoredUser();
+    const previousKey = this.buildUserKey(previousUser);
+    const nextKey = this.buildUserKey(user);
     
     // ⭐ Evitar procesar múltiples veces (notificación Y recarga)
     if (this.loginNotificationShown || this.contentReloadInProgress) {
@@ -316,6 +534,8 @@ class UserManager {
     
     // Save user to localStorage
     localStorage.setItem('seaxmusic_user', JSON.stringify(user));
+
+    this.upsertAccount(user);
     
     // Save user to JSON file via Electron IPC
     if (window.electronAPI && window.electronAPI.saveUserData) {
@@ -328,6 +548,23 @@ class UserManager {
     this.updateUserUI();
     this.closeProfileMenu();
     
+    if (window.appState) {
+      window.appState.favorites = [];
+      window.appState.recentHistory = [];
+    }
+    if (window.libraryManager) {
+      window.libraryManager.refresh();
+    }
+    if (window.playlistManager) {
+      window.playlistManager.refreshSidebar();
+    }
+    if (window.renderHomeModules) {
+      window.renderHomeModules();
+    }
+    if (window.wireHomeActions) {
+      window.wireHomeActions();
+    }
+    
     // Show notification (solo una vez)
     this.loginNotificationShown = true;
     this.showLoginNotification(user.name);
@@ -339,8 +576,7 @@ class UserManager {
     
     // ⭐ Solo recargar si no hay usuario previo cargado
     // Esto evita recargar cuando ya hay sesión
-    const existingUser = localStorage.getItem('seaxmusic_user');
-    const isNewLogin = !existingUser || JSON.parse(existingUser).id !== user.id;
+    const isNewLogin = previousKey !== nextKey;
     
     if (isNewLogin) {
       // ⭐ Recargar todo el contenido con el loader (como carga inicial)
@@ -419,6 +655,23 @@ class UserManager {
     // Update UI
     this.updateUserUI();
     this.closeProfileMenu();
+    
+    if (window.appState) {
+      window.appState.favorites = [];
+      window.appState.recentHistory = [];
+    }
+    if (window.libraryManager) {
+      window.libraryManager.refresh();
+    }
+    if (window.playlistManager) {
+      window.playlistManager.refreshSidebar();
+    }
+    if (window.renderHomeModules) {
+      window.renderHomeModules();
+    }
+    if (window.wireHomeActions) {
+      window.wireHomeActions();
+    }
     
     // Show notification
     this.showLogoutNotification();
@@ -703,6 +956,10 @@ class UserManager {
     
     this.updateUserUI();
     this.closeProfileMenu();
+    
+    if (window.libraryManager) {
+      window.libraryManager.refresh();
+    }
     console.log('[LOGOUT] Sesión cerrada correctamente');
   }
 }
@@ -715,3 +972,8 @@ if (document.readyState === 'loading') {
 } else {
   window.userManager = new UserManager();
 }
+
+
+
+
+

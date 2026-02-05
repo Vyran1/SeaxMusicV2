@@ -107,6 +107,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.send('play-audio', { url, title, artist });
   },
   
+  // ⭐ Reproducir audio con info de playlist (para cover y Discord)
+  playAudioWithPlaylist: (url, title, artist, playlistInfo) => {
+    ipcRenderer.send('play-audio', { url, title, artist, playlistInfo });
+  },
+  
+  // ⭐ Establecer info de playlist actual (para Discord)
+  setCurrentPlaylist: (playlistInfo) => {
+    ipcRenderer.send('set-current-playlist', playlistInfo);
+  },
+  
+  // ⭐ Limpiar info de playlist actual
+  clearCurrentPlaylist: () => {
+    ipcRenderer.send('clear-current-playlist');
+  },
+  
   // ⭐ Escuchar cuando termina un video (para cola de reproducción)
   onVideoEnded: (callback) => {
     ipcRenderer.on('video-ended', () => {

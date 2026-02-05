@@ -158,6 +158,60 @@ class DiscordRichPresence {
   }
 
   /**
+   * ⭐ Actualizar cuando se reproduce desde una playlist (muestra cover de playlist)
+   */
+  setPlaylistActivity(playlistName, trackName, trackArtist, playlistCover, duration = 0) {
+    if (!this.isConnected || !this.client) return;
+
+    console.log('[DISCORD] setPlaylistActivity:', playlistName, '- Cover:', playlistCover);
+
+    this.state.isPlaying = true;
+    this.state.trackName = trackName;
+    this.state.trackArtist = trackArtist;
+    this.state.playlistName = playlistName;
+    
+    // ⭐ Usar cover de playlist si disponible
+    if (playlistCover) {
+      this.state.trackImage = playlistCover;
+      this.state.coverLocked = true;
+      console.log('[DISCORD] Cover de playlist establecido:', playlistCover);
+    }
+    
+    this.state.duration = duration;
+    this.state.isPaused = false;
+    
+    const now = Math.floor(Date.now() / 1000);
+    this.state.startTimestamp = now;
+    this.state.endTimestamp = now + Math.floor(duration || 0);
+
+    clearTimeout(this.debounceTimeout);
+    this.debounceTimeout = setTimeout(() => {
+      const imageToUse = this.state.trackImage || 'seaxmusic_logo';
+      
+      const activity = {
+        type: 2,
+        details: `📀 Playlist: ${this.sanitizeString(playlistName)}`,
+        state: `🎵 ${this.sanitizeString(trackName)} • 🎤 ${this.sanitizeString(trackArtist)}`,
+        largeImageKey: imageToUse,
+        largeImageText: `Playlist: ${this.sanitizeString(playlistName)}`,
+        smallImageKey: 'seaxmusic_logo2',
+        smallImageText: 'Reproduciendo playlist',
+        startTimestamp: this.state.startTimestamp,
+        endTimestamp: this.state.endTimestamp,
+        instance: false,
+        buttons: [
+          {
+            label: '▶️ Escuchar en YouTube',
+            url: this.state.videoUrl || 'https://www.youtube.com'
+          }
+        ]
+      };
+
+      this.updateActivity(activity);
+    }, 150);
+  }
+
+  /**
    * Actualizar cuando se pausa (CON BOTÓN)
    */
   setPausedActivity() {
@@ -165,11 +219,18 @@ class DiscordRichPresence {
 
     this.state.isPlaying = false;
 
+    // ⭐ Mantener formato de playlist si estaba reproduciendo una
+    const isPlaylist = !!this.state.playlistName;
+    
     const activity = {
       type: 2,
-      details: this.state.trackName ? `🎵 ${this.sanitizeString(this.state.trackName)}` : 'Sin canción',
-      state: this.state.trackArtist ? `🎤 ${this.sanitizeString(this.state.trackArtist)} • ⏸️ Pausado` : '⏸️ Pausado',
-      largeImageKey: this.state.trackImage || 'seaxmusic_logo', // ⭐ Mantener cover cuando pausa
+      details: isPlaylist 
+        ? `📀 Playlist: ${this.sanitizeString(this.state.playlistName)}`
+        : (this.state.trackName ? `🎵 ${this.sanitizeString(this.state.trackName)}` : 'Sin canción'),
+      state: isPlaylist
+        ? `🎵 ${this.sanitizeString(this.state.trackName)} • ⏸️ Pausado`
+        : (this.state.trackArtist ? `🎤 ${this.sanitizeString(this.state.trackArtist)} • ⏸️ Pausado` : '⏸️ Pausado'),
+      largeImageKey: this.state.trackImage || 'seaxmusic_logo',
       largeImageText: 'Pausado',
       smallImageKey: 'seaxmusic_logo2',
       smallImageText: 'SeaxMusic',
@@ -207,6 +268,7 @@ class DiscordRichPresence {
     console.log('[DISCORD] Desbloqueando cover para nueva canción');
     this.state.coverLocked = false;
     this.state.trackImage = null;
+    this.state.playlistName = null; // ⭐ Limpiar info de playlist
   }
 
   /**
