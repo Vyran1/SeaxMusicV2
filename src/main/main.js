@@ -416,11 +416,12 @@ ipcMain.on('retry-youtube-control', (event, { action, value }) => {
 
 ipcMain.on('play-audio', (event, { url, title, artist, playlistInfo }) => {
   console.log(`[PLAY] Playing: ${title} by ${artist}`);
-  
-  // ⭐ Guardar info de playlist si viene
-  if (playlistInfo) {
-    global.currentPlaylistInfo = playlistInfo;
-    console.log('[PLAY] Playing from playlist:', playlistInfo.name, '- Cover:', playlistInfo.cover);
+
+  // ⭐ Guardar info de playlist si viene (o mantener la actual)
+  const effectivePlaylist = playlistInfo || global.currentPlaylistInfo || null;
+  if (effectivePlaylist) {
+    global.currentPlaylistInfo = effectivePlaylist;
+    console.log('[PLAY] Playing from playlist:', effectivePlaylist.name, '- Cover:', effectivePlaylist.cover);
   } else {
     global.currentPlaylistInfo = null;
   }
@@ -429,8 +430,9 @@ ipcMain.on('play-audio', (event, { url, title, artist, playlistInfo }) => {
   discordRPC.unlockCover();
   
   // ⭐ Si hay playlist, mostrar info de playlist en Discord
-  if (playlistInfo) {
-    discordRPC.setPlaylistActivity(playlistInfo.name, title, artist, playlistInfo.cover || null, 0);
+  if (effectivePlaylist) {
+    const coverForDiscord = effectivePlaylist.discordCover || effectivePlaylist.cover || null;
+    discordRPC.setPlaylistActivity(effectivePlaylist.name, title, artist, coverForDiscord, 0);
   } else {
     discordRPC.setPlayingActivity(title, artist, null, 0);
   }
@@ -2072,21 +2074,30 @@ ipcMain.on('youtube-login-success', (event, userInfo) => {
     // Esto evita peticiones duplicadas que sobrescriben el historial con menos videos
   }
   
-  // ⭐ En DEV mode: NO cerrar loginWindow automáticamente para debug
-  // ⭐ En PROD mode: Cerrar loginWindow después del login exitoso
+  // ⭐ Cerrar loginWindow después del login exitoso (siempre, excepto en DEV)
   const isDevMode = process.argv.includes('--dev');
-  const sourceWindow = BrowserWindow.fromWebContents(event.sender);
   
-  if (!isDevMode && loginWindow && !loginWindow.isDestroyed() && sourceWindow === loginWindow) {
+  console.log('[LOGIN] Verificando cierre de ventana - isDevMode:', isDevMode, 'loginWindow existe:', !!loginWindow);
+  
+  if (!isDevMode && loginWindow && !loginWindow.isDestroyed()) {
+    console.log('[LOGIN] Programando cierre de ventana de login en 1 segundo...');
     setTimeout(() => {
       if (loginWindow && !loginWindow.isDestroyed()) {
         console.log('[LOGIN] Cerrando ventana de login automáticamente');
-        loginWindow.close();
+        try {
+          loginWindow.close();
+        } catch (e) {
+          console.error('[LOGIN] Error cerrando ventana:', e);
+        }
         loginWindow = null;
+      } else {
+        console.log('[LOGIN] La ventana ya no existe o fue destruida');
       }
-    }, 1500);
+    }, 1000);
   } else if (isDevMode) {
     console.log('[DEV] Login window permanece abierta para debug');
+  } else {
+    console.log('[LOGIN] No hay loginWindow para cerrar');
   }
   
   // Reset flag después de un tiempo MUY largo para evitar loops
@@ -2097,6 +2108,10 @@ ipcMain.on('youtube-login-success', (event, userInfo) => {
 
 ipcMain.on('youtube-logout-success', (event) => {
   console.log('[LOGOUT] YouTube logout detectado');
+  
+  // ⭐ Resetear flag de login para permitir nuevo login
+  loginProcessed = false;
+  console.log('[LOGOUT] Flag loginProcessed reseteado');
   
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('youtube-user-logged-out', {
@@ -2372,6 +2387,9 @@ ipcMain.handle('open-youtube-login-window', async () => {
   try {
     console.log('[LOGIN] Abriendo ventana de login de YouTube...');
     
+    // ⭐ Resetear flag para permitir nuevo login
+    loginProcessed = false;
+    
     // No cerrar youtubeWindow, solo crear loginWindow
     if (loginWindow && !loginWindow.isDestroyed()) {
       console.log('[LOGIN] Cerrando ventana de login anterior');
@@ -2468,14 +2486,18 @@ ipcMain.handle('open-youtube-login-window', async () => {
                     
                     console.log('[LOGIN-DETECT] Datos:', userName, userHandle, avatarUrl ? 'avatar OK' : 'sin avatar');
                     
-                    if (window.youtubeAPI && window.youtubeAPI.notifyLogin) {
-                      window.youtubeAPI.notifyLogin({
+                    // Usar loginAPI (del login-preload.js) o youtubeAPI (fallback)
+                    const api = window.loginAPI || window.youtubeAPI;
+                    if (api && api.notifyLogin) {
+                      api.notifyLogin({
                         isLoggedIn: true,
                         userName: userName,
                         userHandle: userHandle,
                         userAvatar: avatarUrl,
                         timestamp: new Date().toISOString()
                       });
+                    } else {
+                      console.error('[LOGIN-DETECT] No API disponible para notificar login');
                     }
                   }, 500);
                 }

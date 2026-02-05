@@ -14,6 +14,8 @@ const appState = {
   playlists: [],
   favorites: [], // ⭐ Lista de favoritos
   isLoggedIn: false,
+  isSwitchingAccount: false,
+  loaderAllowed: true,
   contentLoaded: {
     favorites: false,
     history: false
@@ -69,6 +71,7 @@ function playNextInQueue() {
     const playlistInfo = {
       name: playlistManager.currentPlayingPlaylist.name,
       cover: playlistManager.getPlaylistCover(playlistManager.currentPlayingPlaylist),
+      discordCover: playlistManager.getPlaylistDiscordCover(playlistManager.currentPlayingPlaylist),
       id: playlistManager.currentPlayingPlaylist.id || playlistManager.currentPlayingPlaylist.globalId
     };
     playlistManager.updatePlayerUIForPlaylist(track, playlistInfo);
@@ -124,6 +127,7 @@ function playPrevInQueue() {
     const playlistInfo = {
       name: playlistManager.currentPlayingPlaylist.name,
       cover: playlistManager.getPlaylistCover(playlistManager.currentPlayingPlaylist),
+      discordCover: playlistManager.getPlaylistDiscordCover(playlistManager.currentPlayingPlaylist),
       id: playlistManager.currentPlayingPlaylist.id || playlistManager.currentPlayingPlaylist.globalId
     };
     playlistManager.updatePlayerUIForPlaylist(track, playlistInfo);
@@ -247,6 +251,10 @@ function updateLikeButton() {
 
 // ===== LOADING OVERLAY FUNCTIONS =====
 function showLoader(message = 'Cargando tu música...') {
+  if (window.appState && !window.appState.loaderAllowed && !window.appState.isSwitchingAccount) {
+    console.log('⏭️ Loader ignorado: no permitido en este estado');
+    return;
+  }
   const overlay = document.getElementById('loadingOverlay');
   const statusText = document.getElementById('loadingStatus');
   if (overlay) {
@@ -288,6 +296,10 @@ function checkAllContentLoaded() {
   if (appState.contentLoaded.favorites && appState.contentLoaded.history) {
     console.log('✅ Todo el contenido cargado');
     setTimeout(() => hideLoader(), 300);
+    if (appState.isSwitchingAccount) {
+      appState.isSwitchingAccount = false;
+    }
+    appState.loaderAllowed = false;
   }
 }
 
@@ -502,6 +514,11 @@ function setupLikeButton() {
   if (likeBtn) {
     likeBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
+
+      if (appState.isSwitchingAccount) {
+        console.log('⏳ Cambio de cuenta en progreso, evitando like');
+        return;
+      }
       
       if (!appState.currentTrack || !appState.currentTrack.videoId) {
         console.log('❌ No hay canción actual para agregar a favoritos');
@@ -526,6 +543,9 @@ function setupLikeButton() {
 // ⭐ Verificar si hay sesión guardada para mostrar loader
 async function checkInitialSession() {
   // ⭐ Siempre mostrar loader al iniciar
+  if (window.appState) {
+    window.appState.loaderAllowed = true;
+  }
   showLoader('Cargando tu música...');
   updateLoaderStatus('Conectando con YouTube...');
   
@@ -1053,6 +1073,11 @@ function renderDJPlaylists() {
   }
   
   const playlists = window.djEngine.getAutoPlaylists();
+
+  // ⭐ Publicar automáticamente en comunidad si aplica
+  if (window.djEngine.autoPublishIfNeeded) {
+    window.djEngine.autoPublishIfNeeded();
+  }
   
   if (!playlists || playlists.length === 0) {
     grid.innerHTML = `<div class="dj-empty">
@@ -1106,9 +1131,14 @@ function renderDJPlaylists() {
       window.djEngine.playAutoPlaylist(playlist, false);
     });
     
-    // Click en card - shuffle
+    // Click en card - abrir playlist DJ
     card.addEventListener('click', () => {
-      window.djEngine.playAutoPlaylist(playlist, true);
+      const id = window.djEngine.ensureLocalDJPlaylist(playlist);
+      if (id && window.playlistManager) {
+        window.playlistManager.showPlaylist(id);
+      } else {
+        window.djEngine.playAutoPlaylist(playlist, true);
+      }
     });
     
     grid.appendChild(card);
@@ -1323,6 +1353,9 @@ function wireHomeActions() {
 }
 
 function renderHomeModules() {
+  if (typeof renderDJPlaylists === 'function') {
+    renderDJPlaylists();
+  }
   const hasUser = !!localStorage.getItem('seaxmusic_user');
   const hasHistory = (appState.recentHistory || []).length > 0;
   const hasFavorites = (appState.favorites || []).length > 0;
@@ -1340,11 +1373,13 @@ function renderHomeModules() {
 
 function renderHomeSkeletons() {
   const vibesGrid = document.getElementById('seaxVibesGrid');
+  const djGrid = document.getElementById('djPlaylistsGrid');
   const playlistGrid = document.getElementById('userPlaylistGrid');
   const actionCards = document.getElementById('homeActionCards');
   const momentsGrid = document.getElementById('momentsGrid');
 
   renderSkeletonGrid(vibesGrid, 6);
+  renderSkeletonGrid(djGrid, 4);
   renderSkeletonGrid(playlistGrid, 6);
   renderSkeletonCards(actionCards, 3);
   renderSkeletonCards(momentsGrid, 3);
@@ -1472,6 +1507,7 @@ window.favoritesManager = {
   removeFavorite: (videoId) => removeFromFavorites(videoId),
   toggleFavorite: async (video) => {
     if (!video || !video.videoId) return false;
+    if (appState.isSwitchingAccount) return false;
     
     const favorites = appState.favorites || [];
     const isCurrentlyFavorite = favorites.some(v => v && v.videoId === video.videoId);

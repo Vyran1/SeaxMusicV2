@@ -422,6 +422,16 @@
         </button>
       </div>
       <div class="playlist-modal-body">
+        <div class="playlist-mode-toggle" id="playlistModeToggle">
+          <button type="button" class="playlist-mode-btn active" data-mode="manual">
+            <i class="fas fa-pen"></i>
+            Crear manual
+          </button>
+          <button type="button" class="playlist-mode-btn" data-mode="dj">
+            <i class="fas fa-headphones-alt"></i>
+            Crear con DJ
+          </button>
+        </div>
         <div class="playlist-form-row">
           <div class="playlist-cover-upload" id="playlistCoverUpload">
             <div class="playlist-preview-cover" id="playlistLogoPreview">
@@ -456,6 +466,21 @@
             URL de imagen (opcional)
           </label>
           <input type="text" id="playlistLogoInput" placeholder="https://ejemplo.com/imagen.jpg">
+        </div>
+        <div class="playlist-dj-panel hidden" id="playlistDjPanel">
+          <div class="playlist-form-group">
+            <label for="djArtistSearch">
+              <i class="fas fa-user-music"></i>
+              Artistas (mínimo 1)
+            </label>
+            <div class="playlist-artist-search">
+              <input type="text" id="djArtistSearch" placeholder="Buscar artista por nombre">
+              <button type="button" id="djArtistSearchBtn"><i class="fas fa-search"></i></button>
+            </div>
+            <div class="playlist-artist-results" id="djArtistResults"></div>
+            <div class="playlist-artist-selected" id="djArtistSelected"></div>
+            <small class="playlist-hint">El DJ creará un MIX basado en lo que más escuchas de esos artistas.</small>
+          </div>
         </div>
         <div class="playlist-preview-card">
           <div class="preview-label">Vista previa</div>
@@ -523,6 +548,29 @@
     </div>
   </div>
 
+  <!-- Dev Access Modal -->
+  <div class="playlist-modal" id="devAccessModal">
+    <div class="playlist-modal-card">
+      <div class="playlist-modal-header">
+        <h3>Acceso Dev</h3>
+        <button class="playlist-modal-close" id="devAccessClose">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="playlist-modal-body">
+        <div class="playlist-form-group">
+          <label for="devAccessCode">Código de Dev</label>
+          <input type="password" id="devAccessCode" placeholder="Código">
+          <small class="playlist-hint" id="devAccessError"></small>
+        </div>
+      </div>
+      <div class="playlist-modal-actions">
+        <button class="playlist-btn ghost" id="devAccessCancel">Cancelar</button>
+        <button class="playlist-btn primary" id="devAccessSubmit">Entrar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/app.js"></script>
   <script src="js/player.js"></script>
   <script src="js/ui.js"></script>
@@ -533,6 +581,7 @@
   <script src="js/lyricsService.js"></script>
   <script src="js/nowPlayingManager.js"></script>
   <script src="js/djEngine.js"></script>
+  <script src="js/devManager.js"></script>
 </body>
 </html>
 

@@ -5,16 +5,20 @@ class DJEngine {
   constructor() {
     this.storageKey = 'seaxmusic_dj_data';
     this.autoPlaylistsKey = 'seaxmusic_auto_playlists';
+    this.publishKey = 'seaxmusic_dj_publish_last';
     this.listenHistory = [];
     this.artistStats = {};
     this.genrePatterns = {};
     this.timePatterns = {};
+    this.lastTrackedVideoId = null;
     this.init();
   }
 
   init() {
     this.loadData();
     this.setupListeners();
+    this.migrateDJPlaylists();
+    this.startSchedulers();
   }
 
   // ⭐ Cargar datos guardados
@@ -60,6 +64,24 @@ class DJEngine {
             this.trackPlay(track);
           }
         }, 500);
+      });
+    }
+
+    // Escuchar cuando cambia la info del video (más fiable que audio-started)
+    if (window.electronAPI?.onUpdateVideoInfo) {
+      window.electronAPI.onUpdateVideoInfo((videoInfo) => {
+        const current = window.appState?.currentTrack || {};
+        const track = {
+          videoId: videoInfo.videoId || current.videoId,
+          title: videoInfo.title || current.title,
+          artist: videoInfo.artist || videoInfo.channel || current.artist || current.channel,
+          channel: videoInfo.channel || current.channel,
+          thumbnail: videoInfo.thumbnail || current.thumbnail
+        };
+        if (track.videoId && track.videoId !== this.lastTrackedVideoId) {
+          this.lastTrackedVideoId = track.videoId;
+          this.trackPlay(track);
+        }
       });
     }
   }
@@ -195,7 +217,7 @@ class DJEngine {
     const slotInfo = slotNames[currentSlot];
     const patterns = this.timePatterns[currentSlot] || [];
     
-    if (patterns.length < 5) return null;
+    if (patterns.length < 3) return null;
 
     // Obtener tracks únicos más escuchados en este horario
     const trackCounts = {};
@@ -212,7 +234,7 @@ class DJEngine {
       })
       .filter(Boolean);
 
-    if (topTracks.length < 5) return null;
+    if (topTracks.length < 3) return null;
 
     return {
       type: 'time_mix',
@@ -304,7 +326,7 @@ class DJEngine {
 
     // 1. Seax Vibes (siempre)
     const seaxVibes = this.generateSeaxVibes();
-    if (seaxVibes && seaxVibes.tracks.length >= 5) {
+    if (seaxVibes && seaxVibes.tracks.length >= 3) {
       playlists.push(seaxVibes);
     }
 
@@ -318,7 +340,7 @@ class DJEngine {
     const topArtists = this.getTopArtists(3);
     topArtists.forEach(artist => {
       const mix = this.generateArtistMix(artist.name);
-      if (mix && mix.tracks.length >= 5) {
+      if (mix && mix.tracks.length >= 3) {
         playlists.push(mix);
       }
     });
@@ -441,12 +463,12 @@ class DJEngine {
       id: `pl_dj_${Date.now()}`,
       globalId: `gpl_dj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       name: autoPlaylist.name || '🎧 Mix DJ',
-      logo: null, // ⭐ Sin logo fijo - collage se genera desde tracks
+      logo: this.generateCollageCover(formattedTracks), // ? Collage con tracks
       description: autoPlaylist.description || 'Playlist generada automáticamente por DJ Seax',
       creator: {
         key: djBotKey,
         name: '🤖 DJ Seax',
-        avatar: ''
+        avatar: './assets/img/icon.png'
       },
       likedBy: [],
       likeCount: 0,
@@ -504,6 +526,257 @@ class DJEngine {
     }
 
     return created;
+  }
+
+  // ⭐ Publicar automáticamente una vez al día
+  autoPublishIfNeeded() {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const last = localStorage.getItem(this.publishKey);
+      if (last === today) return;
+
+      const created = this.publishDJPlaylists();
+      if (created && created.length > 0) {
+        localStorage.setItem(this.publishKey, today);
+      }
+    } catch (e) {
+      console.error('[DJ ENGINE] Error auto-publicando:', e);
+    }
+  }
+
+  // 🔄 Actualizar playlists personales con más frecuencia
+  refreshPersonalPlaylists() {
+    const playlists = this.generateAllAutoPlaylists();
+    // Actualizar versiones locales de solo lectura
+    if (Array.isArray(playlists)) {
+      playlists.forEach(pl => this.ensureLocalDJPlaylist(pl));
+    }
+    this.notifyDJUpdate();
+  }
+
+  startSchedulers() {
+    // Refrescar MIX personales cada 10 minutos
+    setInterval(() => {
+      this.refreshPersonalPlaylists();
+    }, 10 * 60 * 1000);
+
+    // Verificar publicación global con menos frecuencia
+    setInterval(() => {
+      this.autoPublishIfNeeded();
+      this.notifyDJUpdate();
+    }, 60 * 60 * 1000);
+  }
+
+  notifyDJUpdate() {
+    try {
+      window.dispatchEvent(new CustomEvent('dj-playlists-updated'));
+    } catch (e) {}
+  }
+
+  // ⭐ Asegurar logo/avatar correcto en playlists DJ ya creadas
+  migrateDJPlaylists() {
+    const playlistManager = window.playlistManager;
+    if (!playlistManager) return;
+
+    const appLogo = './assets/img/icon.png';
+
+    // Actualizar globales
+    const global = playlistManager.getGlobalPlaylists?.() || [];
+    let globalChanged = false;
+    global.forEach(p => {
+      if (!p?.isDJGenerated) return;
+      const isAppLogo = typeof p.logo === 'string' && p.logo.includes('assets/img/icon.png');
+      if ((isAppLogo || !p.logo) && Array.isArray(p.tracks) && p.tracks.length > 0) {
+        p.logo = this.generateCollageCover(p.tracks);
+        globalChanged = true;
+      }
+    if (!p.creator) p.creator = { key: 'dj_seax_bot', name: '🤖 DJ Seax', avatar: appLogo };
+      if (!p.creator.avatar) {
+        p.creator.avatar = appLogo;
+        globalChanged = true;
+      }
+    });
+    if (globalChanged) {
+      playlistManager.saveGlobalPlaylists?.(global);
+    }
+
+    // Actualizar locales del usuario actual
+    playlistManager.loadPlaylists?.();
+    let localChanged = false;
+    (playlistManager.playlists || []).forEach(p => {
+      if (!p?.isDJGenerated) return;
+      const isAppLogo = typeof p.logo === 'string' && p.logo.includes('assets/img/icon.png');
+      if ((isAppLogo || !p.logo) && Array.isArray(p.tracks) && p.tracks.length > 0) {
+        p.logo = this.generateCollageCover(p.tracks);
+        localChanged = true;
+      }
+      if (!p.creator) p.creator = { key: 'dj_seax_bot', name: '🤖 DJ Seax', avatar: appLogo };
+      if (!p.creator.avatar) {
+        p.creator.avatar = appLogo;
+        localChanged = true;
+      }
+    });
+    if (localChanged) {
+      playlistManager.savePlaylists?.();
+    }
+  }
+
+  // 🎧 Crear playlist DJ a partir de artistas elegidos
+  async generateDJPlaylistFromArtists(artistNames = []) {
+    const artists = artistNames.map(a => a.trim()).filter(Boolean);
+    if (artists.length === 0) return null;
+
+    const uniqueById = (arr) => {
+      const seen = new Set();
+      return arr.filter(t => {
+        if (!t?.videoId || seen.has(t.videoId)) return false;
+        seen.add(t.videoId);
+        return true;
+      });
+    };
+
+    const normalize = (text) => (text || '').toLowerCase();
+    const normalizeTitle = (text) => (text || '')
+      .toLowerCase()
+      .replace(/\(.*?\)|\[.*?\]/g, '')
+      .replace(/feat\.|ft\.|featuring/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const badWords = ['cover', 'karaoke', 'instrumental', 'remix', 'live', 'acoustic', 'sped', 'slowed', 'nightcore'];
+    const buildFromHistory = (artist) => {
+      const fromStats = this.artistStats[artist]?.tracks || [];
+      const fromHistory = this.listenHistory
+        .filter(h => {
+          const title = normalize(h.title || '');
+          const channel = normalize(h.channel || h.artist || '');
+          const a = normalize(artist);
+          const bad = badWords.some(w => title.includes(w));
+          const nonMusic = ['podcast', 'entrevista', 'conversatorio', 'charla', 'documental', 'noticias', 'review', 'vlog', 'reaccion', 'reacción', 'gameplay'];
+          if (nonMusic.some(w => title.includes(w))) return false;
+          if (bad) return false;
+          if (!title.includes(a) && !channel.includes(a)) return false;
+          return true;
+        })
+        .map(h => ({
+          videoId: h.videoId,
+          title: h.title,
+          artist: h.artist || artist,
+          thumbnail: h.thumbnail
+        }));
+      return uniqueById([...fromStats, ...fromHistory]);
+    };
+
+    const isOfficialCandidate = (video, artist) => {
+      const channel = normalize(video.channel || video.artist || '');
+      const title = normalize(video.title || '');
+      const a = normalize(artist);
+      const nonMusic = ['podcast', 'entrevista', 'conversatorio', 'charla', 'documental', 'noticias', 'review', 'vlog', 'reaccion', 'reacción', 'gameplay'];
+      if (nonMusic.some(w => title.includes(w))) return false;
+      if (badWords.some(w => title.includes(w))) return false;
+      if (!channel.includes(a) && !title.includes(a)) return false;
+      // Forzar canal oficial o Topic cuando no hay coincidencia fuerte en título
+      if (!title.includes(a)) {
+        return channel.includes(a) && (channel.includes('official') || channel.includes('topic'));
+      }
+      return channel.includes(a) || channel.includes('official') || channel.includes('topic');
+    };
+
+    const searchFromYouTube = async (artist, strict = true) => {
+      if (!window.electronAPI?.searchYouTube) return [];
+      try {
+        const response = await window.electronAPI.searchYouTube(`${artist} top songs`);
+        const videos = response?.videos || response?.results || [];
+        const filtered = videos.filter(v => isOfficialCandidate(v, artist));
+        const usable = (strict ? filtered : (filtered.length ? filtered : videos)).filter(v => {
+          if (!v?.videoId) return false;
+          if (!strict) {
+            const title = normalize(v.title || '');
+            if (badWords.some(w => title.includes(w))) return false;
+          }
+          return true;
+        });
+        return uniqueById(usable.map(v => ({
+          videoId: v.videoId,
+          title: v.title,
+          artist: artist,
+          thumbnail: v.thumbnail
+        })));
+      } catch (e) {
+        return [];
+      }
+    };
+
+    const scoreTrack = (track, artist) => {
+      const plays = this.listenHistory.filter(h => h.videoId === track.videoId).length;
+      const last = this.listenHistory.find(h => h.videoId === track.videoId)?.timestamp;
+      const recency = last ? Math.max(0, 10 - (Date.now() - new Date(last).getTime()) / (1000 * 60 * 60 * 24)) : 0;
+      const match = normalizeTitle(track.title || '').includes(normalize(artist)) ? 5 : 0;
+      return plays * 3 + recency + match;
+    };
+
+    const artistBuckets = {};
+    for (const artist of artists) {
+      let tracks = buildFromHistory(artist);
+      if (tracks.length < 5) {
+        const ytTracks = await searchFromYouTube(artist, true);
+        tracks = uniqueById([...tracks, ...ytTracks]);
+      }
+      if (tracks.length < 3) {
+        const ytLoose = await searchFromYouTube(artist, false);
+        tracks = uniqueById([...tracks, ...ytLoose]);
+      }
+      artistBuckets[artist] = tracks
+        .map(t => ({ ...t, _score: scoreTrack(t, artist) }))
+        .sort((a, b) => b._score - a._score);
+    }
+
+    let finalTracks = [];
+    if (artists.length === 1) {
+      finalTracks = artistBuckets[artists[0]] || [];
+    } else {
+      const maxLen = Math.max(...artists.map(a => artistBuckets[a]?.length || 0));
+      for (let i = 0; i < maxLen; i++) {
+        artists.forEach(artist => {
+          const track = artistBuckets[artist]?.[i];
+          if (track) finalTracks.push(track);
+        });
+      }
+    }
+
+    const titleSeen = new Set();
+    finalTracks = uniqueById(finalTracks).filter(t => {
+      const key = `${normalizeTitle(t.title)}|${normalize(t.artist)}`;
+      if (titleSeen.has(key)) return false;
+      titleSeen.add(key);
+      return true;
+    });
+
+    // Orden variado: evitar mismos artistas seguidos
+    const diversified = [];
+    let lastArtist = '';
+    const pool = [...finalTracks];
+    while (pool.length) {
+      let idx = pool.findIndex(t => normalize(t.artist) !== normalize(lastArtist));
+      if (idx === -1) idx = 0;
+      const [next] = pool.splice(idx, 1);
+      diversified.push(next);
+      lastArtist = next.artist;
+    }
+
+    finalTracks = diversified.slice(0, 30);
+    if (finalTracks.length < 3) return null;
+
+    const name = `MIX DJ - ${artists.join(' & ')}`;
+    const description = artists.length === 1
+      ? `Mix DJ con lo mejor de ${artists[0]} y sus colaboraciones.`
+      : `Mix DJ combinando ${artists.join(' & ')} en un solo flow.`;
+
+    return {
+      name,
+      description,
+      tracks: finalTracks,
+      logo: this.generateCollageCover(finalTracks)
+    };
   }
 
   // ⭐ Reproducir playlist automática (con cover de playlist)
@@ -594,6 +867,58 @@ class DJEngine {
     console.log('[DJ ENGINE] 🎧 Reproduciendo playlist:', playlist.name, '- Cover:', playlistCover);
   }
 
+  // 📌 Guardar/actualizar playlist DJ local para poder abrirla en vista
+  ensureLocalDJPlaylist(autoPlaylist) {
+    const playlistManager = window.playlistManager;
+    if (!playlistManager || !autoPlaylist) return null;
+
+    const userProfile = playlistManager.getCurrentUserProfile?.() || { key: 'guest', name: 'Usuario', avatar: '' };
+    playlistManager.loadPlaylists?.();
+
+    const existing = (playlistManager.playlists || []).find(p =>
+      p.isDJGenerated && p.djType === autoPlaylist.type && (p.creator?.key || '') === userProfile.key
+    );
+
+    const now = new Date().toISOString();
+    const base = {
+      name: autoPlaylist.name,
+      description: autoPlaylist.description,
+      tracks: autoPlaylist.tracks || [],
+      logo: this.generateCollageCover(autoPlaylist.tracks || []),
+      creator: {
+        key: userProfile.key,
+        name: `🤖 DJ Seax • ${userProfile.name || 'Usuario'}`,
+        avatar: './assets/img/icon.png',
+        secondaryAvatar: userProfile.avatar || ''
+      },
+      isDJGenerated: true,
+      readOnly: true,
+      djType: autoPlaylist.type,
+      updatedAt: now
+    };
+
+    if (existing) {
+      Object.assign(existing, base);
+      playlistManager.savePlaylists?.();
+      playlistManager.upsertGlobalPlaylist?.(existing);
+      return existing.id;
+    }
+
+    const created = {
+      id: `pl_dj_${Date.now()}`,
+      globalId: `gpl_dj_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      createdAt: now,
+      likedBy: [],
+      likeCount: 0,
+      ...base
+    };
+
+    playlistManager.playlists.unshift(created);
+    playlistManager.savePlaylists?.();
+    playlistManager.upsertGlobalPlaylist?.(created);
+    return created.id;
+  }
+
   // ⭐ Utilidades
   shuffleArray(array) {
     const shuffled = [...array];
@@ -641,3 +966,5 @@ window.djEngine = new DJEngine();
 
 // Exportar para uso
 console.log('[DJ ENGINE] 🎧 Sistema DJ inicializado');
+
+

@@ -7,6 +7,7 @@ class UserManager {
     this.clickOutsideHandlerAdded = false; // Flag para evitar múltiples handlers
     this.loginNotificationShown = false; // Flag para evitar múltiples notificaciones
     this.contentReloadInProgress = false; // Flag para evitar múltiples recargas de contenido
+    this.lastLoginProcessedAt = 0;
     this.loadUserData();
     this.initializeEventListeners();
     this.updateUserUI();
@@ -76,17 +77,66 @@ class UserManager {
   }
 
   upsertAccount(user) {
-    if (!user) return;
+    if (!user) {
+      console.log('[ACCOUNTS] No se puede guardar cuenta: usuario null');
+      return;
+    }
     const accounts = this.getAccounts();
     const key = this.buildUserKey(user);
+    console.log('[ACCOUNTS] Guardando cuenta con key:', key);
     const index = accounts.findIndex(acc => acc.key === key);
     const payload = { key, user };
     if (index === -1) {
       accounts.unshift(payload);
+      console.log('[ACCOUNTS] Nueva cuenta añadida');
     } else {
       accounts[index] = payload;
+      console.log('[ACCOUNTS] Cuenta existente actualizada');
     }
     this.saveAccounts(accounts);
+    console.log('[ACCOUNTS] Total cuentas guardadas:', accounts.length);
+  }
+
+  saveCurrentAccountSnapshot() {
+    const current = this.user || this.getStoredUser();
+    if (!current) return;
+    this.upsertAccount(current);
+  }
+
+  stopPlaybackForAccountChange() {
+    try {
+      if (window.musicPlayer) {
+        window.musicPlayer.isPlaying = false;
+        window.musicPlayer.currentTrack = null;
+        window.musicPlayer.updatePlayButton?.();
+      }
+      if (window.electronAPI?.send) {
+        window.electronAPI.send('audio-control', 'pause');
+      }
+      if (window.clearPlayQueue) {
+        window.clearPlayQueue();
+      }
+      if (window.electronAPI?.clearCurrentPlaylist) {
+        window.electronAPI.clearCurrentPlaylist();
+      }
+      if (window.appState) {
+        window.appState.currentTrack = null;
+      }
+      const trackName = document.getElementById('trackName');
+      const trackArtist = document.getElementById('trackArtist');
+      const trackImage = document.getElementById('trackImage');
+      if (trackName) trackName.textContent = 'Selecciona una canción';
+      if (trackArtist) trackArtist.textContent = 'SeaxMusic';
+      if (trackImage) {
+        trackImage.src = './assets/img/icon.png';
+        trackImage.style.display = 'block';
+      }
+      if (window.musicPlayer?.updateLikeButton) {
+        window.musicPlayer.updateLikeButton();
+      }
+    } catch (e) {
+      console.error('[ACCOUNT] Error deteniendo reproducción:', e);
+    }
   }
 
   removeAccount(key) {
@@ -154,7 +204,7 @@ class UserManager {
     modal.classList.add('active');
   }
 
-  switchAccount(user) {
+  async switchAccount(user) {
     if (!user) return;
     if (typeof showLoader === 'function') {
       showLoader('Cambiando de cuenta...');
@@ -162,7 +212,11 @@ class UserManager {
     if (typeof updateLoaderStatus === 'function') {
       updateLoaderStatus('Sincronizando tu música...');
     }
+    this.stopPlaybackForAccountChange();
     if (window.appState) {
+      window.appState.isSwitchingAccount = true;
+      window.appState.favorites = [];
+      window.appState.recentHistory = [];
       window.appState.contentLoaded.favorites = false;
       window.appState.contentLoaded.history = false;
     }
@@ -170,19 +224,15 @@ class UserManager {
     this.user = user;
     this.upsertAccount(user);
     if (window.electronAPI && window.electronAPI.saveUserData) {
-      window.electronAPI.saveUserData(user).catch(err => console.error('Error saving user data:', err));
+      try {
+        await window.electronAPI.saveUserData(user);
+      } catch (err) {
+        console.error('Error saving user data:', err);
+      }
     }
     this.updateUserUI();
     this.closeProfileMenu();
-    if (typeof loadFavoritesFromStorage === 'function') {
-      loadFavoritesFromStorage();
-    }
-    if (typeof loadFavoritesContent === 'function') {
-      loadFavoritesContent();
-    }
-    if (typeof loadRecentlyPlayed === 'function') {
-      loadRecentlyPlayed(true);
-    }
+    this.reloadAllContent();
     if (window.renderHomeModules) {
       window.renderHomeModules();
     }
@@ -385,6 +435,11 @@ class UserManager {
             <span>Mi Cuenta</span>
           </button>
 
+          <button class="menu-item" id="devMenuItem">
+            <i class="fas fa-terminal"></i>
+            <span>Dev</span>
+          </button>
+
           <button class="menu-item" id="helpMenuItem">
             <i class="fas fa-life-ring"></i>
             <span>Centro de Ayuda</span>
@@ -406,6 +461,7 @@ class UserManager {
     document.getElementById('settingsMenuItem')?.addEventListener('click', () => this.openSettings());
     document.getElementById('switchAccountMenuItem')?.addEventListener('click', () => this.openAccountSwitcher());
     document.getElementById('accountMenuItem')?.addEventListener('click', () => this.openAccount());
+    document.getElementById('devMenuItem')?.addEventListener('click', () => this.openDevModal());
     document.getElementById('helpMenuItem')?.addEventListener('click', () => this.openHelp());
     document.getElementById('logoutMenuItem')?.addEventListener('click', () => this.logout());
 
@@ -519,23 +575,31 @@ class UserManager {
   }
   handleYouTubeLogin(user) {
     console.log('✅ YouTube login manejado:', user);
+    console.log('[LOGIN] Datos recibidos - Nombre:', user?.name, 'Handle:', user?.handle, 'Email:', user?.email);
     
     const previousUser = this.getStoredUser();
     const previousKey = this.buildUserKey(previousUser);
     const nextKey = this.buildUserKey(user);
     
-    // ⭐ Evitar procesar múltiples veces (notificación Y recarga)
-    if (this.loginNotificationShown || this.contentReloadInProgress) {
-      console.log('[LOGIN] Login ya procesado o recarga en progreso, ignorando...');
-      return;
-    }
+    console.log('[LOGIN] Previous key:', previousKey, '| New key:', nextKey);
     
+    const now = Date.now();
+    const shouldNotify = !this.loginNotificationShown;
+    const lastLoginTooSoon = now - this.lastLoginProcessedAt < 5000;
+    
+    const wasLoggedIn = !!window.appState?.isLoggedIn;
     this.user = user;
+    if (window.appState) {
+      window.appState.isLoggedIn = true;
+    }
     
     // Save user to localStorage
     localStorage.setItem('seaxmusic_user', JSON.stringify(user));
+    console.log('[LOGIN] Usuario guardado en localStorage');
 
+    // ⭐ Guardar en lista de cuentas
     this.upsertAccount(user);
+    console.log('[LOGIN] Cuenta guardada en lista de cuentas');
     
     // Save user to JSON file via Electron IPC
     if (window.electronAPI && window.electronAPI.saveUserData) {
@@ -549,6 +613,7 @@ class UserManager {
     this.closeProfileMenu();
     
     if (window.appState) {
+      window.appState.isSwitchingAccount = true;
       window.appState.favorites = [];
       window.appState.recentHistory = [];
     }
@@ -566,21 +631,23 @@ class UserManager {
     }
     
     // Show notification (solo una vez)
-    this.loginNotificationShown = true;
-    this.showLoginNotification(user.name);
+    if (shouldNotify) {
+      this.loginNotificationShown = true;
+      this.showLoginNotification(user.name);
+    }
     
     // Reset flag después de un tiempo MUY largo para evitar loops
     setTimeout(() => {
       this.loginNotificationShown = false;
     }, 120000); // 2 minutos
     
-    // ⭐ Solo recargar si no hay usuario previo cargado
-    // Esto evita recargar cuando ya hay sesión
-    const isNewLogin = previousKey !== nextKey;
-    
-    if (isNewLogin) {
-      // ⭐ Recargar todo el contenido con el loader (como carga inicial)
-      this.reloadAllContent();
+    // ⭐ Recargar solo si venimos de logout o cambió de cuenta
+    const shouldReload = !wasLoggedIn || previousKey !== nextKey;
+    if (shouldReload && !lastLoginTooSoon) {
+      this.reloadAllContent(true);
+      this.lastLoginProcessedAt = now;
+    } else {
+      console.log('[LOGIN] Sesión ya activa, se omite recarga del loader');
     }
     
     // ⭐ NO cerrar YouTube window después del login
@@ -589,11 +656,14 @@ class UserManager {
   }
   
   // ⭐ Recargar todo el contenido (historial, favoritos) con loader
-  reloadAllContent() {
+  reloadAllContent(force = false) {
     // ⭐ Evitar múltiples recargas simultáneas
-    if (this.contentReloadInProgress) {
+    if (this.contentReloadInProgress && !force) {
       console.log('[RELOAD] Ya hay una recarga en progreso, ignorando...');
       return;
+    }
+    if (force) {
+      this.contentReloadInProgress = false;
     }
     
     this.contentReloadInProgress = true;
@@ -601,6 +671,9 @@ class UserManager {
     
     // Mostrar loader
     if (typeof showLoader === 'function') {
+      if (window.appState) {
+        window.appState.loaderAllowed = true;
+      }
       showLoader('Cargando tu música...');
     }
     if (typeof updateLoaderStatus === 'function') {
@@ -609,6 +682,9 @@ class UserManager {
     
     // Resetear flags de contenido cargado
     if (window.appState) {
+      window.appState.isSwitchingAccount = true;
+      window.appState.favorites = [];
+      window.appState.recentHistory = [];
       window.appState.contentLoaded.favorites = false;
       window.appState.contentLoaded.history = false;
     }
@@ -638,12 +714,24 @@ class UserManager {
   handleYouTubeLogout() {
     console.log('[LOGOUT] YouTube logout manejado');
     
+    // ⭐ Resetear flags para permitir nuevo login
+    this.loginNotificationShown = false;
+    this.contentReloadInProgress = false;
+    this.lastLoginProcessedAt = 0;
+
+    this.stopPlaybackForAccountChange();
+    
+    // Guardar snapshot antes de limpiar sesiÃ³n
+    this.saveCurrentAccountSnapshot();
+
     // Clear user data
     this.user = null;
+    if (window.appState) {
+      window.appState.isLoggedIn = false;
+    }
     
-    // Clear localStorage completely
+    // Clear solo la sesiÃ³n actual (mantener cuentas guardadas)
     localStorage.removeItem('seaxmusic_user');
-    localStorage.clear();
     
     // Clear JSON file via Electron IPC
     if (window.electronAPI && window.electronAPI.clearUserData) {
@@ -773,6 +861,51 @@ class UserManager {
     console.log('Abriendo ayuda...');
     // TODO: Open help modal
     this.closeProfileMenu();
+  }
+
+  openDevModal() {
+    this.closeProfileMenu();
+    const modal = document.getElementById('devAccessModal');
+    const input = document.getElementById('devAccessCode');
+    const submitBtn = document.getElementById('devAccessSubmit');
+    const cancelBtn = document.getElementById('devAccessCancel');
+    const closeBtn = document.getElementById('devAccessClose');
+    const errorEl = document.getElementById('devAccessError');
+    if (!modal) return;
+
+    if (input) input.value = '';
+    if (errorEl) errorEl.textContent = '';
+
+    if (submitBtn) submitBtn.onclick = () => this.verifyDevCode();
+    if (cancelBtn) cancelBtn.onclick = () => modal.classList.remove('active');
+    if (closeBtn) closeBtn.onclick = () => modal.classList.remove('active');
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.classList.remove('active');
+    });
+
+    modal.classList.add('active');
+    input?.focus();
+  }
+
+  verifyDevCode() {
+    const modal = document.getElementById('devAccessModal');
+    const input = document.getElementById('devAccessCode');
+    const errorEl = document.getElementById('devAccessError');
+    const code = input?.value?.trim();
+
+    if (code !== '0613') {
+      if (errorEl) errorEl.textContent = 'Código incorrecto';
+      modal?.classList.add('shake');
+      setTimeout(() => modal?.classList.remove('shake'), 400);
+      return;
+    }
+
+    modal?.classList.remove('active');
+    if (window.devManager?.showDevPage) {
+      window.devManager.showDevPage(true);
+    } else if (window.navigationHistory) {
+      window.navigationHistory.loadPage('home', false);
+    }
   }
 
   logout() {
@@ -921,12 +1054,15 @@ class UserManager {
   
   confirmLogout() {
     this.hideLogoutModal();
-    
+
+    // Guardar snapshot antes de limpiar sesiÃ³n
+    this.saveCurrentAccountSnapshot();
+    this.stopPlaybackForAccountChange();
+
     this.user = null;
     
-    // Limpiar localStorage completamente
+    // Limpiar solo la sesiÃ³n actual (mantener cuentas guardadas)
     localStorage.removeItem('seaxmusic_user');
-    localStorage.clear();
     
     // Limpiar desde JSON file vía Electron IPC
     if (window.electronAPI && window.electronAPI.clearUserData) {
@@ -972,6 +1108,7 @@ if (document.readyState === 'loading') {
 } else {
   window.userManager = new UserManager();
 }
+
 
 
 

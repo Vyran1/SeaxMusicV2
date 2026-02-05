@@ -93,7 +93,9 @@ class DiscordRichPresence {
   setIdleActivity() {
     if (!this.isConnected || !this.client) return;
 
+    this.state.playlistName = null;
     const activity = {
+      type: 2,
       details: '🎧 Navegando en SeaxMusic',
       state: '💿 Explorando canciones',
       largeImageKey: 'seaxmusic_logo',
@@ -113,6 +115,7 @@ class DiscordRichPresence {
     if (!this.isConnected || !this.client) return;
 
     this.state.isPlaying = true;
+    this.state.playlistName = null;
     this.state.trackName = trackName;
     this.state.trackArtist = trackArtist;
     // ⭐ Solo actualizar imagen si se proporciona Y el cover NO está bloqueado
@@ -347,3 +350,4 @@ class DiscordRichPresence {
 
 // Exportar instancia única
 module.exports = new DiscordRichPresence();
+

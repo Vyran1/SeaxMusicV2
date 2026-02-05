@@ -61,6 +61,10 @@ const navigationHistory = {
       if (window.searchManager) {
         window.searchManager.showSearchPage(addToHistory);
       }
+    } else if (page === 'dev') {
+      if (window.devManager) {
+        window.devManager.showDevPage(addToHistory);
+      }
     }
   },
   
@@ -226,6 +230,9 @@ function showHomePage(addToHistory = true) {
     }
     if (window.renderHomeModules) {
       window.renderHomeModules();
+    }
+    if (window.renderDJPlaylists) {
+      setTimeout(() => window.renderDJPlaylists(), 200);
     }
   }
 }

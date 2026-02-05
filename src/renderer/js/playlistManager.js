@@ -7,7 +7,10 @@ class PlaylistManager {
     this.modalMode = 'create';
     this.editingId = null;
     this.sequence = null;
+    this.creationMode = 'manual';
+    this.selectedArtists = [];
     this.searchTimer = null;
+    this.djSearchTimer = null;
     this.searchQuery = '';
     this.searchResults = [];
     this.searchLoading = false;
@@ -18,6 +21,15 @@ class PlaylistManager {
     this.bindModal();
     this.loadSidebarSection();
     this.syncGlobalFromLocal();
+    this.migrateDJCreators();
+    window.addEventListener('dj-playlists-updated', () => {
+      if (document.querySelector('.playlists-page')) {
+        this.renderPlaylistsHome();
+      }
+      if (window.renderDJPlaylists) {
+        window.renderDJPlaylists();
+      }
+    });
   }
 
   async loadSidebarSection() {
@@ -61,6 +73,9 @@ class PlaylistManager {
     const descInput = document.getElementById('playlistDescInput');
     const logoInput = document.getElementById('playlistLogoInput');
     const logoFile = document.getElementById('playlistLogoFile');
+    const modeToggle = document.getElementById('playlistModeToggle');
+    const djSearch = document.getElementById('djArtistSearch');
+    const djSearchBtn = document.getElementById('djArtistSearchBtn');
     const coverUpload = document.querySelector('.playlist-cover-upload');
 
     if (!modal) return;
@@ -93,6 +108,18 @@ class PlaylistManager {
       };
       reader.readAsDataURL(file);
     });
+
+    modeToggle?.querySelectorAll('.playlist-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.setCreationMode(btn.dataset.mode || 'manual');
+      });
+    });
+
+    djSearch?.addEventListener('input', () => {
+      if (this.djSearchTimer) clearTimeout(this.djSearchTimer);
+      this.djSearchTimer = setTimeout(() => this.searchDJArtists(), 150);
+    });
+    djSearchBtn?.addEventListener('click', () => this.searchDJArtists(true));
 
     saveBtn?.addEventListener('click', () => this.saveModal());
   }
@@ -309,6 +336,8 @@ class PlaylistManager {
     if (logoInput) logoInput.value = playlist?.logo || '';
     if (logoFile) logoFile.value = '';
 
+    this.selectedArtists = [];
+    this.setCreationMode('manual');
     this.updatePreview();
     modal.classList.add('active');
   }
@@ -328,10 +357,18 @@ class PlaylistManager {
     const previewMiniCover = document.querySelector('.preview-cover-mini');
 
     if (previewTitle) {
-      previewTitle.textContent = nameInput?.value?.trim() || 'Nombre de la playlist';
+      if (this.creationMode === 'dj' && this.selectedArtists.length > 0) {
+        previewTitle.textContent = `MIX DJ - ${this.selectedArtists.join(' & ')}`;
+      } else {
+        previewTitle.textContent = nameInput?.value?.trim() || 'Nombre de la playlist';
+      }
     }
     if (previewSubtitle) {
-      previewSubtitle.textContent = descInput?.value?.trim() || 'Lista personalizada';
+      if (this.creationMode === 'dj') {
+        previewSubtitle.textContent = 'MIX DJ automático • 0 canciones';
+      } else {
+        previewSubtitle.textContent = descInput?.value?.trim() || 'Lista personalizada';
+      }
     }
 
     const logo = logoInput?.value?.trim();
@@ -355,10 +392,46 @@ class PlaylistManager {
     }
   }
 
-  saveModal() {
+  async saveModal() {
     const nameInput = document.getElementById('playlistNameInput');
     const descInput = document.getElementById('playlistDescInput');
     const logoInput = document.getElementById('playlistLogoInput');
+
+    this.loadPlaylists();
+
+    if (this.creationMode === 'dj') {
+      if (this.selectedArtists.length < 1) {
+        alert('Agrega al menos 1 artista para el MIX DJ');
+        return;
+      }
+      if (this.isCreatingDJ) return;
+      this.isCreatingDJ = true;
+      if (window.appState) {
+        window.appState.loaderAllowed = true;
+      }
+      if (typeof showLoader === 'function') {
+        showLoader('Creando MIX DJ...');
+        if (typeof updateLoaderStatus === 'function') {
+          updateLoaderStatus('Buscando canciones oficiales del artista...');
+        }
+      }
+      const created = await this.createDJMixPlaylist();
+      if (typeof hideLoader === 'function') {
+        hideLoader();
+      }
+      if (window.appState) {
+        window.appState.loaderAllowed = false;
+      }
+      this.isCreatingDJ = false;
+      if (!created) return;
+      this.playlists.unshift(created);
+      this.savePlaylists();
+      this.upsertGlobalPlaylist(created);
+      this.refreshSidebar();
+      this.closeModal();
+      this.showPlaylist(created.id);
+      return;
+    }
 
     const name = nameInput?.value?.trim();
     if (!name) {
@@ -368,8 +441,6 @@ class PlaylistManager {
 
     const logo = logoInput?.value?.trim() || '';
     const description = descInput?.value?.trim() || '';
-
-    this.loadPlaylists();
 
     if (this.modalMode === 'edit' && this.editingId) {
       const idx = this.playlists.findIndex(p => p.id === this.editingId);
@@ -412,6 +483,163 @@ class PlaylistManager {
     }
   }
 
+  setCreationMode(mode) {
+    this.creationMode = mode === 'dj' ? 'dj' : 'manual';
+    const toggle = document.getElementById('playlistModeToggle');
+    const djPanel = document.getElementById('playlistDjPanel');
+    const nameInput = document.getElementById('playlistNameInput');
+    const descInput = document.getElementById('playlistDescInput');
+    const logoInput = document.getElementById('playlistLogoInput');
+    const logoFile = document.getElementById('playlistLogoFile');
+
+    toggle?.querySelectorAll('.playlist-mode-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === this.creationMode);
+    });
+
+    if (djPanel) {
+      djPanel.classList.toggle('hidden', this.creationMode !== 'dj');
+    }
+
+    if (nameInput) nameInput.disabled = this.creationMode === 'dj';
+    if (descInput) descInput.disabled = this.creationMode === 'dj';
+    if (logoInput) logoInput.disabled = this.creationMode === 'dj';
+    if (logoFile) logoFile.disabled = this.creationMode === 'dj';
+
+    this.renderSelectedArtists();
+    this.updatePreview();
+  }
+
+  async searchDJArtists(force = false) {
+    const input = document.getElementById('djArtistSearch');
+    const resultsEl = document.getElementById('djArtistResults');
+    if (!input || !resultsEl) return;
+
+    const query = input.value.trim();
+    if (!force && query.length < 2) {
+      resultsEl.innerHTML = '';
+      return;
+    }
+
+    if (!window.electronAPI?.searchYouTube) {
+      resultsEl.innerHTML = `<div class="playlist-empty-state">No hay buscador disponible.</div>`;
+      return;
+    }
+
+    resultsEl.innerHTML = `<div class="playlist-empty-state">Buscando artistas...</div>`;
+    try {
+      const response = await window.electronAPI.searchYouTube(query);
+      const videos = response?.videos || response?.results || [];
+      const channels = [];
+      const seen = new Set();
+      videos.forEach(v => {
+        const channel = v.channel || v.artist || '';
+        if (!channel) return;
+        const norm = channel.toLowerCase();
+        if (seen.has(norm)) return;
+        if (!norm.includes(query.toLowerCase())) return;
+        seen.add(norm);
+        channels.push(channel);
+      });
+
+      if (channels.length === 0) {
+        resultsEl.innerHTML = `<div class="playlist-empty-state">No se encontraron artistas con ese nombre.</div>`;
+        return;
+      }
+
+      resultsEl.innerHTML = '';
+      channels.slice(0, 8).forEach(name => {
+        const item = document.createElement('div');
+        item.className = 'playlist-artist-item';
+        item.innerHTML = `<span>${name}</span><button type="button">Agregar</button>`;
+        item.querySelector('button')?.addEventListener('click', () => {
+          this.addArtist(name);
+        });
+        resultsEl.appendChild(item);
+      });
+    } catch (e) {
+      resultsEl.innerHTML = `<div class="playlist-empty-state">Error buscando artistas.</div>`;
+    }
+  }
+
+  addArtist(name) {
+    const normalized = name.trim();
+    if (!normalized) return;
+    if (this.selectedArtists.includes(normalized)) return;
+    this.selectedArtists.push(normalized);
+    this.renderSelectedArtists();
+  }
+
+  removeArtist(name) {
+    this.selectedArtists = this.selectedArtists.filter(a => a !== name);
+    this.renderSelectedArtists();
+  }
+
+  renderSelectedArtists() {
+    const selectedEl = document.getElementById('djArtistSelected');
+    if (!selectedEl) return;
+    selectedEl.innerHTML = '';
+
+    if (this.selectedArtists.length === 0) {
+      selectedEl.innerHTML = `<div class="playlist-empty-state">Aún no agregas artistas.</div>`;
+      return;
+    }
+
+    this.selectedArtists.forEach(name => {
+      const item = document.createElement('div');
+      item.className = 'playlist-artist-item';
+      item.innerHTML = `<span>${name}</span><button type="button">Quitar</button>`;
+      item.querySelector('button')?.addEventListener('click', () => this.removeArtist(name));
+      selectedEl.appendChild(item);
+    });
+
+    if (this.creationMode === 'dj') {
+      const previewTitle = document.getElementById('playlistPreviewTitle');
+      const previewSubtitle = document.querySelector('.playlist-preview-subtitle');
+      const mixName = this.selectedArtists.length > 0
+        ? `MIX DJ - ${this.selectedArtists.join(' & ')}`
+        : 'MIX DJ';
+      if (previewTitle) previewTitle.textContent = mixName;
+      if (previewSubtitle) previewSubtitle.textContent = 'MIX DJ automático • 0 canciones';
+    }
+  }
+
+  async createDJMixPlaylist() {
+    if (!window.djEngine?.generateDJPlaylistFromArtists) {
+      alert('DJ no disponible');
+      return null;
+    }
+    const playlistData = await window.djEngine.generateDJPlaylistFromArtists(this.selectedArtists);
+    if (!playlistData) {
+      alert('No se pudo crear el MIX DJ. Intenta con otro artista.');
+      return null;
+    }
+
+    const now = new Date().toISOString();
+    const user = this.getCurrentUser();
+    const userName = user?.name || 'Usuario';
+    const userAvatar = user?.avatar || '';
+    return {
+      id: `pl_dj_${Date.now()}`,
+      globalId: `gpl_dj_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      name: playlistData.name,
+      logo: playlistData.logo || null,
+      description: playlistData.description,
+      creator: {
+        key: this.getCurrentUserProfile().key,
+        name: `🤖 DJ Seax • ${userName}`,
+        avatar: './assets/img/icon.png',
+        secondaryAvatar: userAvatar
+      },
+      likedBy: [],
+      likeCount: 0,
+      tracks: playlistData.tracks || [],
+      createdAt: now,
+      updatedAt: now,
+      isDJGenerated: true,
+      djArtists: this.selectedArtists
+    };
+  }
+
   refreshSidebar() {
     this.loadPlaylists();
     const list = document.querySelector('.playlist-list');
@@ -425,21 +653,22 @@ class PlaylistManager {
       empty.textContent = 'Sin playlists';
       empty.style.opacity = '0.6';
       list.appendChild(empty);
-      return;
     }
 
-    this.playlists.forEach(playlist => {
-      const item = document.createElement('div');
-      item.className = 'playlist-item playlist-item-row';
-      item.innerHTML = `
-        <div class="playlist-item-cover">
-          ${this.getPlaylistCoverHtml(playlist, 'small')}
-        </div>
-        <span>${playlist.name}</span>
-      `;
-      item.addEventListener('click', () => this.showPlaylist(playlist.id));
-      list.appendChild(item);
-    });
+    if (this.playlists.length > 0) {
+      this.playlists.forEach(playlist => {
+        const item = document.createElement('div');
+        item.className = 'playlist-item playlist-item-row';
+        item.innerHTML = `
+          <div class="playlist-item-cover">
+            ${this.getPlaylistCoverHtml(playlist, 'small')}
+          </div>
+          <span>${playlist.name}</span>
+        `;
+        item.addEventListener('click', () => this.showPlaylist(playlist.id));
+        list.appendChild(item);
+      });
+    }
 
     const likedPlaylists = this.getGlobalPlaylists().filter(pl => this.isPlaylistLiked(pl));
     if (likedPlaylists.length > 0) {
@@ -467,24 +696,74 @@ class PlaylistManager {
     }
   }
 
+  migrateDJCreators() {
+    const user = this.getCurrentUser();
+    if (!user) return;
+    const userKey = this.buildUserKeyFromUser(user);
+    const userAvatar = user.avatar || '';
+    let changed = false;
+    this.loadPlaylists();
+    this.playlists.forEach(p => {
+      if (!p?.isDJGenerated) return;
+      if (p.creator?.key === userKey) {
+        if (!p.creator.avatar) {
+          p.creator.avatar = './assets/img/icon.png';
+          changed = true;
+        }
+        if (!p.creator.secondaryAvatar) {
+          p.creator.secondaryAvatar = userAvatar;
+          changed = true;
+        }
+      }
+    });
+    if (changed) this.savePlaylists();
+  }
+
+  deletePlaylistEverywhere(id) {
+    if (!id) return;
+    const globalList = this.getGlobalPlaylists();
+    const filteredGlobal = globalList.filter(p => (p.globalId || p.id) !== id);
+    if (filteredGlobal.length !== globalList.length) {
+      this.saveGlobalPlaylists(filteredGlobal);
+    }
+    this.loadPlaylists();
+    const filteredLocal = this.playlists.filter(p => (p.globalId || p.id) !== id);
+    if (filteredLocal.length !== this.playlists.length) {
+      this.playlists = filteredLocal;
+      this.savePlaylists();
+    }
+    this.refreshSidebar();
+    if (window.libraryManager?.renderGlobalPlaylists) {
+      window.libraryManager.renderGlobalPlaylists();
+    }
+  }
+
   renderPlaylistsHome() {
     this.loadPlaylists();
+    const userKey = this.getCurrentUserProfile().key;
+    const globalOwned = (this.getGlobalPlaylists() || []).filter(p => (p.creator?.key || '') === userKey);
+    const combined = [...this.playlists];
+    globalOwned.forEach(pl => {
+      if (!combined.find(p => (p.globalId || p.id) === (pl.globalId || pl.id))) {
+        combined.push(pl);
+      }
+    });
 
     const userGrid = document.getElementById('userPlaylistsGrid');
     const userCount = document.getElementById('userPlaylistsCount');
     const userEmpty = document.getElementById('userPlaylistsEmpty');
 
     if (userCount) {
-      userCount.textContent = `${this.playlists.length} playlists`;
+      userCount.textContent = `${combined.length} playlists`;
     }
 
     if (userGrid) {
       userGrid.innerHTML = '';
-      if (this.playlists.length === 0) {
+      if (combined.length === 0) {
         userEmpty?.classList.remove('hidden');
       } else {
         userEmpty?.classList.add('hidden');
-        this.playlists.forEach(playlist => {
+        combined.forEach(playlist => {
           const card = document.createElement('div');
           card.className = 'global-playlist-card playlist-user-card';
           const coverHtml = this.getPlaylistCoverHtml(playlist, 'large');
@@ -518,6 +797,10 @@ class PlaylistManager {
     if (window.libraryManager?.renderGlobalPlaylists) {
       window.libraryManager.renderGlobalPlaylists();
     }
+
+    if (window.renderDJPlaylists) {
+      window.renderDJPlaylists();
+    }
   }
 
   showPlaylist(id) {
@@ -532,6 +815,7 @@ class PlaylistManager {
     if (!playlist) return;
 
     this.activePlaylistId = id;
+    this.activePlaylistIsGlobal = isGlobal;
 
     if (window.navigationHistory) {
       window.navigationHistory.navigateTo('playlists');
@@ -553,22 +837,29 @@ class PlaylistManager {
       : null;
     const creator = playlist.creator || globalMatch?.creator || { name: 'Usuario', avatar: '' };
     const currentKey = this.getCurrentUserProfile().key;
-    const isOwner = (creator.key || '') === currentKey;
-    this.activeIsOwner = isOwner;
+    const isOwnerKey = (creator.key || '') === currentKey;
+    const isDJReadOnly = !!playlist.readOnly;
+    const canEdit = isOwnerKey && !isDJReadOnly;
+    const canDelete = isOwnerKey && !isDJReadOnly;
+    this.activeIsOwner = canEdit;
     const creatorAvatar = creator.avatar
       ? `<img src="${creator.avatar}" alt="">`
       : `<i class="fas fa-user"></i>`;
+    const creatorSecondaryAvatar = creator.secondaryAvatar
+      ? `<img src="${creator.secondaryAvatar}" alt="">`
+      : '';
+    const creatorAvatarHtml = creatorSecondaryAvatar
+      ? `<span class="creator-avatar-group">
+           <span class="creator-avatar primary">${creatorAvatar}</span>
+           <span class="creator-avatar secondary">${creatorSecondaryAvatar}</span>
+         </span>`
+      : `<span class="creator-avatar">${creatorAvatar}</span>`;
     const likeCount = globalMatch?.likeCount ?? playlist.likeCount ?? 0;
     const liked = globalMatch ? this.isPlaylistLiked(globalMatch) : this.isPlaylistLiked(playlist);
 
     // ⭐ Generar botones según permisos
-    const ownerButtons = isOwner ? `
-      <button class="playlist-action-btn ghost" id="playlistEdit"><i class="fas fa-pen"></i> Editar</button>
-      <button class="playlist-action-btn ghost" id="playlistDelete"><i class="fas fa-trash"></i> Eliminar</button>
-    ` : '';
-    
     // ⭐ Botón de like solo si NO es dueño
-    const likeButton = !isOwner ? `
+    const likeButton = !isOwnerKey ? `
       <button class="playlist-like-btn ${liked ? 'liked' : ''}" id="playlistLikeBtn" title="Me gusta esta playlist">
         <i class="${liked ? 'fas' : 'far'} fa-heart"></i>
         <span>${likeCount}</span>
@@ -576,7 +867,7 @@ class PlaylistManager {
     ` : `<span class="playlist-like-count"><i class="fas fa-heart"></i> ${likeCount}</span>`;
     
     // ⭐ Panel de agregar solo para dueños
-    const addPanelHtml = isOwner ? `
+    const addPanelHtml = canEdit ? `
       <div class="playlist-add-panel">
         <h3>Agregar canciones</h3>
         <div class="playlist-form-group">
@@ -587,9 +878,14 @@ class PlaylistManager {
     ` : '';
     
     // ⭐ Botón agregar actual solo para dueños
-    const addCurrentBtn = isOwner ? `
+    const addCurrentBtn = canEdit ? `
       <button class="playlist-action-btn ghost" id="playlistAddCurrent"><i class="fas fa-plus"></i> Agregar actual</button>
     ` : '';
+
+    const ownerButtons = `
+      ${canEdit ? `<button class="playlist-action-btn ghost" id="playlistEdit"><i class="fas fa-pen"></i> Editar</button>` : ''}
+      ${canDelete ? `<button class="playlist-action-btn ghost" id="playlistDelete"><i class="fas fa-trash"></i> Eliminar</button>` : ''}
+    `;
 
     contentArea.innerHTML = `
       <div class="playlist-page">
@@ -602,7 +898,7 @@ class PlaylistManager {
             <h1>${playlist.name}</h1>
             <p>${description} • ${count} canciones</p>
             <div class="playlist-creator">
-              <span class="creator-avatar">${creatorAvatar}</span>
+              ${creatorAvatarHtml}
               <span class="creator-name">Creada por ${creator.name || 'Usuario'}</span>
               ${likeButton}
             </div>
@@ -615,7 +911,7 @@ class PlaylistManager {
           </div>
         </div>
 
-        <div class="playlist-content ${!isOwner ? 'full-width' : ''}">
+        <div class="playlist-content ${!canEdit ? 'full-width' : ''}">
           <div class="playlist-tracks">
             <div class="playlist-tracks-header">
               <h3>Canciones</h3>
@@ -629,18 +925,18 @@ class PlaylistManager {
     `;
 
     this.renderPlaylistTracks(playlist);
-    if (isOwner) {
+    if (canEdit) {
       this.renderAddCandidates(playlist);
     }
-    this.bindPlaylistActions(playlist, isOwner);
+    this.bindPlaylistActions(playlist, canEdit, canDelete);
   }
-  bindPlaylistActions(playlist, isOwner = false) {
+  bindPlaylistActions(playlist, canEdit = false, canDelete = false) {
     document.getElementById('playlistPlay')?.addEventListener('click', () => this.playPlaylist(playlist, false));
     document.getElementById('playlistShuffle')?.addEventListener('click', () => this.playPlaylist(playlist, true));
     document.getElementById('playlistCopy')?.addEventListener('click', () => this.openCopyModal(playlist));
     
     // ⭐ Like de playlist - solo si NO es dueño
-    if (!isOwner) {
+    if (!canEdit || !this.activeIsOwner) {
       document.getElementById('playlistLikeBtn')?.addEventListener('click', (e) => {
         e.stopPropagation();
         this.togglePlaylistLike(playlist);
@@ -650,9 +946,11 @@ class PlaylistManager {
     }
     
     // ⭐ Acciones de dueño
-    if (isOwner) {
+    if (canEdit) {
       document.getElementById('playlistEdit')?.addEventListener('click', () => this.openModal(playlist));
-      document.getElementById('playlistDelete')?.addEventListener('click', () => this.deletePlaylist(playlist.id));
+      if (canDelete) {
+        document.getElementById('playlistDelete')?.addEventListener('click', () => this.deletePlaylist(playlist.id));
+      }
       document.getElementById('playlistAddCurrent')?.addEventListener('click', () => {
         if (window.appState && window.appState.currentTrack) {
           this.addTrackToPlaylist(playlist.id, window.appState.currentTrack);
@@ -926,11 +1224,40 @@ class PlaylistManager {
     }
   }
 
+  findPlaylistById(id) {
+    this.loadPlaylists();
+    let playlist = this.playlists.find(p => p.id === id);
+    if (playlist) {
+      return { playlist, isGlobal: false, globalList: null };
+    }
+    const globalList = this.getGlobalPlaylists();
+    playlist = globalList.find(p => p.globalId === id || p.id === id);
+    if (playlist) {
+      return { playlist, isGlobal: true, globalList };
+    }
+    return { playlist: null, isGlobal: false, globalList: null };
+  }
+
+  persistPlaylistUpdate(playlist, isGlobal, globalList) {
+    playlist.updatedAt = new Date().toISOString();
+    if (isGlobal) {
+      const list = globalList || this.getGlobalPlaylists();
+      const idx = list.findIndex(p => p.globalId === playlist.globalId || p.id === playlist.id);
+      if (idx !== -1) {
+        list[idx] = playlist;
+      }
+      this.saveGlobalPlaylists(list);
+    } else {
+      this.savePlaylists();
+      this.upsertGlobalPlaylist(playlist);
+    }
+  }
+
   addTrackToPlaylist(playlistId, track) {
     if (!track || !track.videoId) return;
 
-    this.loadPlaylists();
-    const playlist = this.playlists.find(p => p.id === playlistId);
+    const result = this.findPlaylistById(playlistId);
+    const playlist = result.playlist;
     if (!playlist) return;
 
     if (playlist.tracks.some(t => t.videoId === track.videoId)) return;
@@ -943,24 +1270,18 @@ class PlaylistManager {
       thumbnail: track.thumbnail || '',
       duration: track.duration || ''
     });
-    playlist.updatedAt = new Date().toISOString();
-
-    this.savePlaylists();
-    this.upsertGlobalPlaylist(playlist);
+    this.persistPlaylistUpdate(playlist, result.isGlobal, result.globalList);
     this.refreshSidebar();
     this.showPlaylist(playlistId);
   }
 
   removeTrackFromPlaylist(playlistId, videoId) {
-    this.loadPlaylists();
-    const playlist = this.playlists.find(p => p.id === playlistId);
+    const result = this.findPlaylistById(playlistId);
+    const playlist = result.playlist;
     if (!playlist) return;
 
     playlist.tracks = playlist.tracks.filter(track => track.videoId !== videoId);
-    playlist.updatedAt = new Date().toISOString();
-
-    this.savePlaylists();
-    this.upsertGlobalPlaylist(playlist);
+    this.persistPlaylistUpdate(playlist, result.isGlobal, result.globalList);
     this.refreshSidebar();
     this.showPlaylist(playlistId);
   }
@@ -986,16 +1307,13 @@ class PlaylistManager {
     const toIndex = parseInt(target.dataset.index, 10);
     if (Number.isNaN(fromIndex) || Number.isNaN(toIndex) || fromIndex === toIndex) return;
 
-    this.loadPlaylists();
-    const playlist = this.playlists.find(p => p.id === playlistId);
+    const result = this.findPlaylistById(playlistId);
+    const playlist = result.playlist;
     if (!playlist) return;
 
     const [moved] = playlist.tracks.splice(fromIndex, 1);
     playlist.tracks.splice(toIndex, 0, moved);
-    playlist.updatedAt = new Date().toISOString();
-
-    this.savePlaylists();
-    this.upsertGlobalPlaylist(playlist);
+    this.persistPlaylistUpdate(playlist, result.isGlobal, result.globalList);
     this.refreshSidebar();
     this.showPlaylist(playlistId);
   }
@@ -1029,11 +1347,13 @@ class PlaylistManager {
     
     // ⭐ Obtener cover de la playlist
     const playlistCover = this.getPlaylistCover(playlist);
+    const playlistDiscordCover = this.getPlaylistDiscordCover(playlist);
     
     // ⭐ Crear info de playlist para enviar a main
     const playlistInfo = {
       name: playlist.name,
       cover: playlistCover,
+      discordCover: playlistDiscordCover,
       id: playlist.id || playlist.globalId
     };
     
@@ -1083,6 +1403,32 @@ class PlaylistManager {
       const firstTrack = playlist.tracks[0];
       return firstTrack.thumbnail || `https://i.ytimg.com/vi/${firstTrack.videoId}/hqdefault.jpg`;
     }
+    return null;
+  }
+
+  // 🎧 Cover optimizado para Discord (solo URLs http/https)
+  getPlaylistDiscordCover(playlist) {
+    if (!playlist) return null;
+
+    const logo = playlist.logo || '';
+    if (logo && logo.startsWith('http')) {
+      return logo;
+    }
+    if (logo && logo.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(logo);
+        if (parsed.type === 'collage' && Array.isArray(parsed.images)) {
+          const firstHttp = parsed.images.find(img => typeof img === 'string' && img.startsWith('http'));
+          if (firstHttp) return firstHttp;
+        }
+      } catch (e) {}
+    }
+
+    if (playlist.tracks && playlist.tracks.length > 0) {
+      const firstTrack = playlist.tracks[0];
+      return firstTrack.thumbnail || `https://i.ytimg.com/vi/${firstTrack.videoId}/hqdefault.jpg`;
+    }
+
     return null;
   }
   
@@ -1212,13 +1558,3 @@ if (document.readyState === 'loading') {
 } else {
   window.playlistManager = new PlaylistManager();
 }
-
-
-
-
-
-
-
-
-
-
