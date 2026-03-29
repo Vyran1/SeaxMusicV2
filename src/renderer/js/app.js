@@ -89,16 +89,60 @@ function ensurePlaybackKick() {
 
 function getNextTrackForDjMix() {
   const queue = appState.playQueue || [];
-  const idx = appState.playQueueIndex ?? -1;
+  let idx = appState.playQueueIndex ?? -1;
+  const currentId = appState.currentTrack?.videoId || null;
+
+  if (queue.length && idx < 0 && currentId) {
+    const found = queue.findIndex(t => t.videoId === currentId);
+    if (found >= 0) {
+      appState.playQueueIndex = found;
+      idx = found;
+    }
+  }
   if (queue.length && idx >= 0 && idx + 1 < queue.length) {
     const next = queue[idx + 1];
-    const currentId = appState.currentTrack?.videoId || null;
     if (next && currentId && next.videoId === currentId) {
       return null;
     }
     return next;
   }
+  if (appState.nextVideoInfo?.videoId) {
+    const nextInfo = appState.nextVideoInfo;
+    if (currentId && nextInfo.videoId === currentId) return null;
+    return {
+      videoId: nextInfo.videoId,
+      title: nextInfo.title || 'Siguiente',
+      artist: nextInfo.channel || nextInfo.artist || 'YouTube',
+      channel: nextInfo.channel || nextInfo.artist || 'YouTube',
+      thumbnail: nextInfo.thumbnail || `https://i.ytimg.com/vi/${nextInfo.videoId}/hqdefault.jpg`
+    };
+  }
   return null;
+}
+
+function advanceQueueIndexForDjMix() {
+  const queue = appState.playQueue || [];
+  if (!queue.length) return false;
+  let idx = appState.playQueueIndex ?? -1;
+  const currentId = appState.currentTrack?.videoId || null;
+  if (idx < 0 && currentId) {
+    const found = queue.findIndex(t => t.videoId === currentId);
+    if (found >= 0) {
+      idx = found;
+      appState.playQueueIndex = found;
+    }
+  }
+  if (idx >= 0 && idx + 1 < queue.length) {
+    appState.playQueueIndex = idx + 1;
+    return true;
+  }
+  return false;
+}
+
+function setDjInactiveMode(target, inactive) {
+  if (window.electronAPI?.djSetMode) {
+    window.electronAPI.djSetMode(target, inactive);
+  }
 }
 
 async function preloadNextForDjMix(track) {
@@ -122,12 +166,18 @@ function runDjCrossfadeToNext(track) {
   }
 
   // Asegurar ventana inactiva reproduciendo en silencio
+  setDjInactiveMode('inactive', false);
   if (window.electronAPI?.djControlWindow) {
     window.electronAPI.djControlWindow('inactive', 'play');
   }
   window.electronAPI.djSetWindowVolume('inactive', 0);
 
   const step = (now) => {
+    if (!appState.djMixEnabled) {
+      window.electronAPI.djSetWindowVolume('active', targetVolume);
+      appState.djMixInProgress = false;
+      return;
+    }
     const t = Math.min(1, (now - startTime) / duration);
     const eased = t < 1 ? (t * (2 - t)) : 1; // easeOut
     const activeVol = targetVolume * (1 - eased);
@@ -142,6 +192,16 @@ function runDjCrossfadeToNext(track) {
       window.electronAPI.djSwapActive().finally(() => {
         // Asegurar volumen correcto en nueva activa
         window.electronAPI.djSetWindowVolume('active', targetVolume);
+        setDjInactiveMode('active', false);
+        setDjInactiveMode('inactive', true);
+        advanceQueueIndexForDjMix();
+        if (track) {
+          appState.currentTrack = { ...(appState.currentTrack || {}), ...track };
+          if (window.updateTrackInfo) {
+            window.updateTrackInfo(track);
+          }
+          window.updateLikeButton?.();
+        }
         // Forzar play por seguridad
         ensurePlaybackKick();
         if (window.musicPlayer) {
@@ -157,6 +217,77 @@ function runDjCrossfadeToNext(track) {
 
   requestAnimationFrame(step);
 }
+
+async function ensureDjPreloadForCurrent() {
+  if (!appState.djMixEnabled) return false;
+  const currentId = appState.currentTrack?.videoId || null;
+  if (!currentId) return false;
+  if (appState.djMixPreloadedFor === currentId && appState.djMixNextTrack) return true;
+
+  const nextTrack = getNextTrackForDjMix();
+  if (!nextTrack) {
+    appState.djMixNextTrack = null;
+    return false;
+  }
+
+  appState.djMixPreloadedFor = currentId;
+  appState.djMixNextTrack = nextTrack;
+  const ok = await preloadNextForDjMix(nextTrack);
+  if (ok) {
+    setDjInactiveMode('inactive', true);
+    window.electronAPI?.djSetWindowVolume?.('inactive', 0);
+    window.electronAPI?.djControlWindow?.('inactive', 'pause');
+  }
+  return ok;
+}
+
+async function djMixImmediateSwap(track) {
+  if (!track || !window.electronAPI?.djSwapActive) return false;
+  if (appState.djMixInProgress) return false;
+
+  appState.djMixInProgress = true;
+  const targetVolume = window.musicPlayer?.volume ?? 0.7;
+
+  if (window.musicPlayer) {
+    window.musicPlayer.suppressVolumeUpdates = true;
+  }
+
+  setDjInactiveMode('inactive', false);
+  window.electronAPI?.djControlWindow?.('inactive', 'play');
+  window.electronAPI?.djSetWindowVolume?.('inactive', targetVolume);
+
+  try {
+    await window.electronAPI.djSwapActive();
+  } catch (e) {
+    appState.djMixInProgress = false;
+    return false;
+  }
+
+  setDjInactiveMode('active', false);
+  setDjInactiveMode('inactive', true);
+  window.electronAPI?.djSetWindowVolume?.('active', targetVolume);
+
+  appState.currentTrack = { ...(appState.currentTrack || {}), ...track };
+  if (window.updateTrackInfo) {
+    window.updateTrackInfo(track);
+  }
+  window.updateLikeButton?.();
+
+  if (window.musicPlayer) {
+    window.musicPlayer.suppressVolumeUpdates = false;
+  }
+
+  appState.djMixInProgress = false;
+  appState.djMixPreloadedFor = null;
+  appState.djMixNextTrack = null;
+  appState.djMixInactiveStartedFor = null;
+  appState.djMixTriggeredFor = null;
+  return true;
+}
+
+window.djMixImmediateSwap = djMixImmediateSwap;
+window.djMixAdvanceQueueIndex = advanceQueueIndexForDjMix;
+window.ensureDjPreloadForCurrent = ensureDjPreloadForCurrent;
 
 function initDjMixWrappers() {
   if (!window.electronAPI || window.electronAPI.__djMixWrapped) return;
@@ -577,6 +708,7 @@ async function initApp() {
           if (duration > 10 && remaining > 0 && remaining <= (appState.djMixLeadStartSec || 4)) {
             appState.djMixInactiveStartedFor = currentId;
             if (window.electronAPI?.djControlWindow) {
+              setDjInactiveMode('inactive', false);
               window.electronAPI.djControlWindow('inactive', 'play');
               window.electronAPI.djSetWindowVolume?.('inactive', 0);
             }
@@ -629,6 +761,9 @@ async function initApp() {
         window.musicPlayer.isPlaying = true;
         window.musicPlayer.updatePlayButton();
         window.musicPlayer.syncDjMixButtons?.();
+      }
+      if (appState.djMixEnabled) {
+        window.ensureDjPreloadForCurrent?.();
       }
     });
   }
@@ -697,12 +832,14 @@ async function initApp() {
     window.electronAPI.onUpdateVideoInfo((videoInfo) => {
       console.log('📺 Video info actualizada:', videoInfo);
       
+      const prevId = appState.currentTrack?.videoId || null;
+
       // Actualizar currentTrack con la info del video
       appState.currentTrack = {
-        videoId: videoInfo.videoId,
-        title: videoInfo.title,
-        artist: videoInfo.channel || videoInfo.artist,
-        channel: videoInfo.channel || videoInfo.artist,
+        videoId: videoInfo.videoId || prevId,
+        title: videoInfo.title || appState.currentTrack?.title || '',
+        artist: videoInfo.channel || videoInfo.artist || appState.currentTrack?.artist || '',
+        channel: videoInfo.channel || videoInfo.artist || appState.currentTrack?.channel || '',
         thumbnail: videoInfo.thumbnail || appState.currentTrack?.thumbnail,
         channelAvatar: videoInfo.channelAvatar || appState.currentTrack?.channelAvatar
       };
@@ -720,8 +857,21 @@ async function initApp() {
       }
       
       // Actualizar UI
-      document.getElementById('trackName').textContent = videoInfo.title;
-      document.getElementById('trackArtist').textContent = videoInfo.channel || videoInfo.artist;
+      if (videoInfo.title) {
+        document.getElementById('trackName').textContent = videoInfo.title;
+      } else if (videoInfo.videoId && videoInfo.videoId !== prevId) {
+        document.getElementById('trackName').textContent = 'Cargando...';
+      }
+
+      if (videoInfo.channel || videoInfo.artist) {
+        document.getElementById('trackArtist').textContent = videoInfo.channel || videoInfo.artist;
+      } else if (videoInfo.videoId && videoInfo.videoId !== prevId) {
+        document.getElementById('trackArtist').textContent = 'YouTube';
+      }
+
+      if (appState.djMixEnabled) {
+        window.ensureDjPreloadForCurrent?.();
+      }
 
       if (window.scheduleMarqueeRefresh) {
         window.scheduleMarqueeRefresh();
@@ -773,9 +923,6 @@ async function initApp() {
     });
   }
   
-  // ⭐ Configurar el botón de like del player
-  setupLikeButton();
-  
   // ⭐ Cargar favoritos del storage
   loadFavoritesFromStorage();
   
@@ -803,38 +950,6 @@ async function initApp() {
   checkInitialSession();
   
   console.log('✨ SeaxMusic ready!');
-}
-
-// ⭐ Configurar el botón de like para agregar/quitar favoritos
-function setupLikeButton() {
-  const likeBtn = document.getElementById('likeBtn');
-  if (likeBtn) {
-    likeBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-
-      if (appState.isSwitchingAccount) {
-        console.log('⏳ Cambio de cuenta en progreso, evitando like');
-        return;
-      }
-      
-      if (!appState.currentTrack || !appState.currentTrack.videoId) {
-        console.log('❌ No hay canción actual para agregar a favoritos');
-        return;
-      }
-      
-      if (isFavorite(appState.currentTrack.videoId)) {
-        // Quitar de favoritos
-        await removeFromFavorites(appState.currentTrack.videoId);
-        console.log('💔 Quitado de favoritos:', appState.currentTrack.title);
-      } else {
-        // Agregar a favoritos
-        await addToFavorites(appState.currentTrack);
-        console.log('💖 Agregado a favoritos:', appState.currentTrack.title);
-      }
-      
-      updateLikeButton();
-    });
-  }
 }
 
 // ⭐ Verificar si hay sesión guardada para mostrar loader
@@ -1791,6 +1906,7 @@ window.loadHistoryContent = loadRecentlyPlayed;
 window.loadRecentlyPlayed = loadRecentlyPlayed;
 window.renderHomeModules = renderHomeModules;
 window.wireHomeActions = wireHomeActions;
+window.updateLikeButton = updateLikeButton;
 
 // ⭐ Exponer favoritesManager para sincronización global
 window.favoritesManager = {

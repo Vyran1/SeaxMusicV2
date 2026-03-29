@@ -468,8 +468,32 @@
         <span class="volume-percentage" id="volumePercent">70%</span>
       </div>
       <button class="fullscreen-btn" id="fullscreenBtn"><i class="fas fa-cog"></i></button>
-      <button class="fullscreen-btn" id="videoViewBtn" title="Ver video"><i class="fas fa-video"></i></button>
+      <button class="fullscreen-btn" id="pipBtn" title="Pantalla sobre pantalla"><i class="fas fa-clone"></i></button>
       <span class="app-version" id="appVersion">v0.0.0</span>
+    </div>
+  </div>
+
+  <!-- Picture-in-Picture / Pantalla sobre pantalla -->
+  <div class="pip-overlay" id="pipOverlay">
+    <div class="pip-video-frame">
+      <button class="pip-close" id="pipCloseBtn" title="Cerrar PiP"><i class="fas fa-times"></i></button>
+      <img id="pipVideoFrame" alt="">
+      <div class="pip-placeholder">
+        <i class="fas fa-play-circle"></i>
+        <span>Video en tiempo real</span>
+      </div>
+    </div>
+    <div class="pip-controls">
+      <button class="pip-btn" id="pipPrevBtn"><i class="fas fa-step-backward"></i></button>
+      <button class="pip-btn pip-play" id="pipPlayBtn"><i class="fas fa-play"></i></button>
+      <button class="pip-btn" id="pipNextBtn"><i class="fas fa-step-forward"></i></button>
+    </div>
+    <div class="pip-progress">
+      <span class="pip-time" id="pipCurrentTime">0:00</span>
+      <div class="pip-progress-bar" id="pipProgressBar">
+        <div class="pip-progress-fill" id="pipProgressFill"></div>
+      </div>
+      <span class="pip-time" id="pipDuration">0:00</span>
     </div>
   </div>
   

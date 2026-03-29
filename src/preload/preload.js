@@ -157,8 +157,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ===== DJ MIX (dual windows) =====
   djPreloadNext: (url) => ipcRenderer.invoke('dj-preload-next', { url }),
   djSwapActive: () => ipcRenderer.invoke('dj-swap-active'),
+  djClose: () => ipcRenderer.invoke('dj-close'),
+  djSetMode: (target, inactive) => ipcRenderer.send('dj-set-mode', { target, inactive }),
   djSetWindowVolume: (target, volume) => ipcRenderer.send('dj-set-window-volume', { target, volume }),
   djControlWindow: (target, action, value) => ipcRenderer.send('dj-control-window', { target, action, value }),
+
+  // ===== Always on Top =====
+  setAlwaysOnTop: (enabled) => ipcRenderer.invoke('set-always-on-top', { enabled: !!enabled }),
+
+  // ===== PiP Window =====
+  openPipWindow: () => ipcRenderer.invoke('pip-open'),
+  closePipWindow: () => ipcRenderer.invoke('pip-close'),
+  onPipClosed: (callback) => ipcRenderer.on('pip-closed', () => callback()),
+  onPipControl: (callback) => ipcRenderer.on('pip-control', (event, data) => callback(data)),
 
   // ===== Video View =====
   startVideoPreview: () => ipcRenderer.invoke('start-video-preview'),

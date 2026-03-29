@@ -3149,6 +3149,142 @@ body {
   margin-bottom: 2px;
 }
 
+/* ===== Pantalla sobre pantalla (PiP) ===== */
+body.pip-mode .player-bar {
+  display: none;
+}
+
+.pip-overlay {
+  position: fixed;
+  right: 16px;
+  bottom: 18px;
+  left: auto;
+  top: auto;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 9990;
+  pointer-events: none;
+}
+
+body.pip-mode .pip-overlay {
+  display: flex;
+}
+
+.pip-video-frame {
+  width: min(360px, 44vw);
+  aspect-ratio: 16 / 9;
+  height: auto;
+  background: #06060a;
+  border-radius: 18px;
+  overflow: hidden;
+  position: relative;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.06),
+    0 25px 80px rgba(0,0,0,0.65),
+    0 0 40px rgba(124,58,237,0.35);
+}
+
+.pip-video-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.pip-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(10,10,14,0.7);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.pip-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: rgba(220,210,255,0.9);
+  font-size: 14px;
+  background: radial-gradient(circle at 30% 20%, rgba(124,58,237,0.45), rgba(0,0,0,0.96));
+}
+
+.pip-placeholder i {
+  font-size: 36px;
+}
+
+.pip-overlay.has-frame .pip-placeholder {
+  display: none;
+}
+
+.pip-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(10,10,14,0.7);
+  border-radius: 999px;
+  padding: 6px 10px;
+  backdrop-filter: blur(16px);
+  pointer-events: auto;
+}
+
+.pip-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  cursor: pointer;
+}
+
+.pip-btn.pip-play {
+  width: 38px;
+  height: 38px;
+  background: #fff;
+  color: #111;
+}
+
+.pip-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(360px, 44vw);
+  color: rgba(255,255,255,0.75);
+  font-size: 12px;
+  pointer-events: auto;
+}
+
+.pip-progress-bar {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 999px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.pip-progress-fill {
+  position: absolute;
+  inset: 0;
+  width: 0%;
+  background: #ff4d4d;
+}
+
 /* ===== Marquee de titulos (hover) ===== */
 .marquee-hover {
   position: relative;

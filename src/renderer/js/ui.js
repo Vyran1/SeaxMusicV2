@@ -150,10 +150,14 @@ function applyMarquee(el) {
 
 function removeMarquee(el) {
   if (el.dataset.marqueeApplied !== '1') return;
-  const text = el.dataset.marqueeText || '';
+  const hasTrack = !!el.querySelector('.marquee-track');
+  const currentText = (el.textContent || '').trim();
+  const text = hasTrack ? (el.dataset.marqueeText || '') : (currentText || (el.dataset.marqueeText || ''));
   el.textContent = text;
   el.classList.remove('marquee-hover');
+  el.classList.remove('marquee-auto');
   delete el.dataset.marqueeApplied;
+  el.dataset.marqueeText = text;
 }
 
 function refreshMarquee(root = document) {

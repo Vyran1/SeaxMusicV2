@@ -963,6 +963,12 @@ updateSideImages(nextVideoInfo = null, prevVideoInfo = null) {
           const panel = document.getElementById('videoPanel');
           panel?.classList.add('has-frame');
         }
+        const pipFrame = document.getElementById('pipVideoFrame');
+        if (pipFrame) {
+          pipFrame.src = dataUrl;
+          const pipOverlay = document.getElementById('pipOverlay');
+          pipOverlay?.classList.add('has-frame');
+        }
       });
     }
   }
@@ -993,10 +999,10 @@ updateSideImages(nextVideoInfo = null, prevVideoInfo = null) {
     }
   }
 
-  startVideoPreview() {
+  async startVideoPreview() {
     this._framePreviewActive = true;
-    this.startDesktopVideoCapture();
-    if (window.electronAPI?.startVideoPreview) {
+    const ok = await this.startDesktopVideoCapture();
+    if (!ok && window.electronAPI?.startVideoPreview) {
       window.electronAPI.startVideoPreview();
     }
   }
@@ -1013,6 +1019,8 @@ updateSideImages(nextVideoInfo = null, prevVideoInfo = null) {
     if (frame) frame.removeAttribute('src');
     const panel = document.getElementById('videoPanel');
     panel?.classList.remove('has-frame');
+    const pipOverlay = document.getElementById('pipOverlay');
+    pipOverlay?.classList.remove('has-frame');
   }
 
   async startDesktopVideoCapture() {
@@ -1038,7 +1046,7 @@ updateSideImages(nextVideoInfo = null, prevVideoInfo = null) {
         }
       }
 
-      if (!candidates.length) return;
+      if (!candidates.length) return false;
 
       const trySource = async (sourceId) => {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -1094,16 +1102,21 @@ updateSideImages(nextVideoInfo = null, prevVideoInfo = null) {
         }
       }
 
-      if (!activeStream) return;
+      if (!activeStream) return false;
 
       const panel = document.getElementById('videoPanel');
       panel?.classList.add('has-video');
       this._videoStream = activeStream;
+      if (window.electronAPI?.stopVideoPreview) {
+        window.electronAPI.stopVideoPreview();
+      }
+      return true;
     } catch (e) {
       this.stopDesktopVideoCapture();
       if (window.electronAPI?.startVideoPreview) {
         window.electronAPI.startVideoPreview();
       }
+      return false;
     }
   }
 

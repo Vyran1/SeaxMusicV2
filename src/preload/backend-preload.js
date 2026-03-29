@@ -482,6 +482,10 @@ ipcRenderer.on('youtube-control', (event, action, value) => {
 
   switch (action) {
     case 'play':
+      if (window.__seaxDjInactive) {
+        console.log('[DJ MIX] Bloqueando play en ventana inactiva');
+        break;
+      }
       window.__seaxUserPaused = false;
       video.play().catch(err => console.error('Play error:', err));
       console.log('[PLAY] Play command executed');
@@ -545,6 +549,29 @@ ipcRenderer.on('youtube-control', (event, action, value) => {
       console.warn(`Unknown action: ${action}`);
   }
 });
+
+// ===== DJ MIX: modo inactivo (evitar reproducción fantasma) =====
+ipcRenderer.on('dj-set-mode', (event, { inactive }) => {
+  window.__seaxDjInactive = !!inactive;
+  const video = document.querySelector('video');
+  if (window.__seaxDjInactive && video) {
+    video.volume = 0;
+    video.pause();
+  }
+});
+
+setInterval(() => {
+  if (!window.__seaxDjInactive) return;
+  const video = document.querySelector('video');
+  if (video) {
+    if (!video.paused) {
+      video.pause();
+    }
+    if (video.volume !== 0) {
+      video.volume = 0;
+    }
+  }
+}, 500);
 
 // ===== OBSERVAR CAMBIOS DE VOLUMEN EN EL VIDEO =====
 function attachVolumeObserver() {
@@ -816,6 +843,20 @@ setInterval(() => {
 setInterval(() => {
   const video = document.querySelector('video');
   
+  let thumbUrl = '';
+  let playerResponse = null;
+  try {
+    if (window.ytInitialPlayerResponse) {
+      playerResponse = window.ytInitialPlayerResponse;
+    } else if (window.ytplayer?.config?.args?.player_response) {
+      const raw = window.ytplayer.config.args.player_response;
+      playerResponse = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    }
+  } catch (e) {}
+
+  const videoDetails = playerResponse?.videoDetails;
+  const micro = playerResponse?.microformat?.playerMicroformatRenderer;
+
   // ⭐ Título: buscar en h1.ytd-watch-metadata o yt-formatted-string con title
   let videoTitle = '';
   const titleElement = document.querySelector('h1.ytd-watch-metadata yt-formatted-string') ||
@@ -828,6 +869,20 @@ setInterval(() => {
   if (!videoTitle) {
     videoTitle = document.querySelector('h1.title yt-formatted-string')?.textContent?.trim() ||
                  document.querySelector('.title.ytd-video-primary-info-renderer')?.textContent?.trim() || '';
+  }
+  if (!videoTitle && document.title) {
+    videoTitle = document.title.replace(' - YouTube', '').trim();
+  }
+  if (!videoTitle) {
+    const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
+                   document.querySelector('meta[itemprop="name"]')?.getAttribute('content');
+    if (ogTitle) videoTitle = ogTitle.trim();
+  }
+  if (!videoTitle && videoDetails?.title) {
+    videoTitle = videoDetails.title;
+  }
+  if (!videoTitle && micro?.title?.simpleText) {
+    videoTitle = micro.title.simpleText;
   }
   
   // ⭐ Artista/Canal: buscar en ytd-channel-name #text
@@ -846,6 +901,19 @@ setInterval(() => {
       videoChannel = channelContainer.getAttribute('title') || channelContainer.textContent?.trim() || '';
     }
   }
+  if (!videoChannel) {
+    const metaAuthor = document.querySelector('meta[name="author"]')?.getAttribute('content') ||
+                      document.querySelector('meta[itemprop="author"]')?.getAttribute('content');
+    if (metaAuthor) {
+      videoChannel = metaAuthor.trim();
+    }
+  }
+  if (!videoChannel && videoDetails?.author) {
+    videoChannel = videoDetails.author;
+  }
+  if (!videoChannel && micro?.ownerChannelName) {
+    videoChannel = micro.ownerChannelName;
+  }
   
   // Extraer avatar del canal
   const channelAvatar = document.querySelector('ytd-video-owner-renderer #avatar img')?.src ||
@@ -856,7 +924,16 @@ setInterval(() => {
   
   // ⭐ Extraer videoId de la URL
   const urlParams = new URLSearchParams(window.location.search);
-  const videoId = urlParams.get('v') || '';
+  let videoId = urlParams.get('v') || '';
+  if (!videoId && videoDetails?.videoId) {
+    videoId = videoDetails.videoId;
+  }
+
+  if (videoDetails?.thumbnail?.thumbnails?.length) {
+    thumbUrl = videoDetails.thumbnail.thumbnails.slice(-1)[0]?.url || '';
+  } else if (micro?.thumbnail?.thumbnails?.length) {
+    thumbUrl = micro.thumbnail.thumbnails.slice(-1)[0]?.url || '';
+  }
   
   // ⭐ Extraer información del siguiente video desde ytp-next-button
   let nextVideoInfo = null;
@@ -909,7 +986,7 @@ setInterval(() => {
     }
   }
 
-  if (videoTitle || videoChannel) {
+  if (videoTitle || videoChannel || videoId) {
     ipcRenderer.send('update-video-info', {
       videoId: videoId,
       title: videoTitle,
@@ -917,7 +994,7 @@ setInterval(() => {
       channel: videoChannel,
       channelAvatar: channelAvatar,
       duration: duration,
-      thumbnail: videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : '',
+      thumbnail: thumbUrl || (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : ''),
       nextVideo: nextVideoInfo,
       prevVideo: prevVideoInfo
     });

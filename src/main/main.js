@@ -313,7 +313,7 @@ function createPipWindow() {
     frame: false,
     alwaysOnTop: true,
     skipTaskbar: true,
-    backgroundColor: '#0a0a0f',
+    backgroundColor: '#0b0b0e',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
