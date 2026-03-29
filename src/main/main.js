@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session } = require('electron');
+const { app, BrowserWindow, ipcMain, session, powerSaveBlocker } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -22,6 +22,7 @@ ipcMain.on('video-volume-updated', (event, realVolume) => {
   }
 });
 let appUpdater = null;
+let powerSaveBlockerId = null;
 
 /**
  * ARQUITECTURA DE SEAXMUSIC:
@@ -2788,6 +2789,12 @@ ipcMain.handle('open-youtube-login-window', async () => {
 app.whenReady().then(() => {
   createMainWindow();
 
+  // Mantener reproducción estable en segundo plano (evita suspensión del sistema)
+  if (powerSaveBlocker && !powerSaveBlocker.isStarted(powerSaveBlockerId || -1)) {
+    powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension');
+    console.log('[POWER] powerSaveBlocker started:', powerSaveBlockerId);
+  }
+
   // ⭐ Inicializar Auto-Updater
   appUpdater = new AppUpdater();
 
@@ -3003,4 +3010,11 @@ ipcMain.handle('get-video-source-id', () => {
     }
   }
   return null;
+});
+
+app.on('before-quit', () => {
+  if (powerSaveBlockerId !== null && powerSaveBlocker.isStarted(powerSaveBlockerId)) {
+    powerSaveBlocker.stop(powerSaveBlockerId);
+    powerSaveBlockerId = null;
+  }
 });

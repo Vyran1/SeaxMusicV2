@@ -1,5 +1,28 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// ===== Mantener reproducción en segundo plano (anti-throttle) =====
+try {
+  const forceVisible = () => {
+    const doc = document;
+    const props = {
+      hidden: { get: () => false },
+      visibilityState: { get: () => 'visible' },
+      webkitVisibilityState: { get: () => 'visible' }
+    };
+    for (const key of Object.keys(props)) {
+      try { Object.defineProperty(doc, key, props[key]); } catch (e) {}
+    }
+  };
+
+  forceVisible();
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && !window.__seaxUserPaused) {
+      const v = document.querySelector('video');
+      v?.play?.().catch(() => {});
+    }
+  });
+} catch (e) {}
+
 // ===== BLOQUEADOR DE ANUNCIOS DE YOUTUBE (basado en kananinirav/Youtube-AdBlocker) =====
 (function() {
   const debugMessages = false;
