@@ -57,6 +57,9 @@ let videoViewPrevBounds = null;
 let videoViewCssKey = null;
 let videoPreviewTimer = null;
 let videoPreviewPrev = null;
+let videoPreviewClients = 0;
+let pipWindow = null;
+let lastVideoInfo = null;
 
 // User data file path
 const userDataPath = path.join(app.getPath('userData'), 'user-data.json');
@@ -294,6 +297,51 @@ function createYouTubeWindow(isLoginWindow = false) {
   return win;
 }
 
+function createPipWindow() {
+  if (pipWindow && !pipWindow.isDestroyed()) {
+    pipWindow.show();
+    pipWindow.focus();
+    return pipWindow;
+  }
+
+  pipWindow = new BrowserWindow({
+    width: 340,
+    height: 420,
+    minWidth: 260,
+    minHeight: 340,
+    resizable: true,
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    backgroundColor: '#0a0a0f',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, '../preload/pip-preload.js')
+    }
+  });
+
+  try {
+    pipWindow.setAlwaysOnTop(true, 'screen-saver');
+  } catch (e) {}
+
+  pipWindow.loadFile(path.join(__dirname, '../renderer/html/pip.html'));
+  pipWindow.webContents.once('did-finish-load', () => {
+    if (pipWindow && !pipWindow.isDestroyed() && lastVideoInfo) {
+      pipWindow.webContents.send('update-video-info', lastVideoInfo);
+    }
+  });
+
+  pipWindow.on('closed', () => {
+    pipWindow = null;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('pip-closed');
+    }
+  });
+
+  return pipWindow;
+}
+
 function getActiveYouTubeWindow() {
   return youtubeWindow && !youtubeWindow.isDestroyed() ? youtubeWindow : null;
 }
@@ -352,8 +400,11 @@ ipcMain.handle('create-backend-player', async (event, playerId) => {
     console.log('[DEV] YouTube window visible con DevTools');
   }
   
+  const ytWin = youtubeWindow;
   youtubeWindow.on('closed', () => {
-    youtubeWindow = null;
+    if (youtubeWindow === ytWin) {
+      youtubeWindow = null;
+    }
   });
   
   return { success: true, playerId };
@@ -364,30 +415,48 @@ ipcMain.handle('dj-preload-next', async (event, { url }) => {
   try {
     if (!url) return { success: false, error: 'URL requerida' };
 
-    if (!djWindow || djWindow.isDestroyed()) {
-      djWindow = createYouTubeWindow(false);
-      if (process.argv.includes('--dev')) {
-        djWindow.webContents.openDevTools({ mode: 'detach' });
-      }
-      djWindow.on('closed', () => {
+  if (!djWindow || djWindow.isDestroyed()) {
+    djWindow = createYouTubeWindow(false);
+    if (process.argv.includes('--dev')) {
+      djWindow.webContents.openDevTools({ mode: 'detach' });
+    }
+    const djWin = djWindow;
+    djWindow.on('closed', () => {
+      if (djWindow === djWin) {
         djWindow = null;
-      });
-    }
+      }
+    });
+  }
 
-    djWindow.loadURL(url);
+  djWindow.loadURL(url);
 
-    // Preparar en silencio (pausa y volumen 0)
-    if (djWindow && !djWindow.isDestroyed()) {
-      djWindow.webContents.send('youtube-control', 'volume', 0);
-      djWindow.webContents.send('youtube-control', 'pause');
-      djWindow.webContents.send('youtube-control', 'seek', 0);
-    }
+  // Marcar como inactiva y preparar en silencio (tras cargar)
+  try {
+    djWindow.webContents.once('did-finish-load', () => {
+      if (djWindow && !djWindow.isDestroyed()) {
+        djWindow.webContents.send('dj-set-mode', { inactive: true });
+        djWindow.webContents.send('youtube-control', 'volume', 0);
+        djWindow.webContents.send('youtube-control', 'pause');
+        djWindow.webContents.send('youtube-control', 'seek', 0);
+      }
+    });
+  } catch (e) {}
 
-    return { success: true };
-  } catch (e) {
+  return { success: true };
+} catch (e) {
     console.error('[DJ MIX] Error preload:', e);
     return { success: false, error: e.message };
   }
+});
+
+ipcMain.handle('dj-close', async () => {
+  try {
+    if (djWindow && !djWindow.isDestroyed()) {
+      djWindow.close();
+      djWindow = null;
+    }
+  } catch (e) {}
+  return { success: true };
 });
 
 ipcMain.handle('dj-swap-active', async () => {
@@ -404,6 +473,18 @@ ipcMain.handle('dj-swap-active', async () => {
     const temp = youtubeWindow;
     youtubeWindow = djWindow;
     djWindow = temp;
+
+    // Marcar modos: nueva activa visible, vieja activa como inactiva
+    try {
+      if (youtubeWindow && !youtubeWindow.isDestroyed()) {
+        youtubeWindow.webContents.send('dj-set-mode', { inactive: false });
+      }
+      if (djWindow && !djWindow.isDestroyed()) {
+        djWindow.webContents.send('dj-set-mode', { inactive: true });
+        djWindow.webContents.send('youtube-control', 'pause');
+        djWindow.webContents.send('youtube-control', 'volume', 0);
+      }
+    } catch (e) {}
 
     return { success: true };
   } catch (e) {
@@ -428,6 +509,51 @@ ipcMain.on('dj-set-window-volume', (event, { target, volume }) => {
   }
 });
 
+ipcMain.on('dj-set-mode', (event, { target, inactive }) => {
+  const win = target === 'inactive' ? getDjYouTubeWindow() : getActiveYouTubeWindow();
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('dj-set-mode', { inactive: !!inactive });
+  }
+});
+
+// ===== Always on Top (PiP) =====
+ipcMain.handle('set-always-on-top', (event, { enabled }) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      mainWindow.setAlwaysOnTop(!!enabled, 'screen-saver');
+    } catch (e) {}
+  }
+  return { success: true, enabled: !!enabled };
+});
+
+// ===== PiP Window =====
+ipcMain.handle('pip-open', async () => {
+  createPipWindow();
+  return { success: true };
+});
+
+ipcMain.handle('pip-close', async () => {
+  if (pipWindow && !pipWindow.isDestroyed()) {
+    pipWindow.close();
+    return { success: true };
+  }
+  return { success: false };
+});
+
+ipcMain.on('pip-control', (event, { action, value }) => {
+  if (!action) return;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('pip-control', { action, value });
+    return;
+  }
+  if (action === 'seek') {
+    const time = typeof value === 'number' ? value : 0;
+    ipcMain.emit('seek-audio', event, time);
+    return;
+  }
+  ipcMain.emit('audio-control', event, action, value);
+});
+
 ipcMain.on('dj-control-window', (event, { target, action, value }) => {
   const win = target === 'inactive' ? getDjYouTubeWindow() : getActiveYouTubeWindow();
   if (win && !win.isDestroyed()) {
@@ -436,7 +562,7 @@ ipcMain.on('dj-control-window', (event, { target, action, value }) => {
 });
 
 // ===== Video Preview: stream del video en el panel de Now Playing =====
-ipcMain.handle('start-video-preview', async () => {
+async function startVideoPreviewInternal() {
   const active = getActiveYouTubeWindow();
   if (!active || active.isDestroyed() || !mainWindow || mainWindow.isDestroyed()) {
     return { success: false, error: 'No hay ventana activa' };
@@ -476,12 +602,12 @@ ipcMain.handle('start-video-preview', async () => {
     } catch (e) {
       // Ignorar errores de captura
     }
-  }, 80);
+  }, 45);
 
   return { success: true };
-});
+}
 
-ipcMain.handle('stop-video-preview', async () => {
+async function stopVideoPreviewInternal() {
   const active = getActiveYouTubeWindow();
   if (active && !active.isDestroyed()) {
     await setVideoOnlyMode(active, false);
@@ -508,6 +634,22 @@ ipcMain.handle('stop-video-preview', async () => {
   }
   videoPreviewPrev = null;
   return { success: true };
+}
+
+ipcMain.handle('start-video-preview', async () => {
+  videoPreviewClients += 1;
+  if (videoPreviewTimer) {
+    return { success: true, clients: videoPreviewClients };
+  }
+  return startVideoPreviewInternal();
+});
+
+ipcMain.handle('stop-video-preview', async () => {
+  videoPreviewClients = Math.max(0, videoPreviewClients - 1);
+  if (videoPreviewClients > 0) {
+    return { success: true, clients: videoPreviewClients };
+  }
+  return stopVideoPreviewInternal();
 });
 
 // Handle responses from backend player
@@ -785,8 +927,12 @@ ipcMain.on('autoplay-next', (event, { videoId, title, artist }) => {
 
 ipcMain.on('update-video-info', (event, videoInfo) => {
   if (!isEventFromActiveYouTube(event)) return;
+  lastVideoInfo = videoInfo;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('update-video-info', videoInfo);
+  }
+  if (pipWindow && !pipWindow.isDestroyed()) {
+    pipWindow.webContents.send('update-video-info', videoInfo);
   }
   
   // ⭐ Actualizar Discord Rich Presence con la canción
@@ -836,12 +982,18 @@ ipcMain.on('update-time', (event, timeInfo) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('audio-time-update', timeInfo);
   }
+  if (pipWindow && !pipWindow.isDestroyed()) {
+    pipWindow.webContents.send('audio-time-update', timeInfo);
+  }
 });
 
 ipcMain.on('video-playing', (event) => {
   if (!isEventFromActiveYouTube(event)) return;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('audio-started');
+  }
+  if (pipWindow && !pipWindow.isDestroyed()) {
+    pipWindow.webContents.send('video-playing');
   }
   
   // ⭐ Discord: Reanudar reproducción
@@ -861,6 +1013,9 @@ ipcMain.on('video-paused', (event) => {
   if (!isEventFromActiveYouTube(event)) return;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('audio-paused');
+  }
+  if (pipWindow && !pipWindow.isDestroyed()) {
+    pipWindow.webContents.send('video-paused');
   }
   
   // ⭐ Discord: Mostrar estado pausado
@@ -2492,8 +2647,11 @@ ipcMain.handle('open-youtube-window', async (event, { videoUrl, title, artist })
       youtubeWindow.webContents.openDevTools();
     }
 
+    const ytWin = youtubeWindow;
     youtubeWindow.on('closed', () => {
-      youtubeWindow = null;
+      if (youtubeWindow === ytWin) {
+        youtubeWindow = null;
+      }
     });
 
     return { success: true, created: true };
@@ -2849,8 +3007,11 @@ app.whenReady().then(() => {
           .catch(err => console.error('[YOUTUBE] Error inyectando monitor:', err));
       });
 
+      const ytWin = youtubeWindow;
       youtubeWindow.on('closed', () => {
-        youtubeWindow = null;
+        if (youtubeWindow === ytWin) {
+          youtubeWindow = null;
+        }
       });
     }
   }, 500);
