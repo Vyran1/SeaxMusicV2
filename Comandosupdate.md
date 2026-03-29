@@ -7,7 +7,6 @@ Subir todo a GitHub
 git push origin main --tags
 
 npm run publish
-$env:GH_TOKEN = "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"; npm run publish
 
 🆕 Nuevas Funciones
 
@@ -59,5 +58,4 @@ git add .
 git commit -a
 git tag v2.1.1
 npm run publish
-$env:GH_TOKEN = "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"
  npm run publish
