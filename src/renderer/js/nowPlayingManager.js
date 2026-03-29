@@ -15,6 +15,9 @@ class NowPlayingManager {
     this.currentPlaybackTime = 0;
     this.lastHighlightedLine = -1;
     this.lyricsLoadingForSong = null; // Track qué canción está cargando letras
+    this._framePreviewActive = false;
+    this._lastFrameAt = 0;
+    this._videoStream = null;
     
     this.init();
   }
@@ -24,7 +27,19 @@ class NowPlayingManager {
     await this.loadHTML();
     this.cacheElements();
     this.bindEvents();
-    
+    this.bindVideoPreview();
+    // Restaurar volumen guardado en la vista Now Playing
+    if (window.musicPlayer) {
+      const user = (() => {
+        try {
+          const userData = localStorage.getItem('seaxmusic_user');
+          return userData ? JSON.parse(userData) : null;
+        } catch (e) {
+          return null;
+        }
+      })();
+      window.musicPlayer.refreshVolumeForUser?.(user);
+    }
     console.log('[NOW PLAYING] Manager inicializado');
   }
   
@@ -84,6 +99,7 @@ class NowPlayingManager {
     this.closeBtn = document.getElementById('npClose');
     this.queueBtn = document.getElementById('npQueue');
     this.lyricsBtn = document.getElementById('npLyrics');
+    this.videoBtn = document.getElementById('npVideoBtn');
     
     // Volumen
     this.volumeBtn = document.getElementById('npVolumeBtn');
@@ -92,6 +108,7 @@ class NowPlayingManager {
     this.volumeFill = document.getElementById('npVolumeFill');
     this.volumeHandle = document.getElementById('npVolumeHandle');
     this.volumePercent = document.getElementById('npVolumePercent');
+    this.djMixBtn = document.getElementById('npDjMixBtn');
     
     // Visualizer
     this.visualizer = document.getElementById('nowPlayingVisualizer');
@@ -213,6 +230,11 @@ class NowPlayingManager {
       console.log('[NOW PLAYING] Lyrics button clicked');
       this.toggleLyricsMode();
     });
+
+    this.videoBtn?.addEventListener('click', () => {
+      console.log('[NOW PLAYING] Video button clicked');
+      this.toggleVideoMode();
+    });
     
     // ⭐ Click en items del carrusel
     this.carouselPrev?.addEventListener('click', () => {
@@ -234,7 +256,6 @@ class NowPlayingManager {
   // ⭐ Configurar control de volumen
   setupVolumeControl() {
     if (!this.volumeBar) return;
-    
     let isDragging = false;
     
     const updateVolume = (e) => {
@@ -253,10 +274,10 @@ class NowPlayingManager {
     
     const setVolume = (percent) => {
       console.log('[NOW PLAYING] Estableciendo volumen:', Math.round(percent * 100) + '%');
-      
+
       // Actualizar el player principal y enviar a YouTube
       if (window.musicPlayer) {
-        window.musicPlayer.volume = percent;
+        window.musicPlayer.persistVolume?.(percent);
         window.musicPlayer.updateVolumeUI();
       }
       
@@ -287,7 +308,8 @@ class NowPlayingManager {
     this.volumeBar.addEventListener('mousedown', (e) => {
       isDragging = true;
       this.volumePopup?.classList.add('active');
-      updateVolume(e);
+      const percent = updateVolume(e);
+      setVolume(percent);
       e.preventDefault();
     });
     
@@ -301,7 +323,8 @@ class NowPlayingManager {
     // Drag move
     document.addEventListener('mousemove', (e) => {
       if (isDragging && this.volumeBar) {
-        updateVolume(e);
+        const percent = updateVolume(e);
+        setVolume(percent);
       }
     });
     
@@ -330,6 +353,13 @@ class NowPlayingManager {
         // Sincronizar la UI de now playing después del toggle
         const newVolume = window.musicPlayer.volume;
         this.syncVolume(newVolume);
+      }
+    });
+
+    // DJ Mix toggle
+    this.djMixBtn?.addEventListener('click', () => {
+      if (window.musicPlayer) {
+        window.musicPlayer.toggleDjMix();
       }
     });
   }
@@ -383,6 +413,12 @@ class NowPlayingManager {
       }
     }
   }
+
+  syncDjMixButton(enabled) {
+    if (!this.djMixBtn) return;
+    this.djMixBtn.classList.toggle('dj-active', !!enabled);
+    this.djMixBtn.title = enabled ? 'DJ Mix: Activado' : 'DJ Mix: Desactivado';
+  }
   
   // ⭐ Configurar barra de progreso con drag
   setupProgressBar() {
@@ -405,7 +441,7 @@ class NowPlayingManager {
     const seekTo = (percent) => {
       if (window.musicPlayer && window.musicPlayer.duration > 0) {
         const targetTime = percent * window.musicPlayer.duration;
-        window.electronAPI?.send('audio-seek', targetTime);
+        window.electronAPI?.send('seek-audio', targetTime);
         
         // También actualizar barra principal
         if (window.musicPlayer.updateProgress) {
@@ -451,6 +487,7 @@ class NowPlayingManager {
     this.syncPlayButton();
     this.syncShuffleButton();
     this.syncRepeatButton();
+    this.syncDjMixButton?.(window.appState?.djMixEnabled);
   }
   
   syncPlayButton() {
@@ -881,7 +918,9 @@ updateSideImages(nextVideoInfo = null, prevVideoInfo = null) {
    */
   toggleLyricsMode() {
     const content = document.getElementById('nowPlayingContent');
+    const page = this.page;
     const lyricsBtn = this.lyricsBtn;
+    const videoBtn = this.videoBtn;
     
     if (!content) return;
     
@@ -891,18 +930,190 @@ updateSideImages(nextVideoInfo = null, prevVideoInfo = null) {
       // Desactivar modo letras
       content.classList.remove('lyrics-active');
       lyricsBtn?.classList.remove('active');
+      videoBtn?.classList.remove('active');
+      page?.classList.remove('video-active');
       this.stopLyricsSync();
       window.lyricsService?.cancel();
       this.lyricsLoadingForSong = null;
       console.log('[NOW PLAYING] Modo letras desactivado');
     } else {
       // Activar modo letras
+      content.classList.remove('video-active');
+      page?.classList.remove('video-active');
       content.classList.add('lyrics-active');
       lyricsBtn?.classList.add('active');
+      videoBtn?.classList.remove('active');
+      this.stopVideoPreview();
       this.loadLyrics();
       this.updateMiniCarousel();
       console.log('[NOW PLAYING] Modo letras activado');
     }
+  }
+
+  bindVideoPreview() {
+    if (window.electronAPI?.onVideoPreviewFrame) {
+      window.electronAPI.onVideoPreviewFrame((dataUrl) => {
+        if (!this._framePreviewActive) return;
+        const now = Date.now();
+        if (now - this._lastFrameAt < 80) return; // ~12 fps
+        this._lastFrameAt = now;
+        const frame = document.getElementById('videoFrame');
+        if (frame) {
+          frame.src = dataUrl;
+          const panel = document.getElementById('videoPanel');
+          panel?.classList.add('has-frame');
+        }
+      });
+    }
+  }
+
+  // ===== VIDEO MODE =====
+  toggleVideoMode() {
+    const content = document.getElementById('nowPlayingContent');
+    const page = this.page;
+    const lyricsBtn = this.lyricsBtn;
+    const videoBtn = this.videoBtn;
+    if (!content) return;
+
+    const isVideoActive = content.classList.contains('video-active');
+
+    if (isVideoActive) {
+      content.classList.remove('video-active');
+      page?.classList.remove('video-active');
+      videoBtn?.classList.remove('active');
+      this.stopVideoPreview();
+    } else {
+      content.classList.remove('lyrics-active');
+      lyricsBtn?.classList.remove('active');
+      content.classList.add('video-active');
+      page?.classList.add('video-active');
+      videoBtn?.classList.add('active');
+      this.stopLyricsSync();
+      this.startVideoPreview();
+    }
+  }
+
+  startVideoPreview() {
+    this._framePreviewActive = true;
+    this.startDesktopVideoCapture();
+    if (window.electronAPI?.startVideoPreview) {
+      window.electronAPI.startVideoPreview();
+    }
+  }
+
+  stopVideoPreview() {
+    this._framePreviewActive = false;
+    if (window.electronAPI?.stopVideoPreview) {
+      window.electronAPI.stopVideoPreview();
+    }
+    this.stopDesktopVideoCapture();
+    const video = document.getElementById('videoLive');
+    if (video) video.srcObject = null;
+    const frame = document.getElementById('videoFrame');
+    if (frame) frame.removeAttribute('src');
+    const panel = document.getElementById('videoPanel');
+    panel?.classList.remove('has-frame');
+  }
+
+  async startDesktopVideoCapture() {
+    try {
+      const candidates = [];
+      if (window.electronAPI?.getVideoSourceId) {
+        const preferred = await window.electronAPI.getVideoSourceId();
+        if (preferred) candidates.push(preferred);
+      }
+
+      if (window.electronAPI?.getDesktopSources) {
+        const sources = await window.electronAPI.getDesktopSources({ types: ['window'] });
+        const byName = (needle) =>
+          sources.filter(s => (s.name || '').toLowerCase().includes(needle));
+        const ordered = [
+          ...byName('seaxmusic video'),
+          ...byName('seaxmusic'),
+          ...byName('youtube'),
+          ...sources
+        ];
+        for (const s of ordered) {
+          if (s?.id && !candidates.includes(s.id)) candidates.push(s.id);
+        }
+      }
+
+      if (!candidates.length) return;
+
+      const trySource = async (sourceId) => {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: sourceId,
+              maxFrameRate: 30
+            }
+          }
+        });
+
+        const video = document.getElementById('videoLive');
+        if (!video) return null;
+
+        video.srcObject = stream;
+        video.muted = true;
+        await video.play().catch(() => {});
+
+        const isReady = await new Promise((resolve) => {
+          let resolved = false;
+          const timer = setTimeout(() => {
+            if (!resolved) resolve(false);
+          }, 1400);
+          const check = () => {
+            if (video.videoWidth > 0 && video.videoHeight > 0) {
+              resolved = true;
+              clearTimeout(timer);
+              resolve(true);
+            }
+          };
+          video.onloadedmetadata = check;
+          video.onloadeddata = check;
+          requestAnimationFrame(check);
+        });
+
+        if (!isReady) {
+          stream.getTracks().forEach(t => t.stop());
+          return null;
+        }
+
+        return stream;
+      };
+
+      let activeStream = null;
+      for (const id of candidates) {
+        try {
+          activeStream = await trySource(id);
+          if (activeStream) break;
+        } catch (e) {
+          // intentar siguiente fuente
+        }
+      }
+
+      if (!activeStream) return;
+
+      const panel = document.getElementById('videoPanel');
+      panel?.classList.add('has-video');
+      this._videoStream = activeStream;
+    } catch (e) {
+      this.stopDesktopVideoCapture();
+      if (window.electronAPI?.startVideoPreview) {
+        window.electronAPI.startVideoPreview();
+      }
+    }
+  }
+
+  stopDesktopVideoCapture() {
+    if (this._videoStream) {
+      this._videoStream.getTracks().forEach(t => t.stop());
+      this._videoStream = null;
+    }
+    const panel = document.getElementById('videoPanel');
+    panel?.classList.remove('has-video');
   }
   
   /**

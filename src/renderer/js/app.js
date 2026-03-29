@@ -24,11 +24,170 @@ const appState = {
   playQueue: [],
   playQueueIndex: -1,
   // ⭐ Historial de canciones (para Now Playing)
-  recentHistory: []
+  recentHistory: [],
+  // ⭐ DJ Mix
+  djMixEnabled: false,
+  djMixInProgress: false,
+  djMixMs: 600,
+  djMixLeadSec: 180,
+  djMixCrossfadeMs: 10000,
+  djMixLeadStartSec: 4,
+  djMixTriggeredFor: null,
+  djMixPreloadedFor: null,
+  djMixNextTrack: null,
+  djMixInactiveStartedFor: null
 };
 
 // ⭐ Exponer appState globalmente
 window.appState = appState;
+
+// Restaurar estado DJ Mix
+try {
+  appState.djMixEnabled = localStorage.getItem('seaxmusic_djmix') === '1';
+} catch (e) {
+  appState.djMixEnabled = false;
+}
+
+// ===== DJ MIX TRANSITIONS =====
+function runDjMixTransition(playFn) {
+  if (!appState.djMixEnabled || !window.musicPlayer || appState.djMixInProgress) {
+    playFn();
+    return;
+  }
+
+  appState.djMixInProgress = true;
+
+  const targetVolume = window.musicPlayer.volume;
+  const fadeOutMs = Math.max(250, Math.floor(appState.djMixMs * 0.45));
+  const fadeInMs = Math.max(300, appState.djMixMs);
+
+  window.musicPlayer.suppressVolumePersist = true;
+
+  window.musicPlayer.fadeVolumeTo(0, fadeOutMs, () => {
+    playFn();
+    setTimeout(() => {
+      if (window.electronAPI?.send) {
+        window.electronAPI.send('force-play-current-video');
+      }
+    }, 1200);
+    setTimeout(() => {
+      window.musicPlayer.fadeVolumeTo(targetVolume, fadeInMs, () => {
+        window.musicPlayer.suppressVolumePersist = false;
+        appState.djMixInProgress = false;
+      });
+    }, 250);
+  });
+}
+
+window.runDjMixTransition = runDjMixTransition;
+
+function ensurePlaybackKick() {
+  if (window.electronAPI?.send) {
+    window.electronAPI.send('force-play-current-video');
+  }
+}
+
+function getNextTrackForDjMix() {
+  const queue = appState.playQueue || [];
+  const idx = appState.playQueueIndex ?? -1;
+  if (queue.length && idx >= 0 && idx + 1 < queue.length) {
+    const next = queue[idx + 1];
+    const currentId = appState.currentTrack?.videoId || null;
+    if (next && currentId && next.videoId === currentId) {
+      return null;
+    }
+    return next;
+  }
+  return null;
+}
+
+async function preloadNextForDjMix(track) {
+  if (!track || !window.electronAPI?.djPreloadNext) return false;
+  const url = `https://www.youtube.com/watch?v=${track.videoId}`;
+  const result = await window.electronAPI.djPreloadNext(url);
+  return !!result?.success;
+}
+
+function runDjCrossfadeToNext(track) {
+  if (!track || !window.electronAPI?.djSetWindowVolume || !window.electronAPI?.djSwapActive) return;
+  if (appState.djMixInProgress) return;
+
+  appState.djMixInProgress = true;
+  const targetVolume = window.musicPlayer?.volume ?? 0.7;
+  const duration = appState.djMixCrossfadeMs || 12000;
+  const startTime = performance.now();
+
+  if (window.musicPlayer) {
+    window.musicPlayer.suppressVolumeUpdates = true;
+  }
+
+  // Asegurar ventana inactiva reproduciendo en silencio
+  if (window.electronAPI?.djControlWindow) {
+    window.electronAPI.djControlWindow('inactive', 'play');
+  }
+  window.electronAPI.djSetWindowVolume('inactive', 0);
+
+  const step = (now) => {
+    const t = Math.min(1, (now - startTime) / duration);
+    const eased = t < 1 ? (t * (2 - t)) : 1; // easeOut
+    const activeVol = targetVolume * (1 - eased);
+    const inactiveVol = targetVolume * eased;
+
+    window.electronAPI.djSetWindowVolume('active', activeVol);
+    window.electronAPI.djSetWindowVolume('inactive', inactiveVol);
+
+    if (t < 1) {
+      requestAnimationFrame(step);
+    } else {
+      window.electronAPI.djSwapActive().finally(() => {
+        // Asegurar volumen correcto en nueva activa
+        window.electronAPI.djSetWindowVolume('active', targetVolume);
+        // Forzar play por seguridad
+        ensurePlaybackKick();
+        if (window.musicPlayer) {
+          window.musicPlayer.suppressVolumeUpdates = false;
+        }
+        appState.djMixInProgress = false;
+        appState.djMixPreloadedFor = null;
+        appState.djMixNextTrack = null;
+        appState.djMixInactiveStartedFor = null;
+      });
+    }
+  };
+
+  requestAnimationFrame(step);
+}
+
+function initDjMixWrappers() {
+  if (!window.electronAPI || window.electronAPI.__djMixWrapped) return;
+
+  const originalPlayAudio = window.electronAPI.playAudio?.bind(window.electronAPI);
+  const originalPlayAudioWithPlaylist = window.electronAPI.playAudioWithPlaylist?.bind(window.electronAPI);
+
+  if (originalPlayAudio) {
+    window.electronAPI.playAudio = (...args) => {
+      const playFn = () => originalPlayAudio(...args);
+      if (window.runDjMixTransition) {
+        window.runDjMixTransition(playFn);
+      } else {
+        playFn();
+      }
+    };
+  }
+
+  if (originalPlayAudioWithPlaylist) {
+    window.electronAPI.playAudioWithPlaylist = (...args) => {
+      const playFn = () => originalPlayAudioWithPlaylist(...args);
+      if (window.runDjMixTransition) {
+        window.runDjMixTransition(playFn);
+      } else {
+        playFn();
+      }
+    };
+  }
+
+  window.electronAPI.__djMixWrapped = true;
+}
 
 // ===== SISTEMA DE COLA DE REPRODUCCIÓN =====
 
@@ -37,6 +196,10 @@ function setPlayQueue(tracks, startIndex = 0) {
   appState.playQueueIndex = startIndex;
   console.log('[QUEUE] ✅ Cola establecida:', tracks.length, 'canciones, iniciando en índice', startIndex);
   console.log('[QUEUE] Tracks:', tracks.map(t => t.title).join(', '));
+
+  if (window.musicPlayer?.updateSkipPreviews) {
+    window.musicPlayer.updateSkipPreviews();
+  }
 }
 
 function playNextInQueue() {
@@ -64,36 +227,47 @@ function playNextInQueue() {
   if (window.updateTrackInfo) {
     window.updateTrackInfo(track, 'next');
   }
+  if (window.musicPlayer?.updateSkipPreviews) {
+    window.musicPlayer.updateSkipPreviews();
+  }
   
   // ⭐ Si hay playlist activa, actualizar UI y Discord con cover de playlist
   const playlistManager = window.playlistManager;
-  if (playlistManager?.currentPlayingPlaylist) {
-    const playlistInfo = {
-      name: playlistManager.currentPlayingPlaylist.name,
-      cover: playlistManager.getPlaylistCover(playlistManager.currentPlayingPlaylist),
-      discordCover: playlistManager.getPlaylistDiscordCover(playlistManager.currentPlayingPlaylist),
-      id: playlistManager.currentPlayingPlaylist.id || playlistManager.currentPlayingPlaylist.globalId
-    };
-    playlistManager.updatePlayerUIForPlaylist(track, playlistInfo);
-    
-    // ⭐ Usar playAudioWithPlaylist para que Discord muestre la playlist
-    if (window.electronAPI?.playAudioWithPlaylist) {
-      window.electronAPI.playAudioWithPlaylist(
-        `https://www.youtube.com/watch?v=${track.videoId}`,
-        track.title || 'Sin título',
-        track.artist || track.channel || 'Artista desconocido',
-        playlistInfo
-      );
+  const playFn = () => {
+    if (playlistManager?.currentPlayingPlaylist) {
+      const playlistInfo = {
+        name: playlistManager.currentPlayingPlaylist.name,
+        cover: playlistManager.getPlaylistCover(playlistManager.currentPlayingPlaylist),
+        discordCover: playlistManager.getPlaylistDiscordCover(playlistManager.currentPlayingPlaylist),
+        id: playlistManager.currentPlayingPlaylist.id || playlistManager.currentPlayingPlaylist.globalId
+      };
+      playlistManager.updatePlayerUIForPlaylist(track, playlistInfo);
+      
+      // ⭐ Usar playAudioWithPlaylist para que Discord muestre la playlist
+      if (window.electronAPI?.playAudioWithPlaylist) {
+        window.electronAPI.playAudioWithPlaylist(
+          `https://www.youtube.com/watch?v=${track.videoId}`,
+          track.title || 'Sin título',
+          track.artist || track.channel || 'Artista desconocido',
+          playlistInfo
+        );
+      }
+    } else {
+      // Sin playlist activa, reproducir normal
+      if (window.electronAPI?.playAudio) {
+        window.electronAPI.playAudio(
+          `https://www.youtube.com/watch?v=${track.videoId}`,
+          track.title || 'Sin título',
+          track.artist || track.channel || 'Artista desconocido'
+        );
+      }
     }
+  };
+
+  if (window.runDjMixTransition) {
+    window.runDjMixTransition(playFn);
   } else {
-    // Sin playlist activa, reproducir normal
-    if (window.electronAPI?.playAudio) {
-      window.electronAPI.playAudio(
-        `https://www.youtube.com/watch?v=${track.videoId}`,
-        track.title || 'Sin título',
-        track.artist || track.channel || 'Artista desconocido'
-      );
-    }
+    playFn();
   }
   
   return true;
@@ -120,36 +294,47 @@ function playPrevInQueue() {
   if (window.updateTrackInfo) {
     window.updateTrackInfo(track, 'prev');
   }
+  if (window.musicPlayer?.updateSkipPreviews) {
+    window.musicPlayer.updateSkipPreviews();
+  }
   
   // ⭐ Si hay playlist activa, actualizar UI y Discord con cover de playlist
   const playlistManager = window.playlistManager;
-  if (playlistManager?.currentPlayingPlaylist) {
-    const playlistInfo = {
-      name: playlistManager.currentPlayingPlaylist.name,
-      cover: playlistManager.getPlaylistCover(playlistManager.currentPlayingPlaylist),
-      discordCover: playlistManager.getPlaylistDiscordCover(playlistManager.currentPlayingPlaylist),
-      id: playlistManager.currentPlayingPlaylist.id || playlistManager.currentPlayingPlaylist.globalId
-    };
-    playlistManager.updatePlayerUIForPlaylist(track, playlistInfo);
-    
-    // ⭐ Usar playAudioWithPlaylist para que Discord muestre la playlist
-    if (window.electronAPI?.playAudioWithPlaylist) {
-      window.electronAPI.playAudioWithPlaylist(
-        `https://www.youtube.com/watch?v=${track.videoId}`,
-        track.title || 'Sin título',
-        track.artist || track.channel || 'Artista desconocido',
-        playlistInfo
-      );
+  const playFn = () => {
+    if (playlistManager?.currentPlayingPlaylist) {
+      const playlistInfo = {
+        name: playlistManager.currentPlayingPlaylist.name,
+        cover: playlistManager.getPlaylistCover(playlistManager.currentPlayingPlaylist),
+        discordCover: playlistManager.getPlaylistDiscordCover(playlistManager.currentPlayingPlaylist),
+        id: playlistManager.currentPlayingPlaylist.id || playlistManager.currentPlayingPlaylist.globalId
+      };
+      playlistManager.updatePlayerUIForPlaylist(track, playlistInfo);
+      
+      // ⭐ Usar playAudioWithPlaylist para que Discord muestre la playlist
+      if (window.electronAPI?.playAudioWithPlaylist) {
+        window.electronAPI.playAudioWithPlaylist(
+          `https://www.youtube.com/watch?v=${track.videoId}`,
+          track.title || 'Sin título',
+          track.artist || track.channel || 'Artista desconocido',
+          playlistInfo
+        );
+      }
+    } else {
+      // Sin playlist activa, reproducir normal
+      if (window.electronAPI?.playAudio) {
+        window.electronAPI.playAudio(
+          `https://www.youtube.com/watch?v=${track.videoId}`,
+          track.title || 'Sin título',
+          track.artist || track.channel || 'Artista desconocido'
+        );
+      }
     }
+  };
+
+  if (window.runDjMixTransition) {
+    window.runDjMixTransition(playFn);
   } else {
-    // Sin playlist activa, reproducir normal
-    if (window.electronAPI?.playAudio) {
-      window.electronAPI.playAudio(
-        `https://www.youtube.com/watch?v=${track.videoId}`,
-        track.title || 'Sin título',
-        track.artist || track.channel || 'Artista desconocido'
-      );
-    }
+    playFn();
   }
   
   return true;
@@ -360,6 +545,79 @@ async function initApp() {
       if (window.musicPlayer) {
         window.musicPlayer.updateTime(timeInfo.currentTime, timeInfo.duration);
       }
+
+      // ===== DJ MIX: lanzar transición al 98% =====
+      if (appState.djMixEnabled && !appState.djMixInProgress) {
+        const duration = timeInfo.duration || 0;
+        const current = timeInfo.currentTime || 0;
+        const currentId = appState.currentTrack?.videoId || null;
+        const remainingTriggerSec = Math.min(30, Math.max(10, duration * 0.05));
+        const remaining = duration - current;
+
+        // Preload 3 minutos antes del final
+        if (currentId && appState.djMixPreloadedFor !== currentId) {
+          if (duration > 10 && remaining > 0 && remaining <= (appState.djMixLeadSec || 180)) {
+            const nextTrack = getNextTrackForDjMix();
+            if (nextTrack) {
+              appState.djMixPreloadedFor = currentId;
+              appState.djMixNextTrack = nextTrack;
+              preloadNextForDjMix(nextTrack).catch(() => {});
+            } else {
+              appState.djMixNextTrack = null;
+            }
+          }
+        }
+
+        // Arrancar la siguiente en silencio unos segundos antes del cruce
+        if (currentId && appState.djMixNextTrack && appState.djMixInactiveStartedFor !== currentId) {
+          if (appState.djMixNextTrack.videoId === currentId) {
+            appState.djMixNextTrack = null;
+            return;
+          }
+          if (duration > 10 && remaining > 0 && remaining <= (appState.djMixLeadStartSec || 4)) {
+            appState.djMixInactiveStartedFor = currentId;
+            if (window.electronAPI?.djControlWindow) {
+              window.electronAPI.djControlWindow('inactive', 'play');
+              window.electronAPI.djSetWindowVolume?.('inactive', 0);
+            }
+          }
+        }
+
+        if (currentId && appState.djMixTriggeredFor !== currentId) {
+          if (duration > 10 && remaining <= remainingTriggerSec) {
+            appState.djMixTriggeredFor = currentId;
+
+            // Si se pre-cargó, mezclar con ventana secundaria
+            if (appState.djMixNextTrack && appState.djMixNextTrack.videoId !== currentId) {
+              runDjCrossfadeToNext(appState.djMixNextTrack);
+            } else {
+              appState.djMixNextTrack = null;
+              // Intentar precargar rápido si no estaba listo
+              const nextTrack = getNextTrackForDjMix();
+              if (nextTrack) {
+                appState.djMixNextTrack = nextTrack;
+                preloadNextForDjMix(nextTrack).catch(() => {});
+              }
+              // Fallback al mix simple
+              const playNext = () => {
+                let played = false;
+                if (appState.playQueue && appState.playQueue.length > 0) {
+                  played = playNextInQueue();
+                }
+                if (!played && window.playlistManager) {
+                  window.playlistManager.playNextPlaylistInSequence();
+                }
+              };
+
+              if (window.runDjMixTransition) {
+                window.runDjMixTransition(playNext);
+              } else {
+                playNext();
+              }
+            }
+          }
+        }
+      }
     });
   }
   
@@ -370,9 +628,13 @@ async function initApp() {
       if (window.musicPlayer) {
         window.musicPlayer.isPlaying = true;
         window.musicPlayer.updatePlayButton();
+        window.musicPlayer.syncDjMixButtons?.();
       }
     });
   }
+
+  // ⭐ Envolver reproducción para DJ Mix
+  initDjMixWrappers();
   
   // Escuchar cuando se pausa la reproducción
   if (window.electronAPI && window.electronAPI.onAudioPaused) {
@@ -389,13 +651,28 @@ async function initApp() {
   if (window.electronAPI && window.electronAPI.onVideoEnded) {
     window.electronAPI.onVideoEnded(() => {
       console.log('[QUEUE] Video terminado, verificando cola...');
+      // Fallback DJ: si hay track precargado y no se mezcló, intentar ahora
+      if (appState.djMixEnabled && !appState.djMixInProgress && appState.djMixNextTrack) {
+        const currentId = appState.currentTrack?.videoId || null;
+        if (currentId && appState.djMixNextTrack.videoId === currentId) {
+          appState.djMixNextTrack = null;
+        } else {
+          runDjCrossfadeToNext(appState.djMixNextTrack);
+          return;
+        }
+      }
       // Intentar reproducir siguiente en la cola
       let playedNext = false;
       if (appState.playQueue && appState.playQueue.length > 0) {
         playedNext = playNextInQueue();
       }
       if (!playedNext && window.playlistManager) {
-        window.playlistManager.playNextPlaylistInSequence();
+        const playFn = () => window.playlistManager.playNextPlaylistInSequence();
+        if (window.runDjMixTransition) {
+          window.runDjMixTransition(playFn);
+        } else {
+          playFn();
+        }
       }
     });
   }
@@ -429,10 +706,30 @@ async function initApp() {
         thumbnail: videoInfo.thumbnail || appState.currentTrack?.thumbnail,
         channelAvatar: videoInfo.channelAvatar || appState.currentTrack?.channelAvatar
       };
+
+      appState.nextVideoInfo = videoInfo.nextVideo || null;
+      appState.prevVideoInfo = videoInfo.prevVideo || null;
+
+      // Resetear trigger DJ cuando cambia la canción
+      if (appState.djMixTriggeredFor && appState.djMixTriggeredFor !== appState.currentTrack.videoId) {
+        appState.djMixTriggeredFor = null;
+      }
+      if (appState.djMixPreloadedFor && appState.djMixPreloadedFor !== appState.currentTrack.videoId) {
+        appState.djMixPreloadedFor = null;
+        appState.djMixNextTrack = null;
+      }
       
       // Actualizar UI
       document.getElementById('trackName').textContent = videoInfo.title;
       document.getElementById('trackArtist').textContent = videoInfo.channel || videoInfo.artist;
+
+      if (window.scheduleMarqueeRefresh) {
+        window.scheduleMarqueeRefresh();
+      }
+
+      if (window.musicPlayer?.updateSkipPreviews) {
+        window.musicPlayer.updateSkipPreviews();
+      }
       
       // Actualizar el botón de like
       updateLikeButton();

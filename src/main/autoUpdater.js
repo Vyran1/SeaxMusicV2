@@ -17,10 +17,9 @@ class AppUpdater {
         this._closeMainHandler = null;
         this._allowClose = false;
         
-        // GitHub repo info para obtener releases
+        // GitHub repo info para obtener releases (repo público)
         this.githubOwner = 'Vyran1';
         this.githubRepo = 'SeaxMusicV2';
-        this.githubToken = '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';
         
         // Ruta para persistir actualización pendiente
         this.updateInfoPath = path.join(app.getPath('userData'), 'pending-update.json');
@@ -36,18 +35,15 @@ class AppUpdater {
         autoUpdater.autoDownload = true;
         autoUpdater.autoInstallOnAppQuit = false;
         
-        // ⭐ CRÍTICO: Configurar para GitHub privado
-        // El token debe tener permisos 'repo' completos
+        // Configurar para GitHub público (sin token)
         const feedURL = {
             provider: 'github',
             owner: this.githubOwner,
             repo: this.githubRepo,
-            private: true,
-            token: this.githubToken,
             releaseType: 'release'
         };
-        
-        console.log('🔧 [AUTO-UPDATER] Feed URL config:', JSON.stringify({...feedURL, token: '***hidden***'}));
+
+        console.log('🔧 [AUTO-UPDATER] Feed URL config:', JSON.stringify(feedURL));
         
         try {
             autoUpdater.setFeedURL(feedURL);
@@ -56,11 +52,7 @@ class AppUpdater {
             console.error('❌ [AUTO-UPDATER] Error configurando Feed URL:', err.message);
         }
         
-        // Headers adicionales para autenticación
-        autoUpdater.requestHeaders = {
-            'Authorization': `token ${this.githubToken}`,
-            'Accept': 'application/octet-stream'
-        };
+        // Sin headers de autenticación (repo público)
     }
     
     /**
@@ -79,16 +71,15 @@ class AppUpdater {
         
         return new Promise((resolve) => {
             // Verificar latest release
-            const options = {
-                hostname: 'api.github.com',
-                path: `/repos/${this.githubOwner}/${this.githubRepo}/releases/latest`,
-                method: 'GET',
-                headers: {
-                    'User-Agent': 'SeaxMusic-Updater',
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Authorization': `token ${this.githubToken}`
-                }
-            };
+        const options = {
+            hostname: 'api.github.com',
+            path: `/repos/${this.githubOwner}/${this.githubRepo}/releases/latest`,
+            method: 'GET',
+            headers: {
+                'User-Agent': 'SeaxMusic-Updater',
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        };
             
             sendLog(`🔍 [DIAGNÓSTICO] URL: https://api.github.com${options.path}`);
             
@@ -118,8 +109,8 @@ class AppUpdater {
                             resolve({ success: false, error: e.message });
                         }
                     } else if (res.statusCode === 401) {
-                        sendLog(`❌ [DIAGNÓSTICO] ERROR 401: Token inválido o sin permisos`);
-                        resolve({ success: false, error: 'Token inválido' });
+                        sendLog(`❌ [DIAGNÓSTICO] ERROR 401: No autorizado`);
+                        resolve({ success: false, error: 'No autorizado' });
                     } else if (res.statusCode === 404) {
                         sendLog(`❌ [DIAGNÓSTICO] ERROR 404: Repo no encontrado o sin releases`);
                         resolve({ success: false, error: 'Repo no encontrado' });
@@ -163,16 +154,15 @@ class AppUpdater {
      */
     async fetchGitHubReleases() {
         return new Promise((resolve, reject) => {
-            const options = {
-                hostname: 'api.github.com',
-                path: `/repos/${this.githubOwner}/${this.githubRepo}/releases`,
-                method: 'GET',
-                headers: {
-                    'User-Agent': 'SeaxMusic-Updater',
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Authorization': `token ${this.githubToken}`
-                }
-            };
+        const options = {
+            hostname: 'api.github.com',
+            path: `/repos/${this.githubOwner}/${this.githubRepo}/releases`,
+            method: 'GET',
+            headers: {
+                'User-Agent': 'SeaxMusic-Updater',
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        };
             
             const req = https.request(options, (res) => {
                 let data = '';

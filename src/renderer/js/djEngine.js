@@ -429,7 +429,7 @@ class DJEngine {
     return null;
   }
 
-  // ⭐ Crear playlist real en la comunidad (como DJ Bot)
+  // ⭐ Crear o actualizar playlist real en la comunidad (como DJ Bot)
   createCommunityPlaylist(autoPlaylist) {
     if (!autoPlaylist?.tracks?.length || autoPlaylist.tracks.length < 3) {
       console.log('[DJ ENGINE] No hay suficientes tracks para crear playlist');
@@ -444,6 +444,28 @@ class DJEngine {
 
     // ⭐ DJ Bot crea las playlists, no el usuario actual
     const djBotKey = 'dj_seax_bot';
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+
+    // Buscar si ya existe una playlist DJ del mismo tipo (y artista si aplica) hoy
+    const globalPlaylists = playlistManager.getGlobalPlaylists?.() || [];
+    let match = null;
+    if (autoPlaylist.type === 'artist_mix') {
+      // Para mixes de artista, buscar por tipo y nombre
+      match = globalPlaylists.find(p =>
+        p.isDJGenerated &&
+        p.djType === autoPlaylist.type &&
+        p.name === autoPlaylist.name &&
+        p.createdAt?.slice(0, 10) === todayStr
+      );
+    } else {
+      // Para otros mixes, solo por tipo y fecha
+      match = globalPlaylists.find(p =>
+        p.isDJGenerated &&
+        p.djType === autoPlaylist.type &&
+        p.createdAt?.slice(0, 10) === todayStr
+      );
+    }
 
     // Formatear tracks
     const formattedTracks = autoPlaylist.tracks.map(t => ({
@@ -451,19 +473,27 @@ class DJEngine {
       title: t.title,
       artist: t.artist || 'YouTube',
       thumbnail: t.thumbnail || `https://i.ytimg.com/vi/${t.videoId}/hqdefault.jpg`,
-      addedAt: new Date().toISOString()
+      addedAt: now.toISOString()
     }));
 
-    const now = new Date().toISOString();
-    
-    // ⭐ No guardar logo - el cover se generará dinámicamente desde los tracks
-    // Esto permite que getPlaylistCoverHtml cree el collage de 4 imágenes correctamente
-    
+    if (match) {
+      // Actualizar tracks y metadata
+      match.tracks = formattedTracks;
+      match.logo = this.generateCollageCover(formattedTracks);
+      match.updatedAt = now.toISOString();
+      match.description = autoPlaylist.description || match.description;
+      playlistManager.upsertGlobalPlaylist(match);
+      if (playlistManager.refreshSidebar) playlistManager.refreshSidebar();
+      console.log('[DJ ENGINE] ✅ Playlist actualizada en comunidad:', match.name, '-', formattedTracks.length, 'tracks');
+      return match;
+    }
+
+    // Si no existe, crear nueva
     const playlist = {
       id: `pl_dj_${Date.now()}`,
       globalId: `gpl_dj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       name: autoPlaylist.name || '🎧 Mix DJ',
-      logo: this.generateCollageCover(formattedTracks), // ? Collage con tracks
+      logo: this.generateCollageCover(formattedTracks),
       description: autoPlaylist.description || 'Playlist generada automáticamente por DJ Seax',
       creator: {
         key: djBotKey,
@@ -473,20 +503,13 @@ class DJEngine {
       likedBy: [],
       likeCount: 0,
       tracks: formattedTracks,
-      createdAt: now,
-      updatedAt: now,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
       isDJGenerated: true,
       djType: autoPlaylist.type
     };
-
-    // ⭐ Solo guardar en playlists globales de comunidad (NO en playlists del usuario)
     playlistManager.upsertGlobalPlaylist(playlist);
-
-    // Refrescar UI
-    if (playlistManager.refreshSidebar) {
-      playlistManager.refreshSidebar();
-    }
-
+    if (playlistManager.refreshSidebar) playlistManager.refreshSidebar();
     console.log('[DJ ENGINE] ✅ Playlist creada en comunidad:', playlist.name, '-', formattedTracks.length, 'tracks');
     return playlist;
   }

@@ -135,6 +135,26 @@
             </div>
           </div>
         </div>
+
+        <!-- Panel de video (modo video) -->
+        <div class="video-panel" id="videoPanel">
+          <div class="video-header">
+            <div class="video-source">
+              <i class="fas fa-video"></i>
+              <span>Video en tiempo real</span>
+            </div>
+          </div>
+          <div class="video-container" id="videoContainer">
+            <div class="video-frame">
+              <video id="videoLive" autoplay muted playsinline></video>
+              <img id="videoFrame" class="video-frame-img" alt="">
+              <div class="video-placeholder" id="videoPlaceholder">
+                <i class="fas fa-play-circle"></i>
+                <span>Video en tiempo real</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       
       <!-- Canción actual (centro) - Solo info y controles -->
@@ -163,15 +183,35 @@
             <button class="np-btn np-shuffle" id="npShuffle" title="Aleatorio">
               <i class="fas fa-random"></i>
             </button>
-            <button class="np-btn np-prev" id="npPrevBtn" title="Anterior">
-              <i class="fas fa-step-backward"></i>
-            </button>
+            <div class="skip-preview-wrapper">
+              <button class="np-btn np-prev" id="npPrevBtn" title="Anterior">
+                <i class="fas fa-step-backward"></i>
+              </button>
+              <div class="skip-preview" id="npPrevPreview">
+                <img class="skip-preview-cover" id="npPrevPreviewCover" src="./assets/img/icon.png" alt="">
+                <div class="skip-preview-info">
+                  <div class="skip-preview-label">Anterior</div>
+                  <div class="skip-preview-title" id="npPrevPreviewTitle">Sin datos</div>
+                  <div class="skip-preview-artist" id="npPrevPreviewArtist">—</div>
+                </div>
+              </div>
+            </div>
             <button class="np-btn np-play" id="npPlayBtn" title="Reproducir">
               <i class="fas fa-play"></i>
             </button>
-            <button class="np-btn np-next" id="npNextBtn" title="Siguiente">
-              <i class="fas fa-step-forward"></i>
-            </button>
+            <div class="skip-preview-wrapper">
+              <button class="np-btn np-next" id="npNextBtn" title="Siguiente">
+                <i class="fas fa-step-forward"></i>
+              </button>
+              <div class="skip-preview" id="npNextPreview">
+                <img class="skip-preview-cover" id="npNextPreviewCover" src="./assets/img/icon.png" alt="">
+                <div class="skip-preview-info">
+                  <div class="skip-preview-label">Siguiente</div>
+                  <div class="skip-preview-title" id="npNextPreviewTitle">Sin datos</div>
+                  <div class="skip-preview-artist" id="npNextPreviewArtist">—</div>
+                </div>
+              </div>
+            </div>
             <button class="np-btn np-repeat" id="npRepeat" title="Repetir">
               <i class="fas fa-redo"></i>
             </button>
@@ -198,6 +238,12 @@
             </button>
             <button class="np-action-btn" id="npLyrics" title="Letra">
               <i class="fas fa-align-left"></i>
+            </button>
+            <button class="np-action-btn" id="npVideoBtn" title="Video">
+              <i class="fas fa-video"></i>
+            </button>
+            <button class="np-action-btn np-djmix" id="npDjMixBtn" title="DJ Mix: Desactivado">
+              <i class="fas fa-headphones-alt"></i>
             </button>
             <button class="np-action-btn np-close" id="npClose" title="Cerrar">
               <i class="fas fa-chevron-down"></i>
@@ -374,10 +420,33 @@
     <div class="player-center">
       <div class="player-controls">
         <button class="control-btn" id="shuffleBtn"><i class="fas fa-random"></i></button>
-        <button class="control-btn" id="prevBtn"><i class="fas fa-step-backward"></i></button>
+        <div class="skip-preview-wrapper">
+          <button class="control-btn" id="prevBtn"><i class="fas fa-step-backward"></i></button>
+          <div class="skip-preview" id="prevPreview">
+            <img class="skip-preview-cover" id="prevPreviewCover" src="./assets/img/icon.png" alt="">
+            <div class="skip-preview-info">
+              <div class="skip-preview-label">Anterior</div>
+              <div class="skip-preview-title" id="prevPreviewTitle">Sin datos</div>
+              <div class="skip-preview-artist" id="prevPreviewArtist">—</div>
+            </div>
+          </div>
+        </div>
         <button class="control-btn play-btn" id="playBtn"><i class="fas fa-play"></i></button>
-        <button class="control-btn" id="nextBtn"><i class="fas fa-step-forward"></i></button>
+        <div class="skip-preview-wrapper">
+          <button class="control-btn" id="nextBtn"><i class="fas fa-step-forward"></i></button>
+          <div class="skip-preview" id="nextPreview">
+            <img class="skip-preview-cover" id="nextPreviewCover" src="./assets/img/icon.png" alt="">
+            <div class="skip-preview-info">
+              <div class="skip-preview-label">Siguiente</div>
+              <div class="skip-preview-title" id="nextPreviewTitle">Sin datos</div>
+              <div class="skip-preview-artist" id="nextPreviewArtist">—</div>
+            </div>
+          </div>
+        </div>
         <button class="control-btn" id="repeatBtn"><i class="fas fa-redo"></i></button>
+        <button class="control-btn dj-mix-btn" id="djMixBtn" title="DJ Mix: Desactivado">
+          <i class="fas fa-headphones-alt"></i>
+        </button>
       </div>
       <div class="progress-bar-container">
         <span class="time" id="currentTime">0:00</span>
@@ -399,6 +468,7 @@
         <span class="volume-percentage" id="volumePercent">70%</span>
       </div>
       <button class="fullscreen-btn" id="fullscreenBtn"><i class="fas fa-cog"></i></button>
+      <button class="fullscreen-btn" id="videoViewBtn" title="Ver video"><i class="fas fa-video"></i></button>
       <span class="app-version" id="appVersion">v0.0.0</span>
     </div>
   </div>
@@ -563,6 +633,7 @@
           <input type="password" id="devAccessCode" placeholder="Código">
           <small class="playlist-hint" id="devAccessError"></small>
         </div>
+
       </div>
       <div class="playlist-modal-actions">
         <button class="playlist-btn ghost" id="devAccessCancel">Cancelar</button>

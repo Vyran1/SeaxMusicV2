@@ -597,6 +597,11 @@ class UserManager {
     localStorage.setItem('seaxmusic_user', JSON.stringify(user));
     console.log('[LOGIN] Usuario guardado en localStorage');
 
+    // ⭐ Cargar volumen guardado para este usuario
+    if (window.musicPlayer && typeof window.musicPlayer.refreshVolumeForUser === 'function') {
+      window.musicPlayer.refreshVolumeForUser(user);
+    }
+
     // ⭐ Guardar en lista de cuentas
     this.upsertAccount(user);
     console.log('[LOGIN] Cuenta guardada en lista de cuentas');
@@ -732,6 +737,11 @@ class UserManager {
     
     // Clear solo la sesiÃ³n actual (mantener cuentas guardadas)
     localStorage.removeItem('seaxmusic_user');
+
+    // ⭐ Volver al volumen de invitado
+    if (window.musicPlayer && typeof window.musicPlayer.refreshVolumeForUser === 'function') {
+      window.musicPlayer.refreshVolumeForUser(null);
+    }
     
     // Clear JSON file via Electron IPC
     if (window.electronAPI && window.electronAPI.clearUserData) {

@@ -101,6 +101,114 @@ document.getElementById('forwardBtn').addEventListener('click', () => {
 // Actualizar botones al inicio
 navigationHistory.updateButtons();
 
+// ===== MARQUEE DE TITULOS EN HOVER =====
+const MARQUEE_SELECTORS = [
+  '.track-name',
+  '.playlist-track-title',
+  '.mini-current .mini-title',
+  '.nowplaying-title',
+  '.card-title',
+  '.library-card-title',
+  '.chart-title',
+  '.carousel-item-title'
+];
+
+function shouldMarquee(el) {
+  if (!el) return false;
+  if (!el.textContent || !el.textContent.trim()) return false;
+  // Medir overflow solo cuando no hay wrapper aplicado
+  return el.scrollWidth > el.clientWidth + 4;
+}
+
+function applyMarquee(el) {
+  if (el.dataset.marqueeApplied === '1') return;
+  const text = (el.textContent || '').trim();
+  if (!text) return;
+
+  el.dataset.marqueeText = text;
+  el.textContent = '';
+
+  const track = document.createElement('span');
+  track.className = 'marquee-track';
+
+  const spanA = document.createElement('span');
+  spanA.className = 'marquee-text';
+  spanA.textContent = text;
+
+  const spanB = document.createElement('span');
+  spanB.className = 'marquee-text';
+  spanB.textContent = text;
+
+  track.appendChild(spanA);
+  track.appendChild(spanB);
+  el.appendChild(track);
+
+  el.classList.add('marquee-hover');
+  el.classList.add('marquee-auto');
+  el.dataset.marqueeApplied = '1';
+}
+
+function removeMarquee(el) {
+  if (el.dataset.marqueeApplied !== '1') return;
+  const text = el.dataset.marqueeText || '';
+  el.textContent = text;
+  el.classList.remove('marquee-hover');
+  delete el.dataset.marqueeApplied;
+}
+
+function refreshMarquee(root = document) {
+  const selector = MARQUEE_SELECTORS.join(',');
+  root.querySelectorAll(selector).forEach(el => {
+    if (el.dataset.marqueeApplied === '1') {
+      const track = el.querySelector('.marquee-track');
+      // Si el contenido fue reemplazado (sin track), resetear
+      if (!track) {
+        removeMarquee(el);
+      } else {
+        // Si ya no desborda, quitar marquee
+        if (track.scrollWidth <= el.clientWidth + 4) {
+          removeMarquee(el);
+        }
+      }
+    }
+
+    if (el.dataset.marqueeApplied !== '1' && shouldMarquee(el)) {
+      applyMarquee(el);
+    }
+  });
+}
+
+let marqueeRaf = null;
+function scheduleMarqueeRefresh() {
+  if (marqueeRaf) cancelAnimationFrame(marqueeRaf);
+  marqueeRaf = requestAnimationFrame(() => refreshMarquee());
+}
+
+// Initial + reactive updates
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', scheduleMarqueeRefresh);
+} else {
+  scheduleMarqueeRefresh();
+}
+
+window.addEventListener('resize', scheduleMarqueeRefresh);
+
+const marqueeObserverTarget = document.body || document.documentElement;
+if (marqueeObserverTarget) {
+  const marqueeObserver = new MutationObserver(() => {
+    scheduleMarqueeRefresh();
+  });
+  marqueeObserver.observe(marqueeObserverTarget, {
+    childList: true,
+    subtree: true,
+    characterData: true
+  });
+}
+
+// Exponer para actualizaciones inmediatas desde otros módulos
+window.refreshMarquee = refreshMarquee;
+window.scheduleMarqueeRefresh = scheduleMarqueeRefresh;
+
 // ⭐ Función global para mostrar la página de inicio con banner
 function showHomePage(addToHistory = true) {
   console.log('[NAV] Mostrando página de inicio');

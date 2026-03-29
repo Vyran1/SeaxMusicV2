@@ -5,7 +5,22 @@ const crypto = require('crypto');
 const discordRPC = require('./discordRPC');
 const AppUpdater = require('./autoUpdater');
 
+// Evitar throttling en segundo plano (audio estable)
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+
 // ⭐ Auto-updater instance
+// ⭐ Auto-updater instance
+// Recibir volumen real del backend y reenviar al renderer (debe ir después de la inicialización de mainWindow)
+ipcMain.on('video-volume-updated', (event, realVolume) => {
+  if (!isEventFromActiveYouTube(event)) return;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('video-volume-updated', realVolume);
+  }
+  if (typeof realVolume === 'number') {
+    currentAppVolume = realVolume;
+  }
+});
 let appUpdater = null;
 
 /**
@@ -32,9 +47,15 @@ let appUpdater = null;
  */
 
 let mainWindow = null;
-let youtubeWindow = null;  // ⭐ CRÍTICO: Variable global para controlar YouTube
+let youtubeWindow = null;  // ⭐ Ventana YouTube activa
+let djWindow = null;       // ⭐ Ventana YouTube secundaria para DJ Mix
 let loginWindow = null;    // ⭐ Variable para ventana de login separada
 let backendWindows = [];
+let videoViewVisible = false;
+let videoViewPrevBounds = null;
+let videoViewCssKey = null;
+let videoPreviewTimer = null;
+let videoPreviewPrev = null;
 
 // User data file path
 const userDataPath = path.join(app.getPath('userData'), 'user-data.json');
@@ -151,7 +172,8 @@ function createMainWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, '../preload/preload.js')
+      preload: path.join(__dirname, '../preload/preload.js'),
+      backgroundThrottling: false
     },
     autoHideMenuBar: true
   });
@@ -177,6 +199,10 @@ function createMainWindow() {
       if (youtubeWindow && !youtubeWindow.isDestroyed()) {
         youtubeWindow.close();
         youtubeWindow = null;
+      }
+      if (djWindow && !djWindow.isDestroyed()) {
+        djWindow.close();
+        djWindow = null;
       }
       if (loginWindow && !loginWindow.isDestroyed()) {
         loginWindow.close();
@@ -207,7 +233,8 @@ function createBackendWindow(id) {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, '../preload/backend-preload.js'),
-      partition: 'persist:youtube' // ⭐ CORRECCIÓN: Usar partition
+      partition: 'persist:youtube', // ⭐ CORRECCIÓN: Usar partition
+      backgroundThrottling: false
     }
   });
 
@@ -244,11 +271,13 @@ function createYouTubeWindow(isLoginWindow = false) {
     show: false, // Inicialmente oculta, se muestra cuando esté lista
     backgroundColor: '#000000',
     icon: path.join(__dirname, '../renderer/assets/icons/icon.ico'),
+    skipTaskbar: !isLoginWindow,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: preloadPath,
-      partition: 'persist:youtube' // ⭐ CORRECCIÓN: partition en vez de session
+      partition: 'persist:youtube', // ⭐ CORRECCIÓN: partition en vez de session
+      backgroundThrottling: false
     },
     autoHideMenuBar: true,
     ...(isLoginWindow && {
@@ -257,7 +286,47 @@ function createYouTubeWindow(isLoginWindow = false) {
     })
   };
   
-  return new BrowserWindow(windowConfig);
+  const win = new BrowserWindow(windowConfig);
+  if (!isLoginWindow) {
+    try { win.setTitle('SeaxMusic Video'); } catch (e) {}
+  }
+  return win;
+}
+
+function getActiveYouTubeWindow() {
+  return youtubeWindow && !youtubeWindow.isDestroyed() ? youtubeWindow : null;
+}
+
+function getDjYouTubeWindow() {
+  return djWindow && !djWindow.isDestroyed() ? djWindow : null;
+}
+
+function isEventFromActiveYouTube(event) {
+  const active = getActiveYouTubeWindow();
+  return !!(active && event && event.sender === active.webContents);
+}
+
+async function setVideoOnlyMode(win, enabled) {
+  if (!win || win.isDestroyed()) return;
+  const css = `
+    html, body, ytd-app { background: #000 !important; overflow: hidden !important; }
+    ytd-masthead, #secondary, #comments, #related, #chat, #sidebar,
+    ytd-watch-next-secondary-results-renderer, #below, #info, #header,
+    ytd-mini-guide-renderer, ytd-guide-renderer { display: none !important; }
+    ytd-watch-flexy, #player, ytd-player, #movie_player, .html5-video-player {
+      width: 100vw !important; height: 100vh !important; max-height: 100vh !important;
+    }
+    #player-container-outer, #player-container-inner { width: 100vw !important; height: 100vh !important; }
+  `;
+
+  if (enabled) {
+    if (!videoViewCssKey) {
+      videoViewCssKey = await win.webContents.insertCSS(css);
+    }
+  } else if (videoViewCssKey) {
+    try { await win.webContents.removeInsertedCSS(videoViewCssKey); } catch (e) {}
+    videoViewCssKey = null;
+  }
 }
 
 // IPC Handlers
@@ -289,8 +358,160 @@ ipcMain.handle('create-backend-player', async (event, playerId) => {
   return { success: true, playerId };
 });
 
+// ===== DJ MIX: Preload en ventana secundaria =====
+ipcMain.handle('dj-preload-next', async (event, { url }) => {
+  try {
+    if (!url) return { success: false, error: 'URL requerida' };
+
+    if (!djWindow || djWindow.isDestroyed()) {
+      djWindow = createYouTubeWindow(false);
+      if (process.argv.includes('--dev')) {
+        djWindow.webContents.openDevTools({ mode: 'detach' });
+      }
+      djWindow.on('closed', () => {
+        djWindow = null;
+      });
+    }
+
+    djWindow.loadURL(url);
+
+    // Preparar en silencio (pausa y volumen 0)
+    if (djWindow && !djWindow.isDestroyed()) {
+      djWindow.webContents.send('youtube-control', 'volume', 0);
+      djWindow.webContents.send('youtube-control', 'pause');
+      djWindow.webContents.send('youtube-control', 'seek', 0);
+    }
+
+    return { success: true };
+  } catch (e) {
+    console.error('[DJ MIX] Error preload:', e);
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('dj-swap-active', async () => {
+  try {
+    if (!djWindow || djWindow.isDestroyed() || !youtubeWindow || youtubeWindow.isDestroyed()) {
+      return { success: false, error: 'Ventanas no disponibles' };
+    }
+
+    // Pausar ventana actual antes de intercambiar
+    youtubeWindow.webContents.send('youtube-control', 'pause');
+    youtubeWindow.webContents.send('youtube-control', 'volume', 0);
+
+    // Swap
+    const temp = youtubeWindow;
+    youtubeWindow = djWindow;
+    djWindow = temp;
+
+    return { success: true };
+  } catch (e) {
+    console.error('[DJ MIX] Error swap:', e);
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.on('dj-set-window-volume', (event, { target, volume }) => {
+  const vol = Math.max(0, Math.min(1, volume));
+  if (target === 'inactive') {
+    const win = getDjYouTubeWindow();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('youtube-control', 'volume', vol);
+    }
+    return;
+  }
+  // default active
+  const win = getActiveYouTubeWindow();
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('youtube-control', 'volume', vol);
+  }
+});
+
+ipcMain.on('dj-control-window', (event, { target, action, value }) => {
+  const win = target === 'inactive' ? getDjYouTubeWindow() : getActiveYouTubeWindow();
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('youtube-control', action, value);
+  }
+});
+
+// ===== Video Preview: stream del video en el panel de Now Playing =====
+ipcMain.handle('start-video-preview', async () => {
+  const active = getActiveYouTubeWindow();
+  if (!active || active.isDestroyed() || !mainWindow || mainWindow.isDestroyed()) {
+    return { success: false, error: 'No hay ventana activa' };
+  }
+
+  if (videoPreviewTimer) {
+    return { success: true };
+  }
+
+  await setVideoOnlyMode(active, true);
+  active.webContents.send('youtube-control', 'fullscreen');
+
+  // Asegurar render sin mostrar ventana en taskbar
+  try {
+    videoPreviewPrev = {
+      bounds: active.getBounds(),
+      visible: active.isVisible(),
+      opacity: active.getOpacity ? active.getOpacity() : 1,
+      skipTaskbar: active.isSkipTaskbar ? active.isSkipTaskbar() : true,
+      focusable: active.isFocusable ? active.isFocusable() : true
+    };
+    active.setBounds({ x: -2000, y: -2000, width: 800, height: 450 });
+    if (active.setOpacity) active.setOpacity(0.01);
+    if (active.setSkipTaskbar) active.setSkipTaskbar(true);
+    if (active.setFocusable) active.setFocusable(false);
+    active.showInactive();
+  } catch (e) {}
+
+  active.webContents.send('video-preview-start');
+
+  videoPreviewTimer = setInterval(async () => {
+    try {
+      if (!active || active.isDestroyed() || !mainWindow || mainWindow.isDestroyed()) return;
+      const image = await active.webContents.capturePage();
+      const dataUrl = image.toDataURL();
+      mainWindow.webContents.send('video-preview-frame', dataUrl);
+    } catch (e) {
+      // Ignorar errores de captura
+    }
+  }, 80);
+
+  return { success: true };
+});
+
+ipcMain.handle('stop-video-preview', async () => {
+  const active = getActiveYouTubeWindow();
+  if (active && !active.isDestroyed()) {
+    await setVideoOnlyMode(active, false);
+    active.webContents.send('video-preview-stop');
+    try {
+      if (videoPreviewPrev) {
+        if (active.setOpacity) active.setOpacity(videoPreviewPrev.opacity ?? 1);
+        if (active.setSkipTaskbar) active.setSkipTaskbar(!!videoPreviewPrev.skipTaskbar);
+        if (active.setFocusable) active.setFocusable(!!videoPreviewPrev.focusable);
+        if (videoPreviewPrev.visible) {
+          active.showInactive();
+        } else {
+          active.hide();
+        }
+        if (videoPreviewPrev.bounds) {
+          active.setBounds(videoPreviewPrev.bounds);
+        }
+      }
+    } catch (e) {}
+  }
+  if (videoPreviewTimer) {
+    clearInterval(videoPreviewTimer);
+    videoPreviewTimer = null;
+  }
+  videoPreviewPrev = null;
+  return { success: true };
+});
+
 // Handle responses from backend player
 ipcMain.on('backend-response', (event, { playerId, data }) => {
+  if (!isEventFromActiveYouTube(event)) return;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('player-response', { playerId, data });
   }
@@ -399,8 +620,9 @@ ipcMain.handle('remove-favorite', async (event, videoId) => {
 ipcMain.on('audio-control', (event, action, value) => {
   console.log(`[CONTROL] Audio Control Command: ${action}`, value);
   
-  if (youtubeWindow && !youtubeWindow.isDestroyed()) {
-    youtubeWindow.webContents.send('youtube-control', action, value);
+  const active = getActiveYouTubeWindow();
+  if (active && !active.isDestroyed()) {
+    active.webContents.send('youtube-control', action, value);
     console.log(`[SENT] Sent to YouTube: ${action}`);
   } else {
     console.warn('[WARNING] YouTube window not available');
@@ -409,8 +631,8 @@ ipcMain.on('audio-control', (event, action, value) => {
 
 ipcMain.on('retry-youtube-control', (event, { action, value }) => {
   console.log(`[RETRY] Retrying: ${action}`);
-  if (youtubeWindow && !youtubeWindow.isDestroyed()) {
-    youtubeWindow.webContents.send('youtube-control', action, value);
+  if (event?.sender) {
+    event.sender.send('youtube-control', action, value);
   }
 });
 
@@ -437,9 +659,10 @@ ipcMain.on('play-audio', (event, { url, title, artist, playlistInfo }) => {
     discordRPC.setPlayingActivity(title, artist, null, 0);
   }
   
-  if (youtubeWindow && !youtubeWindow.isDestroyed()) {
+  const active = getActiveYouTubeWindow();
+  if (active && !active.isDestroyed()) {
     // ⭐ Navegar directamente sin log extra
-    youtubeWindow.loadURL(url);
+    active.loadURL(url);
   } else {
     console.warn('[WARNING] YouTube window not open');
   }
@@ -460,8 +683,9 @@ ipcMain.on('clear-current-playlist', (event) => {
 ipcMain.on('seek-audio', (event, time) => {
   console.log(`[SEEK] Seeking to: ${time}s`);
   
-  if (youtubeWindow && !youtubeWindow.isDestroyed()) {
-    youtubeWindow.webContents.send('youtube-control', 'seek', time);
+  const active = getActiveYouTubeWindow();
+  if (active && !active.isDestroyed()) {
+    active.webContents.send('youtube-control', 'seek', time);
   }
 });
 
@@ -479,16 +703,18 @@ ipcMain.on('update-volume', (event, volume) => {
     lastVolumeLogTime = now;
   }
   
-  if (youtubeWindow && !youtubeWindow.isDestroyed()) {
-    youtubeWindow.webContents.send('youtube-control', 'volume', volume);
+  const active = getActiveYouTubeWindow();
+  if (active && !active.isDestroyed()) {
+    active.webContents.send('youtube-control', 'volume', volume);
   }
 });
 
 ipcMain.on('force-play-current-video', () => {
   console.log('[FORCE] Force playing current video');
   
-  if (youtubeWindow && !youtubeWindow.isDestroyed()) {
-    youtubeWindow.webContents.send('youtube-control', 'play');
+  const active = getActiveYouTubeWindow();
+  if (active && !active.isDestroyed()) {
+    active.webContents.send('youtube-control', 'play');
   }
 });
 
@@ -503,8 +729,9 @@ ipcMain.on('set-repeat-mode', (event, mode) => {
   console.log('[REPEAT] Modo de repetición:', mode);
   
   // Enviar el modo a YouTube window
-  if (youtubeWindow && !youtubeWindow.isDestroyed()) {
-    youtubeWindow.webContents.send('set-repeat-mode', mode);
+  const active = getActiveYouTubeWindow();
+  if (active && !active.isDestroyed()) {
+    active.webContents.send('set-repeat-mode', mode);
   }
 });
 
@@ -514,22 +741,25 @@ ipcMain.on('set-shuffle-mode', (event, enabled) => {
   console.log('[SHUFFLE] Modo aleatorio:', enabled);
   
   // Enviar el modo a YouTube window
-  if (youtubeWindow && !youtubeWindow.isDestroyed()) {
-    youtubeWindow.webContents.send('set-shuffle-mode', enabled);
+  const active = getActiveYouTubeWindow();
+  if (active && !active.isDestroyed()) {
+    active.webContents.send('set-shuffle-mode', enabled);
   }
 });
 
 // Handler para cuando termina un video
 ipcMain.on('video-ended', (event) => {
+  if (!isEventFromActiveYouTube(event)) return;
   console.log('[VIDEO] Video terminado - Repeat mode:', repeatMode);
   
   if (repeatMode === 'one' && currentVideoUrl) {
     // Repetir la misma canción
     console.log('[REPEAT] Repitiendo canción actual...');
-    if (youtubeWindow && !youtubeWindow.isDestroyed()) {
-      youtubeWindow.webContents.send('youtube-control', 'seek', 0);
+    const active = getActiveYouTubeWindow();
+    if (active && !active.isDestroyed()) {
+      active.webContents.send('youtube-control', 'seek', 0);
       setTimeout(() => {
-        youtubeWindow.webContents.send('youtube-control', 'play');
+        active.webContents.send('youtube-control', 'play');
       }, 100);
     }
   }
@@ -545,13 +775,15 @@ ipcMain.on('video-ended', (event) => {
 ipcMain.on('autoplay-next', (event, { videoId, title, artist }) => {
   console.log(`[NEXT] Autoplay next: ${title}`);
   
-  if (youtubeWindow && !youtubeWindow.isDestroyed()) {
+  const active = getActiveYouTubeWindow();
+  if (active && !active.isDestroyed()) {
     const nextUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    youtubeWindow.loadURL(nextUrl);
+    active.loadURL(nextUrl);
   }
 });
 
 ipcMain.on('update-video-info', (event, videoInfo) => {
+  if (!isEventFromActiveYouTube(event)) return;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('update-video-info', videoInfo);
   }
@@ -599,12 +831,14 @@ ipcMain.on('update-video-info', (event, videoInfo) => {
 });
 
 ipcMain.on('update-time', (event, timeInfo) => {
+  if (!isEventFromActiveYouTube(event)) return;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('audio-time-update', timeInfo);
   }
 });
 
-ipcMain.on('video-playing', () => {
+ipcMain.on('video-playing', (event) => {
+  if (!isEventFromActiveYouTube(event)) return;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('audio-started');
   }
@@ -619,22 +853,11 @@ ipcMain.on('video-playing', () => {
     );
   }
   
-  // ⭐ Sincronizar volumen múltiples veces para evitar que YouTube lo sobrescriba
-  const syncVolume = () => {
-    if (youtubeWindow && !youtubeWindow.isDestroyed()) {
-      youtubeWindow.webContents.send('youtube-control', 'volume', currentAppVolume);
-    }
-  };
-  
-  // Sincronizar inmediatamente y luego a los 500ms, 1s, 2s y 3s
-  syncVolume();
-  setTimeout(syncVolume, 500);
-  setTimeout(syncVolume, 1000);
-  setTimeout(syncVolume, 2000);
-  setTimeout(syncVolume, 3000);
+  // Eliminado: No sincronizar volumen automáticamente al cambiar de video. El volumen solo debe cambiar por acción explícita del usuario.
 });
 
-ipcMain.on('video-paused', () => {
+ipcMain.on('video-paused', (event) => {
+  if (!isEventFromActiveYouTube(event)) return;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('audio-paused');
   }
@@ -644,6 +867,7 @@ ipcMain.on('video-paused', () => {
 });
 
 ipcMain.on('video-url-changed', (event, url) => {
+  if (!isEventFromActiveYouTube(event)) return;
   // ⭐ Ignorar URLs de login de Google
   if (url && (url.includes('accounts.google.com') || 
               url.includes('signin') || 
@@ -662,6 +886,7 @@ ipcMain.on('video-url-changed', (event, url) => {
 });
 
 ipcMain.on('video-cover-updated', (event, coverUrl) => {
+  if (!isEventFromActiveYouTube(event)) return;
   console.log('[COVER] Cover updated:', coverUrl);
   
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -690,6 +915,13 @@ ipcMain.on('youtube-ready', () => {
   console.log('[OK] YouTube window is ready and communication established');
 });
 
+ipcMain.on('video-preview-frame', (event, dataUrl) => {
+  if (!isEventFromActiveYouTube(event)) return;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('video-preview-frame', dataUrl);
+  }
+});
+
 // ===== HANDLERS PARA VIDEOS DESTACADOS E HISTORIAL =====
 // Variable global para el volumen actual de la app
 let currentAppVolume = 0.7;
@@ -716,7 +948,8 @@ function createAuxYoutubeWindow() {
       contextIsolation: true,
       // ⭐ IMPORTANTE: Usar preload ESPECÍFICO para ventana auxiliar
       // NO usar backend-preload.js porque envía eventos de video-info
-      preload: path.join(__dirname, '../preload/aux-preload.js')
+      preload: path.join(__dirname, '../preload/aux-preload.js'),
+      backgroundThrottling: false
     }
   });
   
@@ -2412,7 +2645,8 @@ ipcMain.handle('open-youtube-login-window', async () => {
         // ⭐ IMPORTANTE: Usar preload ESPECÍFICO para login
         // NO usar backend-preload.js porque envía eventos de video-info
         preload: path.join(__dirname, '../preload/login-preload.js'),
-        partition: 'persist:youtube' // ⭐ Misma partition = misma sesión
+        partition: 'persist:youtube', // ⭐ Misma partition = misma sesión
+        backgroundThrottling: false
       },
       autoHideMenuBar: true,
       parent: mainWindow,
@@ -2887,4 +3121,26 @@ app.on('window-all-closed', () => {
       app.quit();
     }
   }
+});
+// ===== Video Source Id =====
+ipcMain.handle('get-video-source-id', () => {
+  const active = getActiveYouTubeWindow();
+  if (!active || active.isDestroyed()) return null;
+  if (typeof active.webContents.getMediaSourceId === 'function') {
+    try {
+      if (active.webContents.getMediaSourceId.length >= 1) {
+        return new Promise((resolve) => {
+          try {
+            active.webContents.getMediaSourceId((id) => resolve(id || null));
+          } catch (e) {
+            resolve(null);
+          }
+        });
+      }
+      return active.webContents.getMediaSourceId();
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
 });

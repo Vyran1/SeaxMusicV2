@@ -1,3 +1,56 @@
+// Sincronizar volumen real reportado por el backend
+if (window.electronAPI && window.electronAPI.onVideoVolumeUpdated) {
+  window.electronAPI.onVideoVolumeUpdated((realVolume) => {
+    if (window.musicPlayer?.suppressVolumeUpdates) return;
+    if (typeof realVolume === 'number' && Math.abs(window.musicPlayer.volume - realVolume) > 0.01) {
+      window.musicPlayer.volume = realVolume;
+      if (!window.musicPlayer.suppressVolumePersist) {
+        window.musicPlayer.persistVolume?.(realVolume);
+      }
+      window.musicPlayer.updateVolumeUI();
+      // También sincronizar barra de Now Playing si está activa
+      if (window.nowPlayingManager) {
+        window.nowPlayingManager.syncVolume(realVolume);
+      }
+    }
+  });
+}
+// ===== Helpers para volumen por usuario =====
+function buildUserKeyFromUser(user) {
+  if (!user) return 'guest';
+  const name = (user.name || '').trim().toLowerCase();
+  const email = (user.email || '').trim().toLowerCase();
+  const handle = (user.handle || '').trim().toLowerCase();
+  const stable = `${email}|${name}|${handle}`.replace(/\|+$/, '');
+  if (stable && stable !== '||') return stable;
+  const id = (user.id || '').toString().trim();
+  return id || 'guest';
+}
+
+function hashKey(value) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+function getCurrentUser() {
+  try {
+    const userData = localStorage.getItem('seaxmusic_user');
+    return userData ? JSON.parse(userData) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function getVolumeStorageKey(user) {
+  const key = buildUserKeyFromUser(user);
+  const suffix = hashKey(key);
+  return `seaxmusic_volume_${suffix}`;
+}
+
 // Player control logic
 
 class MusicPlayer {
@@ -5,10 +58,18 @@ class MusicPlayer {
     this.isPlaying = false;
     this.currentTime = 0;
     this.duration = 0;
-    this.volume = 0.7;
+    // Leer volumen guardado por usuario o usar 0.7 por defecto
+    this.volumeStorageKey = getVolumeStorageKey(getCurrentUser());
+    const savedVolume = localStorage.getItem(this.volumeStorageKey);
+    const legacyVolume = localStorage.getItem('seaxmusic_volume');
+    this.volume = savedVolume !== null
+      ? parseFloat(savedVolume)
+      : (legacyVolume !== null ? parseFloat(legacyVolume) : 0.7);
     this.isShuffle = false;
     this.repeatMode = 'off'; // 'off', 'all', 'one'
     this.currentTrack = null;
+    this.suppressVolumePersist = false;
+    this.suppressVolumeUpdates = false;
     
     this.initializeControls();
   }
@@ -42,6 +103,18 @@ class MusicPlayer {
     
     const volumeBtn = document.getElementById('volumeBtn');
     volumeBtn.addEventListener('click', () => this.toggleMute());
+
+    const djMixBtn = document.getElementById('djMixBtn');
+    djMixBtn?.addEventListener('click', () => this.toggleDjMix());
+
+    const videoViewBtn = document.getElementById('videoViewBtn');
+    videoViewBtn?.addEventListener('click', async () => {
+      if (!window.electronAPI?.toggleVideoView) return;
+      const result = await window.electronAPI.toggleVideoView();
+      if (result?.success) {
+        videoViewBtn.classList.toggle('active', !!result.visible);
+      }
+    });
     
     // Like button
     document.getElementById('likeBtn').addEventListener('click', () => this.toggleLike());
@@ -59,6 +132,94 @@ class MusicPlayer {
     
     // Initialize volume UI
     this.updateVolumeUI();
+
+    // ⭐ Enviar volumen inicial al backend para mantener sincronía
+    if (window.electronAPI && window.electronAPI.send) {
+      window.electronAPI.send('update-volume', this.volume);
+    }
+
+    // Inicializar estado DJ Mix en UI
+    this.syncDjMixButtons();
+
+    // Inicializar preview
+    this.updateSkipPreviews();
+  }
+
+  // ===== DJ MIX =====
+  toggleDjMix() {
+    if (!window.appState) return;
+    window.appState.djMixEnabled = !window.appState.djMixEnabled;
+    try {
+      localStorage.setItem('seaxmusic_djmix', window.appState.djMixEnabled ? '1' : '0');
+    } catch (e) {}
+    this.syncDjMixButtons();
+  }
+
+  syncDjMixButtons() {
+    const enabled = !!window.appState?.djMixEnabled;
+    const djBtn = document.getElementById('djMixBtn');
+    if (djBtn) {
+      djBtn.classList.toggle('dj-active', enabled);
+      djBtn.title = enabled ? 'DJ Mix: Activado' : 'DJ Mix: Desactivado';
+    }
+    if (window.nowPlayingManager) {
+      window.nowPlayingManager.syncDjMixButton?.(enabled);
+    }
+  }
+
+  fadeVolumeTo(target, durationMs = 600, done) {
+    const start = this.volume;
+    const end = Math.max(0, Math.min(1, target));
+    const startTime = performance.now();
+
+    const step = (now) => {
+      const t = Math.min(1, (now - startTime) / durationMs);
+      const eased = t < 1 ? (t * (2 - t)) : 1; // easeOut
+      const value = start + (end - start) * eased;
+      this.setTransientVolume(value);
+      if (t < 1) {
+        requestAnimationFrame(step);
+      } else if (typeof done === 'function') {
+        done();
+      }
+    };
+
+    requestAnimationFrame(step);
+  }
+
+  setTransientVolume(value) {
+    this.volume = Math.max(0, Math.min(1, value));
+    this.updateVolumeUI();
+    if (window.electronAPI && window.electronAPI.send) {
+      window.electronAPI.send('update-volume', this.volume);
+    }
+  }
+
+  // ===== Persistencia de volumen por usuario =====
+  persistVolume(value) {
+    if (typeof value === 'number') {
+      this.volume = Math.max(0, Math.min(1, value));
+    }
+    if (!this.volumeStorageKey) {
+      this.volumeStorageKey = getVolumeStorageKey(getCurrentUser());
+    }
+    localStorage.setItem(this.volumeStorageKey, this.volume);
+  }
+
+  refreshVolumeForUser(user) {
+    this.volumeStorageKey = getVolumeStorageKey(user);
+    const savedVolume = localStorage.getItem(this.volumeStorageKey);
+    const legacyVolume = localStorage.getItem('seaxmusic_volume');
+    this.volume = savedVolume !== null
+      ? parseFloat(savedVolume)
+      : (legacyVolume !== null ? parseFloat(legacyVolume) : 0.7);
+    this.updateVolumeUI();
+    if (window.nowPlayingManager) {
+      window.nowPlayingManager.syncVolume(this.volume);
+    }
+    if (window.electronAPI && window.electronAPI.send) {
+      window.electronAPI.send('update-volume', this.volume);
+    }
   }
   
   // ⭐ Abrir vista Now Playing
@@ -116,7 +277,12 @@ class MusicPlayer {
     
     // Si no hay cola o estamos a más de 3s, enviar a YouTube (reiniciará el video)
     if (window.electronAPI && window.electronAPI.send) {
-      window.electronAPI.send('audio-control', 'previous');
+      const playFn = () => window.electronAPI.send('audio-control', 'previous');
+      if (window.runDjMixTransition) {
+        window.runDjMixTransition(playFn);
+      } else {
+        playFn();
+      }
     }
   }
   
@@ -136,7 +302,12 @@ class MusicPlayer {
     // Si no hay cola o llegamos al final: usar YouTube normal
     console.log('⏭️ Usando YouTube autoplay');
     if (window.electronAPI && window.electronAPI.send) {
-      window.electronAPI.send('audio-control', 'next');
+      const playFn = () => window.electronAPI.send('audio-control', 'next');
+      if (window.runDjMixTransition) {
+        window.runDjMixTransition(playFn);
+      } else {
+        playFn();
+      }
     }
   }
   
@@ -258,7 +429,7 @@ class MusicPlayer {
     const rect = volumeBar.getBoundingClientRect();
     const percent = (event.clientX - rect.left) / rect.width;
     this.volume = Math.max(0, Math.min(1, percent));
-    
+    this.persistVolume(this.volume);
     this.updateVolumeUI();
     
     // Enviar comando de volumen a YouTube
@@ -274,8 +445,8 @@ class MusicPlayer {
     const handleDrag = (e) => {
       const rect = volumeBar.getBoundingClientRect();
       this.volume = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      this.persistVolume(this.volume);
       this.updateVolumeUI();
-      
       // Enviar comando de volumen a YouTube
       if (window.electronAPI && window.electronAPI.send) {
         window.electronAPI.send('update-volume', this.volume);
@@ -298,7 +469,7 @@ class MusicPlayer {
     } else {
       this.volume = this.previousVolume || 0.7;
     }
-    
+    this.persistVolume(this.volume);
     this.updateVolumeUI();
     
     // Enviar comando de volumen a YouTube
@@ -326,6 +497,11 @@ class MusicPlayer {
       icon.className = 'fas fa-volume-down';
     } else {
       icon.className = 'fas fa-volume-up';
+    }
+
+    // Sincronizar Now Playing en tiempo real
+    if (window.nowPlayingManager) {
+      window.nowPlayingManager.syncVolume(this.volume);
     }
   }
   
@@ -417,11 +593,55 @@ class MusicPlayer {
     
     // ⭐ Actualizar estado del like button en player bar
     this.updateLikeButton();
+
+    // ⭐ Refrescar marquee tras cambio de texto
+    if (window.scheduleMarqueeRefresh) {
+      window.scheduleMarqueeRefresh();
+    }
     
     // ⭐ Actualizar Now Playing con animación de carrusel
     if (window.nowPlayingManager) {
       window.nowPlayingManager.updateSong(track, direction);
     }
+
+    this.updateSkipPreviews();
+  }
+
+  updateSkipPreviews() {
+    const queue = window.appState?.playQueue || [];
+    const idx = window.appState?.playQueueIndex ?? -1;
+
+    const next = (queue.length && idx >= 0 && idx + 1 < queue.length)
+      ? queue[idx + 1]
+      : (window.appState?.nextVideoInfo || null);
+
+    const prev = (queue.length && idx > 0)
+      ? queue[idx - 1]
+      : (window.appState?.prevVideoInfo || null);
+
+    const apply = (prefix, data) => {
+      const coverEl = document.getElementById(`${prefix}PreviewCover`);
+      const titleEl = document.getElementById(`${prefix}PreviewTitle`);
+      const artistEl = document.getElementById(`${prefix}PreviewArtist`);
+      if (!coverEl || !titleEl || !artistEl) return;
+
+      if (!data) {
+        titleEl.textContent = 'Sin datos';
+        artistEl.textContent = '—';
+        coverEl.src = './assets/img/icon.png';
+        return;
+      }
+
+      titleEl.textContent = data.title || 'Sin título';
+      artistEl.textContent = data.artist || data.channel || 'YouTube';
+      const thumb = data.thumbnail || (data.videoId ? `https://i.ytimg.com/vi/${data.videoId}/hqdefault.jpg` : './assets/img/icon.png');
+      coverEl.src = thumb;
+    };
+
+    apply('next', next);
+    apply('prev', prev);
+    apply('npNext', next);
+    apply('npPrev', prev);
   }
 }
 
@@ -474,6 +694,11 @@ if (window.electronAPI && window.electronAPI.onUpdateVideoInfo) {
     }
     if (videoInfo.thumbnail) {
       player.currentTrack.thumbnail = videoInfo.thumbnail;
+      const trackImage = document.getElementById('trackImage');
+      if (trackImage) {
+        trackImage.src = videoInfo.thumbnail;
+        trackImage.style.display = 'block';
+      }
     }
     // ⭐ Guardar avatar del canal
     if (videoInfo.channelAvatar) {
@@ -490,6 +715,11 @@ if (window.electronAPI && window.electronAPI.onUpdateVideoInfo) {
     // ⭐ Actualizar Now Playing si está activo
     if (window.nowPlayingManager && window.nowPlayingManager.isActive) {
       window.nowPlayingManager.updateSong(player.currentTrack);
+    }
+
+    // ⭐ Refrescar marquee tras cambio de texto
+    if (window.scheduleMarqueeRefresh) {
+      window.scheduleMarqueeRefresh();
     }
   });
 }

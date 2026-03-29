@@ -184,6 +184,55 @@ contextBridge.exposeInMainWorld('videoStreamAPI', {
   }
 });
 
+// ===== Video Preview Stream =====
+let previewActive = false;
+let previewRaf = null;
+let previewCanvas = null;
+let previewCtx = null;
+
+function getVideoElement() {
+  return document.querySelector('video');
+}
+
+function stopPreview() {
+  previewActive = false;
+  if (previewRaf) {
+    cancelAnimationFrame(previewRaf);
+    previewRaf = null;
+  }
+}
+
+function startPreview() {
+  if (previewActive) return;
+  previewActive = true;
+  if (!previewCanvas) {
+    previewCanvas = document.createElement('canvas');
+    previewCtx = previewCanvas.getContext('2d');
+  }
+
+  const loop = () => {
+    if (!previewActive) return;
+    const video = getVideoElement();
+    if (video && video.videoWidth && video.videoHeight && previewCtx) {
+      try {
+        previewCanvas.width = video.videoWidth;
+        previewCanvas.height = video.videoHeight;
+        previewCtx.drawImage(video, 0, 0, previewCanvas.width, previewCanvas.height);
+        const dataUrl = previewCanvas.toDataURL('image/jpeg', 0.7);
+        ipcRenderer.send('video-preview-frame', dataUrl);
+      } catch (e) {
+        // Si el canvas se tainta, ignorar
+      }
+    }
+    previewRaf = requestAnimationFrame(loop);
+  };
+
+  previewRaf = requestAnimationFrame(loop);
+}
+
+ipcRenderer.on('video-preview-start', () => startPreview());
+ipcRenderer.on('video-preview-stop', () => stopPreview());
+
 // ===== API PARA RECOMENDACIONES DE YOUTUBE =====
 contextBridge.exposeInMainWorld('youtubeRecommendations', {
   getRelevantVideoId: (currentArtist, currentVideoId) => {
@@ -410,10 +459,12 @@ ipcRenderer.on('youtube-control', (event, action, value) => {
 
   switch (action) {
     case 'play':
+      window.__seaxUserPaused = false;
       video.play().catch(err => console.error('Play error:', err));
       console.log('[PLAY] Play command executed');
       break;
     case 'pause':
+      window.__seaxUserPaused = true;
       video.pause();
       console.log('[PAUSE] Pause command executed');
       break;
@@ -421,7 +472,8 @@ ipcRenderer.on('youtube-control', (event, action, value) => {
       // Guardar el volumen del usuario para que el ad blocker lo use
       window._seaxUserVolume = Math.max(0, Math.min(1, value));
       video.volume = window._seaxUserVolume;
-      // Log removido - demasiado verboso durante arrastre
+      // Reportar el volumen real al main process
+      ipcRenderer.send('video-volume-updated', video.volume);
       break;
     case 'seek':
       video.currentTime = value;
@@ -456,10 +508,52 @@ ipcRenderer.on('youtube-control', (event, action, value) => {
         }
       }
       break;
+    case 'fullscreen': {
+      const player = document.querySelector('.html5-video-player');
+      const fullscreenBtn = document.querySelector('.ytp-fullscreen-button');
+      const isFullscreen = !!document.fullscreenElement || player?.classList?.contains('ytp-fullscreen');
+      if (!isFullscreen && fullscreenBtn) {
+        fullscreenBtn.click();
+        console.log('[FULLSCREEN] Fullscreen button clicked');
+      }
+      break;
+    }
     default:
       console.warn(`Unknown action: ${action}`);
   }
 });
+
+// ===== OBSERVAR CAMBIOS DE VOLUMEN EN EL VIDEO =====
+function attachVolumeObserver() {
+  const video = document.querySelector('video');
+  if (!video) return;
+
+  if (video.dataset.seaxVolumeObserverAttached === '1') return;
+  video.dataset.seaxVolumeObserverAttached = '1';
+
+  video.addEventListener('volumechange', () => {
+    // Si la app ya definió un volumen, mantenerlo como fuente de verdad
+    if (typeof window._seaxUserVolume === 'number') {
+      if (Math.abs(video.volume - window._seaxUserVolume) > 0.01) {
+        video.volume = window._seaxUserVolume;
+        return;
+      }
+      ipcRenderer.send('video-volume-updated', video.volume);
+    }
+  });
+
+  // Si la app ya tiene volumen, aplicarlo inmediatamente
+  if (typeof window._seaxUserVolume === 'number') {
+    video.volume = window._seaxUserVolume;
+    ipcRenderer.send('video-volume-updated', video.volume);
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', attachVolumeObserver);
+} else {
+  attachVolumeObserver();
+}
 
 // ===== VARIABLES PARA MODOS DE REPRODUCCIÓN =====
 let repeatMode = 'off';
@@ -629,35 +723,63 @@ setInterval(() => {
       console.log('[VIDEO] Video URL changed:', currentVideoUrl);
       ipcRenderer.send('video-url-changed', currentVideoUrl);
       ipcRenderer.send('video-cover-updated', coverUrl);
-      
-      // ⭐ FORZAR VOLUMEN DEL USUARIO AL CAMBIAR DE VIDEO
-      // El problema es que YouTube puede resetear el volumen al cargar un nuevo video
-      // Necesitamos forzar el volumen guardado del usuario después de que el video cargue
-      if (typeof window._seaxUserVolume === 'number') {
-        console.log(`[VOLUME] 🔊 Video cambió, preparando forzar volumen: ${Math.round(window._seaxUserVolume * 100)}%`);
-        
-        // Forzar volumen varias veces en diferentes momentos para asegurar que se aplique
-        const forceVolume = () => {
-          const video = document.querySelector('video');
-          if (video && typeof window._seaxUserVolume === 'number') {
-            video.volume = window._seaxUserVolume;
-            console.log(`[VOLUME] ✅ Volumen forzado a: ${Math.round(window._seaxUserVolume * 100)}%`);
-          }
-        };
-        
-        // Múltiples intentos para asegurar que el volumen se aplique
-        setTimeout(forceVolume, 100);
-        setTimeout(forceVolume, 300);
-        setTimeout(forceVolume, 600);
-        setTimeout(forceVolume, 1000);
-        setTimeout(forceVolume, 2000);
-      }
+
+      // Aplicar SIEMPRE el volumen de la app al cargar un nuevo video
+      const applyAppVolume = () => {
+        const video = document.querySelector('video');
+        if (video && typeof window._seaxUserVolume === 'number') {
+          video.volume = window._seaxUserVolume;
+          ipcRenderer.send('video-volume-updated', video.volume);
+          console.log(`[VOLUME] 🎚️ Volumen de la app aplicado al nuevo video: ${Math.round(window._seaxUserVolume * 100)}%`);
+        }
+      };
+      // Intentar varias veces para asegurar que el video esté listo
+      setTimeout(applyAppVolume, 100);
+      setTimeout(applyAppVolume, 300);
+      setTimeout(applyAppVolume, 600);
+      setTimeout(applyAppVolume, 1000);
+      setTimeout(applyAppVolume, 2000);
     }
   }
 
   // Detectar cambios de estado play/pause
   const video = document.querySelector('video');
   if (video) {
+    // Asegurar observer de volumen para el video actual
+    attachVolumeObserver();
+
+    // ===== Watchdog anti-bloqueo de reproducción =====
+    try {
+      const player = document.querySelector('#movie_player');
+      const isAd = !!(player && player.classList.contains('ad-showing'));
+      const now = Date.now();
+      const currentTime = video.currentTime || 0;
+
+      if (window.__seaxLastPlaybackTime === undefined) {
+        window.__seaxLastPlaybackTime = currentTime;
+        window.__seaxLastPlaybackTs = now;
+      }
+
+      const timeAdvanced = currentTime > window.__seaxLastPlaybackTime + 0.01;
+      if (timeAdvanced) {
+        window.__seaxLastPlaybackTime = currentTime;
+        window.__seaxLastPlaybackTs = now;
+      }
+
+      const stalledMs = now - (window.__seaxLastPlaybackTs || now);
+      const canRecover = !isAd && !window.__seaxUserPaused;
+
+      // Evitar micro-cortes: solo recuperar si está pausado o realmente congelado
+      if (canRecover && stalledMs > 8000 && (video.paused || video.readyState < 2)) {
+        const lastRecover = window.__seaxLastRecoverTs || 0;
+        if (now - lastRecover > 10000) {
+          window.__seaxLastRecoverTs = now;
+          video.play().catch(() => {});
+        }
+      }
+    } catch (e) {
+      // Evitar ruido en consola
+    }
     const isPaused = video.paused;
     if (isPaused !== window.lastVideoPausedState) {
       window.lastVideoPausedState = isPaused;

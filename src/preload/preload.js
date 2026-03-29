@@ -1,4 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const { desktopCapturer } = require('electron');
 
 // Expose protected methods to the renderer process
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -50,6 +51,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onAudioTimeUpdate: (callback) => {
     ipcRenderer.on('audio-time-update', (event, timeInfo) => {
       callback(timeInfo);
+    });
+  },
+
+  // Escuchar volumen real reportado por el backend (YouTube)
+  onVideoVolumeUpdated: (callback) => {
+    ipcRenderer.on('video-volume-updated', (event, realVolume) => {
+      callback(realVolume);
     });
   },
   
@@ -145,6 +153,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+
+  // ===== DJ MIX (dual windows) =====
+  djPreloadNext: (url) => ipcRenderer.invoke('dj-preload-next', { url }),
+  djSwapActive: () => ipcRenderer.invoke('dj-swap-active'),
+  djSetWindowVolume: (target, volume) => ipcRenderer.send('dj-set-window-volume', { target, volume }),
+  djControlWindow: (target, action, value) => ipcRenderer.send('dj-control-window', { target, action, value }),
+
+  // ===== Video View =====
+  startVideoPreview: () => ipcRenderer.invoke('start-video-preview'),
+  stopVideoPreview: () => ipcRenderer.invoke('stop-video-preview'),
+  getVideoSourceId: () => ipcRenderer.invoke('get-video-source-id'),
+  onVideoPreviewFrame: (callback) => {
+    ipcRenderer.on('video-preview-frame', (event, dataUrl) => {
+      callback(dataUrl);
+    });
+  },
+
+  getDesktopSources: (options = {}) => desktopCapturer.getSources({
+    types: options.types || ['window'],
+    thumbnailSize: options.thumbnailSize || { width: 0, height: 0 },
+    fetchWindowIcons: false
+  }),
   
   // Escuchar estado de actualizaciones
   onUpdateStatus: (callback) => {

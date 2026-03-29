@@ -2,6 +2,7 @@
   "name": "seaxmusic",
   "version": "2.1.1",
   "description": "SeaxMusic",
+  "author": "Vyran",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
@@ -87,7 +88,7 @@
       "owner": "Vyran1",
       "repo": "SeaxMusicV2",
       "releaseType": "release",
-      "private": true
+      "private": false
     }
   },
   "devDependencies": {
