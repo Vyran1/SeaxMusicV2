@@ -320,10 +320,20 @@ class AppUpdater {
         
         // Error en la actualización
         autoUpdater.on('error', (err) => {
-            console.error('❌ [UPDATE-EVENT] Error en auto-updater:', err.message);
-            console.error('❌ [UPDATE-EVENT] Stack:', err.stack);
-            this.sendStatusToWindow('error', err.message);
-            this.sendLogToRenderer('❌ ERROR: ' + err.message);
+            const msg = err && err.message ? err.message : 'Error desconocido';
+            console.error('❌ [UPDATE-EVENT] Error en auto-updater:', msg);
+            if (err && err.stack) {
+                console.error('❌ [UPDATE-EVENT] Stack:', err.stack);
+            }
+
+            // Si ya hay update disponible/descargado, tratar como no crítico
+            if (this.updateAvailable || this.updateDownloaded) {
+                this.sendLogToRenderer('⚠️ Error no crítico en updater: ' + msg);
+                return;
+            }
+
+            this.sendStatusToWindow('error', msg);
+            this.sendLogToRenderer('❌ ERROR: ' + msg);
         });
         
         // Progreso de descarga
