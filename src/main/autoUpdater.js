@@ -63,7 +63,9 @@ class AppUpdater {
         const sendLog = (msg) => {
             console.log(msg);
             if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('update-log', msg);
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('update-log', msg);
+                }
             }
         };
         
@@ -391,7 +393,9 @@ class AppUpdater {
         const log = (msg) => {
             console.log('[UPDATER] ' + msg);
             if (mainWin && !mainWin.isDestroyed()) {
-                mainWin.webContents.send('update-log', msg);
+                if (mainWin && !mainWin.isDestroyed()) {
+                    mainWin.webContents.send('update-log', msg);
+                }
             }
         };
         
@@ -543,7 +547,9 @@ class AppUpdater {
             
             // Notificar al main renderer que el modal se abrió
             if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-                this.mainWindow.webContents.send('update-modal-opened');
+                if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+                    this.mainWindow.webContents.send('update-modal-opened');
+                }
             }
             
             // Enviar info de actualización
@@ -553,7 +559,9 @@ class AppUpdater {
                 releaseNotes: info.releaseNotes,
                 releaseDate: info.releaseDate || new Date().toISOString()
             };
-            this.updateWindow.webContents.send('update-info', updateData);
+            if (this.updateWindow && !this.updateWindow.isDestroyed()) {
+                this.updateWindow.webContents.send('update-info', updateData);
+            }
         });
 
         // Prevenir cierre accidental
@@ -575,9 +583,11 @@ class AppUpdater {
                 console.log('DEV MODE: install skipped - mostrando mensaje');
                 // En modo dev, mostrar mensaje en lugar de cerrar silenciosamente
                 if (this.updateWindow && !this.updateWindow.isDestroyed()) {
-                    this.updateWindow.webContents.send('update-dev-mode', {
+                    if (this.updateWindow && !this.updateWindow.isDestroyed()) {
+                        this.updateWindow.webContents.send('update-dev-mode', {
                         message: 'Modo desarrollo: La instalación se omite. En producción, la app se reiniciaría para actualizar.'
-                    });
+                        });
+                    }
                 }
                 return;
             }
@@ -604,7 +614,9 @@ class AppUpdater {
             this.cleanupWindowSync();
             if (this.mainWindow && !this.mainWindow.isDestroyed()) {
                 this.mainWindow.setEnabled(true);
-                this.mainWindow.webContents.send('update-modal-closed');
+                if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+                    this.mainWindow.webContents.send('update-modal-closed');
+                }
             }
             this.updateWindow = null;
         });
@@ -653,7 +665,9 @@ class AppUpdater {
     sendStatusToWindow(status, data = null) {
         const mainWindow = BrowserWindow.getAllWindows()[0];
         if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('update-status', { status, data });
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('update-status', { status, data });
+            }
         }
     }
     
@@ -661,7 +675,9 @@ class AppUpdater {
     sendLogToRenderer(message) {
         const mainWindow = BrowserWindow.getAllWindows()[0];
         if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('update-log', message);
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('update-log', message);
+            }
         }
     }
     

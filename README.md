@@ -105,10 +105,20 @@ El proyecto está organizado de forma modular:
 - Separación clara entre UI y lógica
 - Comunicación estructurada entre procesos
 
-## 📄 Licencia
+## 📁 Organización de carpetas
 
-MIT
+- `src/main/`: Lógica principal de Electron (ventanas, updater, Discord, etc)
+- `src/renderer/`: Todo lo visual y de usuario (HTML, CSS, JS, assets)
+- `src/backend/`: Webviews y reproductor oculto (YouTube)
+- `src/preload/`: Scripts de seguridad para IPC
+- `mobile/`: App Android (Kotlin)
+- `docs/`: Documentación extendida
+- `build/`: Archivos de build y distribución
+
+## 📝 Créditos
+
+Desarrollado por SeaxDev. Inspirado en la experiencia de usuario de Spotify y YouTube Music.
 
 ---
 
-**SeaxMusic** - Tu música, tu estilo 🎵
+Para más detalles, revisa la carpeta `docs/` o abre un issue.

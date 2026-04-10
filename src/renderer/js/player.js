@@ -604,11 +604,6 @@ class MusicPlayer {
     
     progressFill.style.width = percent + '%';
     progressHandle.style.left = percent + '%';
-
-    const pipFill = document.getElementById('pipProgressFill');
-    if (pipFill) {
-      pipFill.style.width = percent + '%';
-    }
   }
   
   updateTime(current, total) {
@@ -617,11 +612,6 @@ class MusicPlayer {
     
     document.getElementById('currentTime').textContent = this.formatTime(current);
     document.getElementById('totalTime').textContent = this.formatTime(total);
-
-    const pipCurrent = document.getElementById('pipCurrentTime');
-    const pipDuration = document.getElementById('pipDuration');
-    if (pipCurrent) pipCurrent.textContent = this.formatTime(current);
-    if (pipDuration) pipDuration.textContent = this.formatTime(total);
     
     const percent = (current / total) * 100;
     this.updateProgress(percent);
@@ -710,20 +700,7 @@ class MusicPlayer {
     this.updateSkipPreviews();
   }
 
-  togglePipMode() {
-    const enabled = !this.pipEnabled;
-    this.pipEnabled = enabled;
-    const pipBtn = document.getElementById('pipBtn');
-    if (pipBtn) {
-      pipBtn.classList.toggle('active', enabled);
-      pipBtn.title = enabled ? 'Pantalla sobre pantalla: Activado' : 'Pantalla sobre pantalla';
-    }
-    if (enabled) {
-      window.electronAPI?.openPipWindow?.();
-    } else {
-      window.electronAPI?.closePipWindow?.();
-    }
-  }
+
 
   updateSkipPreviews() {
     const queue = window.appState?.playQueue || [];
