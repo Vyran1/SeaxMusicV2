@@ -1,6 +1,6 @@
 {
   "name": "seaxmusic",
-  "version": "2.1.5",
+  "version": "2.1.6",
   "description": "SeaxMusic",
   "author": "Vyran",
   "main": "src/main/main.js",
