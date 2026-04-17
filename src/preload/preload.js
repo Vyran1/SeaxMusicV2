@@ -139,15 +139,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // ===== BÚSQUEDA DE YOUTUBE =====
   searchYouTube: (query) => ipcRenderer.invoke('search-youtube', query),
-  
-  // ===== TOP 100 GLOBAL YOUTUBE CHARTS =====
-  getYouTubeCharts: () => ipcRenderer.invoke('get-youtube-charts'),
 
   // ===== SISTEMA DE FAVORITOS (persistente en archivo) =====
   getFavorites: () => ipcRenderer.invoke('get-favorites'),
   saveFavorites: (favorites) => ipcRenderer.invoke('save-favorites', favorites),
   addFavorite: (video) => ipcRenderer.invoke('add-favorite', video),
   removeFavorite: (videoId) => ipcRenderer.invoke('remove-favorite', videoId),
+  toggleFavorite: (videoOrId) => ipcRenderer.invoke('toggle-favorite', videoOrId),
   
   // ===== AUTO-UPDATER =====
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),

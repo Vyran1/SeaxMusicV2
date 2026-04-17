@@ -165,7 +165,7 @@ class NowPlayingManager {
     this.setupProgressBar();
     
     // Like button - con prevención de propagación y logs
-    this.likeBtn?.addEventListener('click', (e) => {
+    this.likeBtn?.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
       console.log('[NOW PLAYING] Botón Like clickeado', this.currentSong);
@@ -176,14 +176,13 @@ class NowPlayingManager {
       }
       
       if (window.favoritesManager) {
-        const result = window.favoritesManager.toggleFavorite(this.currentSong);
-        console.log('[NOW PLAYING] Resultado toggleFavorite:', result);
+        const isLiked = await window.favoritesManager.toggleFavorite(this.currentSong);
+        console.log('[NOW PLAYING] Resultado toggleFavorite:', isLiked);
         this.updateLikeButton();
         
         // También actualizar el botón de like en la barra principal
         const mainLikeBtn = document.getElementById('likeBtn');
         if (mainLikeBtn) {
-          const isLiked = window.favoritesManager.isFavorite(this.currentSong.videoId);
           const icon = mainLikeBtn.querySelector('i');
           if (isLiked) {
             icon.className = 'fas fa-heart';

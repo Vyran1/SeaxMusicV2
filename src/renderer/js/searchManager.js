@@ -116,7 +116,6 @@ class SearchManager {
     this.searchInput = document.getElementById('searchInput');
     const searchSubmitBtn = document.getElementById('searchSubmitBtn');
     const searchClearBtn = document.getElementById('searchClearBtn');
-    const refreshChartsBtn = document.getElementById('refreshChartsBtn');
     
     if (this.searchInput) {
       // Enter para buscar
@@ -165,123 +164,9 @@ class SearchManager {
         }
       });
     });
-    
-    // Botón de refrescar charts
-    if (refreshChartsBtn) {
-      refreshChartsBtn.addEventListener('click', () => {
-        this.loadTopCharts();
-      });
-    }
-    
-    // Cargar Top 100 Global al entrar a la página
-    this.loadTopCharts();
   }
   
-  // ===== TOP 100 GLOBAL CHARTS =====
-  async loadTopCharts() {
-    console.log('[CHARTS] Cargando Top 100 Global...');
-    
-    const chartsLoading = document.getElementById('chartsLoading');
-    const chartsGrid = document.getElementById('topChartsGrid');
-    const refreshBtn = document.getElementById('refreshChartsBtn');
-    
-    // Mostrar loading con skeletons
-    if (chartsLoading) chartsLoading.style.display = 'flex';
-    if (chartsGrid) {
-      chartsGrid.innerHTML = '';
-      // Mostrar skeletons mientras carga
-      for (let i = 0; i < 20; i++) {
-        chartsGrid.innerHTML += `
-          <div class="chart-card-skeleton">
-            <div class="skeleton-rank"></div>
-            <div class="skeleton-thumb"></div>
-            <div class="skeleton-info">
-              <div class="skeleton-title"></div>
-              <div class="skeleton-artist"></div>
-            </div>
-          </div>
-        `;
-      }
-    }
-    if (refreshBtn) refreshBtn.classList.add('loading');
-    
-    try {
-      if (window.electronAPI && window.electronAPI.getYouTubeCharts) {
-        const response = await window.electronAPI.getYouTubeCharts();
-        
-        if (chartsLoading) chartsLoading.style.display = 'none';
-        if (refreshBtn) refreshBtn.classList.remove('loading');
-        
-        if (response.success && response.songs && response.songs.length > 0) {
-          console.log('[CHARTS] Top 100 cargado:', response.songs.length, 'canciones');
-          this.displayTopCharts(response.songs);
-        } else {
-          console.log('[CHARTS] No se pudieron cargar los charts');
-          if (chartsGrid) {
-            chartsGrid.innerHTML = `
-              <div class="charts-error" style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-secondary);">
-                <i class="fas fa-exclamation-circle" style="font-size: 32px; margin-bottom: 12px; color: var(--text-muted);"></i>
-                <p>No se pudieron cargar los charts</p>
-                <button onclick="window.searchManager.loadTopCharts()" style="margin-top: 12px; padding: 8px 16px; background: var(--accent-primary); border: none; border-radius: 20px; color: white; cursor: pointer;">
-                  Reintentar
-                </button>
-              </div>
-            `;
-          }
-        }
-      } else {
-        console.log('[CHARTS] API no disponible');
-        if (chartsLoading) chartsLoading.style.display = 'none';
-        if (refreshBtn) refreshBtn.classList.remove('loading');
-      }
-    } catch (error) {
-      console.error('[CHARTS] Error cargando charts:', error);
-      if (chartsLoading) chartsLoading.style.display = 'none';
-      if (refreshBtn) refreshBtn.classList.remove('loading');
-    }
-  }
-  
-  displayTopCharts(songs) {
-    const grid = document.getElementById('topChartsGrid');
-    if (!grid) return;
-    
-    grid.innerHTML = '';
-    
-    songs.forEach((song, index) => {
-      const rank = song.rank || index + 1;
-      const card = document.createElement('div');
-      card.className = 'chart-card';
-      card.setAttribute('data-video-id', song.videoId);
-      
-      // Clases especiales para top 3 y top 10
-      let rankClass = '';
-      if (rank <= 3) rankClass = 'top-3';
-      else if (rank <= 10) rankClass = 'top-10';
-      
-      const thumbnailSrc = song.thumbnail || `https://i.ytimg.com/vi/${song.videoId}/mqdefault.jpg`;
-      
-      card.innerHTML = `
-        <span class="chart-rank ${rankClass}">${rank}</span>
-        <div class="chart-thumbnail">
-          <img src="${thumbnailSrc}" 
-               onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${song.videoId}/hqdefault.jpg'; this.onerror=function(){this.src='./assets/img/icon.png'};"
-               alt="${song.title}" loading="lazy">
-          <button class="chart-play-btn"><i class="fas fa-play"></i></button>
-        </div>
-        <div class="chart-info">
-          <span class="chart-title" title="${song.title}">${song.title}</span>
-          <span class="chart-artist" title="${song.artist}">${song.artist}</span>
-        </div>
-      `;
-      
-      // Click para reproducir
-      card.addEventListener('click', () => {
-        this.playVideo(song);
-      });
-      
-      grid.appendChild(card);
-    });
-  }
+  // ===== SEARCH LOGIC =====
 
   async performSearch(query) {
     query = query?.trim();
@@ -293,17 +178,15 @@ class SearchManager {
     console.log('🔍 Buscando en YouTube:', query);
     this.currentQuery = query;
     
-    // Mostrar sección de resultados y ocultar categorías/charts
+    // Mostrar sección de resultados y ocultar categorías
     const searchResults = document.getElementById('searchResults');
     const searchCategories = document.getElementById('searchCategories');
-    const topChartsSection = document.getElementById('topChartsSection');
     const searchLoading = document.getElementById('searchLoading');
     const searchResultsGrid = document.getElementById('searchResultsGrid');
     const searchNoResults = document.getElementById('searchNoResults');
     const resultsCount = document.getElementById('resultsCount');
     
     if (searchCategories) searchCategories.style.display = 'none';
-    if (topChartsSection) topChartsSection.style.display = 'none';
     if (searchResults) searchResults.style.display = 'block';
     if (searchLoading) searchLoading.style.display = 'flex';
     if (searchResultsGrid) searchResultsGrid.innerHTML = '';
@@ -380,6 +263,7 @@ class SearchManager {
           ${video.isVerified ? '<span class="channel-badge"><i class="fas fa-check-circle"></i> Artista oficial</span>' : ''}
         </div>
       `;
+      card.style.setProperty('--card-bg', `url('${thumbnailSrc}')`);
       
       // Click para reproducir
       card.addEventListener('click', () => {
@@ -396,15 +280,23 @@ class SearchManager {
     
     console.log('🎵 Reproduciendo desde búsqueda:', videoTitle);
     
-    // Actualizar track actual
+    const currentTrack = {
+      videoId: video.videoId,
+      title: videoTitle,
+      artist: artistName,
+      channel: artistName,
+      thumbnail: video.thumbnail
+    };
+
+    // Actualizar track actual compartido
     if (window.appState) {
-      window.appState.currentTrack = {
-        videoId: video.videoId,
-        title: videoTitle,
-        artist: artistName,
-        channel: artistName,
-        thumbnail: video.thumbnail
-      };
+      window.appState.currentTrack = currentTrack;
+    }
+    if (window.musicPlayer) {
+      window.musicPlayer.currentTrack = currentTrack;
+      if (window.musicPlayer.updateLikeButton) {
+        window.musicPlayer.updateLikeButton();
+      }
     }
     
     // Actualizar UI del player

@@ -46,7 +46,7 @@ class PlaylistManager {
           <div class="playlist-actions">
             <button class="playlist-create-btn" id="createPlaylistBtn">
               <i class="fas fa-plus"></i>
-              Nueva playlist
+              <span class="playlist-create-text">Nueva playlist</span>
             </button>
           </div>
           <div class="playlist-list"></div>

@@ -26,6 +26,7 @@ class DiscordRichPresence {
       trackArtist: null,
       trackImage: null,
       videoUrl: null,
+      videoId: null,
       duration: 0,
       currentTime: 0,
       isPaused: false,
@@ -102,7 +103,17 @@ class DiscordRichPresence {
       largeImageText: 'SeaxMusic',
       smallImageKey: 'seaxmusic_logo2',
       smallImageText: 'SeaxMusic Player',
-      instance: false
+      instance: false,
+      buttons: [
+        {
+          label: 'Escuchar en YouTube',
+          url: 'https://www.youtube.com'
+        },
+        {
+          label: 'Descargar',
+          url: 'https://github.com/Vyran1/SeaxMusicV2/releases/latest'
+        }
+      ]
     };
 
     this.updateActivity(activity);
@@ -111,15 +122,28 @@ class DiscordRichPresence {
   /**
    * Actualizar cuando se reproduce una canción (CON COVER Y BOTÓN)
    */
-  setPlayingActivity(trackName, trackArtist, trackImage, duration = 0) {
+  setPlayingActivity(trackName, trackArtist, trackImage, duration = 0, videoId = null) {
     if (!this.isConnected || !this.client) return;
+
+    const oldTrackName = this.state.trackName;
+    const oldTrackArtist = this.state.trackArtist;
+    const oldVideoId = this.state.videoId;
+    const sameTrack = videoId && oldVideoId && videoId === oldVideoId && trackName === oldTrackName && trackArtist === oldTrackArtist;
+
+    if (!sameTrack) {
+      this.state.coverLocked = false;
+      this.state.trackImage = null;
+      console.log('[DISCORD] Nueva pista detectada, desbloqueando cover');
+    }
 
     this.state.isPlaying = true;
     this.state.playlistName = null;
     this.state.trackName = trackName;
     this.state.trackArtist = trackArtist;
-    // ⭐ Solo actualizar imagen si se proporciona Y el cover NO está bloqueado
-    if (trackImage && !this.state.coverLocked) {
+    this.state.videoId = videoId || oldVideoId;
+
+    // ⭐ Solo actualizar imagen si se proporciona
+    if (trackImage) {
       this.state.trackImage = trackImage;
       this.state.coverLocked = true; // Bloquear después de establecer
       console.log('[DISCORD] Cover establecido y bloqueado');
@@ -128,8 +152,14 @@ class DiscordRichPresence {
     this.state.isPaused = false;
     
     const now = Math.floor(Date.now() / 1000);
-    this.state.startTimestamp = now;
-    this.state.endTimestamp = now + Math.floor(duration || 0);
+    if (!sameTrack || !this.state.startTimestamp) {
+      this.state.startTimestamp = now;
+      this.state.endTimestamp = duration ? now + Math.floor(duration) : undefined;
+    } else {
+      const elapsed = Math.max(0, now - this.state.startTimestamp);
+      this.state.startTimestamp = now - elapsed;
+      this.state.endTimestamp = duration ? now + Math.max(0, Math.floor(duration) - elapsed) : undefined;
+    }
 
     // ⭐ Debounce para evitar actualizaciones múltiples
     clearTimeout(this.debounceTimeout);
@@ -146,12 +176,16 @@ class DiscordRichPresence {
         smallImageKey: 'seaxmusic_logo2', // ⭐ Logo pequeño abajo
         smallImageText: 'Reproduciendo',
         startTimestamp: this.state.startTimestamp,
-        endTimestamp: this.state.endTimestamp,
+        endTimestamp: this.state.endTimestamp || undefined,
         instance: false,
         buttons: [
           {
-            label: '▶️ Escuchar en YouTube',
+            label: 'Escuchar en YouTube',
             url: this.state.videoUrl || 'https://www.youtube.com'
+          },
+          {
+            label: 'Descargar',
+            url: 'https://github.com/Vyran1/SeaxMusicV2/releases/latest'
           }
         ]
       };
@@ -163,8 +197,19 @@ class DiscordRichPresence {
   /**
    * ⭐ Actualizar cuando se reproduce desde una playlist (muestra cover de playlist)
    */
-  setPlaylistActivity(playlistName, trackName, trackArtist, playlistCover, duration = 0) {
+  setPlaylistActivity(playlistName, trackName, trackArtist, playlistCover, duration = 0, videoId = null) {
     if (!this.isConnected || !this.client) return;
+
+    const oldTrackName = this.state.trackName;
+    const oldTrackArtist = this.state.trackArtist;
+    const oldVideoId = this.state.videoId;
+    const sameTrack = videoId && oldVideoId && videoId === oldVideoId && trackName === oldTrackName && trackArtist === oldTrackArtist;
+
+    if (!sameTrack) {
+      this.state.coverLocked = false;
+      this.state.trackImage = null;
+      console.log('[DISCORD] Nueva pista en playlist, desbloqueando cover');
+    }
 
     console.log('[DISCORD] setPlaylistActivity:', playlistName, '- Cover:', playlistCover);
 
@@ -172,6 +217,7 @@ class DiscordRichPresence {
     this.state.trackName = trackName;
     this.state.trackArtist = trackArtist;
     this.state.playlistName = playlistName;
+    this.state.videoId = videoId || oldVideoId;
     
     // ⭐ Usar cover de playlist si disponible
     if (playlistCover) {
@@ -184,8 +230,14 @@ class DiscordRichPresence {
     this.state.isPaused = false;
     
     const now = Math.floor(Date.now() / 1000);
-    this.state.startTimestamp = now;
-    this.state.endTimestamp = now + Math.floor(duration || 0);
+    if (!sameTrack || !this.state.startTimestamp) {
+      this.state.startTimestamp = now;
+      this.state.endTimestamp = duration ? now + Math.floor(duration) : undefined;
+    } else {
+      const elapsed = Math.max(0, now - this.state.startTimestamp);
+      this.state.startTimestamp = now - elapsed;
+      this.state.endTimestamp = duration ? now + Math.max(0, Math.floor(duration) - elapsed) : undefined;
+    }
 
     clearTimeout(this.debounceTimeout);
     this.debounceTimeout = setTimeout(() => {
@@ -200,12 +252,16 @@ class DiscordRichPresence {
         smallImageKey: 'seaxmusic_logo2',
         smallImageText: 'Reproduciendo playlist',
         startTimestamp: this.state.startTimestamp,
-        endTimestamp: this.state.endTimestamp,
+        endTimestamp: this.state.endTimestamp || undefined,
         instance: false,
         buttons: [
           {
-            label: '▶️ Escuchar en YouTube',
+            label: 'Escuchar en YouTube',
             url: this.state.videoUrl || 'https://www.youtube.com'
+          },
+          {
+            label: 'Descargar',
+            url: 'https://github.com/Vyran1/SeaxMusicV2/releases/latest'
           }
         ]
       };
@@ -221,6 +277,7 @@ class DiscordRichPresence {
     if (!this.isConnected || !this.client) return;
 
     this.state.isPlaying = false;
+    this.state.isPaused = true;
 
     // ⭐ Mantener formato de playlist si estaba reproduciendo una
     const isPlaylist = !!this.state.playlistName;
@@ -240,8 +297,67 @@ class DiscordRichPresence {
       instance: false,
       buttons: [
         {
-          label: '▶️ Escuchar en YouTube',
+          label: 'Escuchar en YouTube',
           url: this.state.videoUrl || 'https://www.youtube.com'
+        },
+        {
+          label: 'Descargar',
+          url: 'https://github.com/Vyran1/SeaxMusicV2/releases/latest'
+        }
+      ]
+    };
+
+    this.updateActivity(activity);
+  }
+
+  resumeActivity() {
+    if (!this.isConnected || !this.client || !this.state.trackName) return;
+    if (this.state.isPlaying) return;
+
+    this.state.isPlaying = true;
+    this.state.isPaused = false;
+
+    const imageToUse = this.state.trackImage || 'seaxmusic_logo';
+    const activity = this.state.playlistName ? {
+      type: 2,
+      details: `📀 Playlist: ${this.sanitizeString(this.state.playlistName)}`,
+      state: `🎵 ${this.sanitizeString(this.state.trackName)} • 🎶 Reproduciendo`,
+      largeImageKey: imageToUse,
+      largeImageText: `Playlist: ${this.sanitizeString(this.state.playlistName)}`,
+      smallImageKey: 'seaxmusic_logo2',
+      smallImageText: 'Reproduciendo playlist',
+      startTimestamp: this.state.startTimestamp,
+      endTimestamp: this.state.endTimestamp,
+      instance: false,
+      buttons: [
+        {
+          label: 'Escuchar en YouTube',
+          url: this.state.videoUrl || 'https://www.youtube.com'
+        },
+        {
+          label: 'Descargar',
+          url: 'https://github.com/Vyran1/SeaxMusicV2/releases/latest'
+        }
+      ]
+    } : {
+      type: 2,
+      details: `🎵 ${this.sanitizeString(this.state.trackName)}`,
+      state: `🎤 ${this.sanitizeString(this.state.trackArtist)} • 🎶 Reproduciendo`,
+      largeImageKey: imageToUse,
+      largeImageText: this.sanitizeString(this.state.trackName),
+      smallImageKey: 'seaxmusic_logo2',
+      smallImageText: 'Reproduciendo',
+      startTimestamp: this.state.startTimestamp,
+      endTimestamp: this.state.endTimestamp || undefined,
+      instance: false,
+      buttons: [
+        {
+          label: 'Escuchar en YouTube',
+          url: this.state.videoUrl || 'https://www.youtube.com'
+        },
+        {
+          label: 'Descargar',
+          url: 'https://github.com/Vyran1/SeaxMusicV2/releases/latest'
         }
       ]
     };
@@ -277,10 +393,37 @@ class DiscordRichPresence {
   /**
    * Actualizar actividad en Discord
    */
+  activityEquals(a, b) {
+    if (!a || !b) return false;
+    const fields = [
+      'type', 'details', 'state', 'largeImageKey', 'largeImageText',
+      'smallImageKey', 'smallImageText', 'startTimestamp', 'endTimestamp', 'instance'
+    ];
+    for (const field of fields) {
+      if ((a[field] || null) !== (b[field] || null)) return false;
+    }
+
+    const buttonsA = a.buttons || [];
+    const buttonsB = b.buttons || [];
+    if (buttonsA.length !== buttonsB.length) return false;
+    for (let i = 0; i < buttonsA.length; i++) {
+      if (buttonsA[i].label !== buttonsB[i].label || buttonsA[i].url !== buttonsB[i].url) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   updateActivity(activity) {
     if (!this.isConnected || !this.client) return;
 
     try {
+      if (this.currentActivity && this.activityEquals(this.currentActivity, activity)) {
+        console.log('[DISCORD] Actividad idéntica, omitiendo actualización');
+        return;
+      }
+
       this.client.setActivity(activity);
       this.currentActivity = activity;
       console.log('[DISCORD] Actividad actualizada:', activity.details);

@@ -726,7 +726,7 @@ class UserManager {
 
     this.stopPlaybackForAccountChange();
     
-    // Guardar snapshot antes de limpiar sesiÃ³n
+    // Guardar snapshot antes de limpiar sesión
     this.saveCurrentAccountSnapshot();
 
     // Clear user data
@@ -735,7 +735,7 @@ class UserManager {
       window.appState.isLoggedIn = false;
     }
     
-    // Clear solo la sesiÃ³n actual (mantener cuentas guardadas)
+    // Clear solo la sesión actual (mantener cuentas guardadas)
     localStorage.removeItem('seaxmusic_user');
 
     // ⭐ Volver al volumen de invitado
@@ -856,9 +856,12 @@ class UserManager {
   }
 
   openSettings() {
-    console.log('Abriendo configuración...');
-    // TODO: Open settings modal
     this.closeProfileMenu();
+    if (window.configManager) {
+      window.configManager.showConfigPage();
+    } else {
+      console.log('Configuración no disponible');
+    }
   }
 
   openAccount() {
@@ -1065,13 +1068,13 @@ class UserManager {
   confirmLogout() {
     this.hideLogoutModal();
 
-    // Guardar snapshot antes de limpiar sesiÃ³n
+    // Guardar snapshot antes de limpiar sesión
     this.saveCurrentAccountSnapshot();
     this.stopPlaybackForAccountChange();
 
     this.user = null;
     
-    // Limpiar solo la sesiÃ³n actual (mantener cuentas guardadas)
+    // Limpiar solo la sesión actual (mantener cuentas guardadas)
     localStorage.removeItem('seaxmusic_user');
     
     // Limpiar desde JSON file vía Electron IPC

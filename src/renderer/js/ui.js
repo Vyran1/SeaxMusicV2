@@ -65,6 +65,10 @@ const navigationHistory = {
       if (window.devManager) {
         window.devManager.showDevPage(addToHistory);
       }
+    } else if (page === 'config') {
+      if (window.configManager) {
+        window.configManager.showConfigPage(addToHistory);
+      }
     }
   },
   
@@ -366,6 +370,32 @@ window.showHomePage = showHomePage;
 window.getGreeting = getGreeting;
 
 // Sidebar navigation
+function initSidebarToggle() {
+  const sidebar = document.querySelector('.sidebar');
+  const toggle = document.getElementById('sidebarToggle');
+  if (!sidebar || !toggle) return;
+
+  const setState = (collapsed) => {
+    sidebar.classList.toggle('collapsed', collapsed);
+    toggle.innerHTML = `<i class="fas ${collapsed ? 'fa-bars' : 'fa-times'}"></i>`;
+    toggle.title = collapsed ? 'Abrir sidebar' : 'Cerrar sidebar';
+    toggle.setAttribute('aria-label', collapsed ? 'Abrir sidebar' : 'Cerrar sidebar');
+  };
+
+  const savedCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+  setState(savedCollapsed);
+
+  toggle.addEventListener('click', () => {
+    const collapsed = !sidebar.classList.contains('collapsed');
+    setState(collapsed);
+    localStorage.setItem('sidebarCollapsed', collapsed);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initSidebarToggle();
+});
+
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', (e) => {
     e.preventDefault();
@@ -417,6 +447,8 @@ function createMusicCard(item) {
     cursor: pointer;
     transition: all 0.2s;
   `;
+  const bgImage = item.image || './assets/img/icon.png';
+  card.style.setProperty('--card-bg', `url('${bgImage}')`);
   
   card.addEventListener('mouseenter', () => {
     card.style.backgroundColor = 'var(--bg-tertiary)';

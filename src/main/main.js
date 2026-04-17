@@ -9,6 +9,10 @@ const AppUpdater = require('./autoUpdater');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 
+// Forzar cache local dentro de userData para evitar errores de permisos en Windows
+const cachePath = path.join(app.getPath('userData'), 'Cache');
+app.setPath('cache', cachePath);
+
 // ⭐ Auto-updater instance
 // ⭐ Auto-updater instance
 // Recibir volumen real del backend y reenviar al renderer (debe ir después de la inicialización de mainWindow)
@@ -77,6 +81,21 @@ function safeReadJson(filePath) {
     console.error('[JSON] Error leyendo:', filePath, e);
   }
   return null;
+}
+
+function getMaxResThumbnail(thumbnail, videoId) {
+  if (videoId) {
+    return `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+  }
+  if (!thumbnail) return null;
+  return thumbnail
+    .replace(/\/default\.jpg$/, '/maxresdefault.jpg')
+    .replace(/\/mqdefault\.jpg$/, '/maxresdefault.jpg')
+    .replace(/\/hqdefault\.jpg$/, '/maxresdefault.jpg')
+    .replace(/\/sddefault\.jpg$/, '/maxresdefault.jpg')
+    .replace('/mqdefault', '/maxresdefault')
+    .replace('/hqdefault', '/maxresdefault')
+    .replace('/sddefault', '/maxresdefault');
 }
 
 function getCurrentUserData() {
@@ -758,6 +777,34 @@ ipcMain.handle('remove-favorite', async (event, videoId) => {
   return { success: false, message: 'No encontrado', favorites };
 });
 
+ipcMain.handle('toggle-favorite', async (event, payload) => {
+  const favorites = loadFavorites();
+  const videoId = typeof payload === 'string'
+    ? payload
+    : (payload && payload.videoId ? payload.videoId : null);
+
+  if (!videoId) {
+    return { success: false, message: 'videoId requerido', favorites };
+  }
+
+  const index = favorites.findIndex(v => v.videoId === videoId);
+  if (index !== -1) {
+    favorites.splice(index, 1);
+    saveFavorites(favorites);
+    console.log('[FAVORITES] Toggle: eliminado', videoId);
+    return { success: true, action: 'removed', favorites };
+  }
+
+  if (typeof payload === 'object' && payload.videoId) {
+    favorites.unshift(payload);
+    saveFavorites(favorites);
+    console.log('[FAVORITES] Toggle: agregado', payload.title || videoId);
+    return { success: true, action: 'added', favorites };
+  }
+
+  return { success: false, message: 'No se puede agregar sin objeto de video', favorites };
+});
+
 // ===== HANDLERS DE CONTROL DE YOUTUBE =====
 
 ipcMain.on('audio-control', (event, action, value) => {
@@ -937,42 +984,51 @@ ipcMain.on('update-video-info', (event, videoInfo) => {
   
   // ⭐ Actualizar Discord Rich Presence con la canción
   if (videoInfo.title) {
-    // ⭐ Convertir duración a segundos si viene como string "MM:SS" o "H:MM:SS"
-    let durationSeconds = 0;
-    if (typeof videoInfo.duration === 'number') {
-      durationSeconds = videoInfo.duration;
-    } else if (typeof videoInfo.duration === 'string' && videoInfo.duration) {
-      const parts = videoInfo.duration.split(':').map(Number);
-      if (parts.length === 3) {
-        durationSeconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
-      } else if (parts.length === 2) {
-        durationSeconds = parts[0] * 60 + parts[1];
-      } else if (parts.length === 1) {
-        durationSeconds = parts[0];
+    const artist = videoInfo.channel || videoInfo.artist || 'YouTube';
+    const sameVideoId = videoInfo.videoId && videoInfo.videoId === discordRPC.state.videoId;
+    const sameTitleArtist = videoInfo.title === discordRPC.state.trackName && artist === discordRPC.state.trackArtist;
+    const isSameTrack = sameVideoId || (sameTitleArtist && !videoInfo.videoId);
+
+    if (!isSameTrack || !discordRPC.state.trackName) {
+      // ⭐ Convertir duración a segundos si viene como string "MM:SS" o "H:MM:SS"
+      let durationSeconds = 0;
+      if (typeof videoInfo.duration === 'number') {
+        durationSeconds = videoInfo.duration;
+      } else if (typeof videoInfo.duration === 'string' && videoInfo.duration) {
+        const parts = videoInfo.duration.split(':').map(Number);
+        if (parts.length === 3) {
+          durationSeconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        } else if (parts.length === 2) {
+          durationSeconds = parts[0] * 60 + parts[1];
+        } else if (parts.length === 1) {
+          durationSeconds = parts[0];
+        }
       }
-    }
-    
-    // ⭐ Si hay playlist activa, usar su cover y mostrar info de playlist
-    const playlistInfo = global.currentPlaylistInfo;
-    if (playlistInfo && playlistInfo.cover) {
-      discordRPC.setPlaylistActivity(
-        playlistInfo.name,
-        videoInfo.title,
-        videoInfo.channel || videoInfo.artist || 'YouTube',
-        playlistInfo.cover,
-        durationSeconds
-      );
-    } else {
-      const thumbnail = videoInfo.videoId 
-        ? `https://i.ytimg.com/vi/${videoInfo.videoId}/hqdefault.jpg`
-        : null;
       
-      discordRPC.setPlayingActivity(
-        videoInfo.title,
-        videoInfo.channel || videoInfo.artist || 'YouTube',
-        thumbnail,
-        durationSeconds
-      );
+      // ⭐ Si hay playlist activa, usar su cover y mostrar info de playlist
+      const playlistInfo = global.currentPlaylistInfo;
+      if (playlistInfo && playlistInfo.cover) {
+        discordRPC.setPlaylistActivity(
+          playlistInfo.name,
+          videoInfo.title,
+          artist,
+          playlistInfo.cover,
+          durationSeconds,
+          videoInfo.videoId || null
+        );
+      } else {
+        const thumbnail = getMaxResThumbnail(videoInfo.thumbnail, videoInfo.videoId);
+        
+        discordRPC.setPlayingActivity(
+          videoInfo.title,
+          artist,
+          thumbnail,
+          durationSeconds,
+          videoInfo.videoId || null
+        );
+      }
+    } else {
+      console.log('[DISCORD] Mismo track detectado, no se actualiza la presencia');
     }
   }
 });
@@ -996,15 +1052,8 @@ ipcMain.on('video-playing', (event) => {
     pipWindow.webContents.send('video-playing');
   }
   
-  // ⭐ Discord: Reanudar reproducción
-  if (discordRPC.state.trackName) {
-    discordRPC.setPlayingActivity(
-      discordRPC.state.trackName,
-      discordRPC.state.trackArtist,
-      discordRPC.state.trackImage,
-      discordRPC.state.duration
-    );
-  }
+  // ⭐ Discord: Reanudar reproducción sin resetear el timestamp
+  discordRPC.resumeActivity();
   
   // Eliminado: No sincronizar volumen automáticamente al cambiar de video. El volumen solo debe cambiar por acción explícita del usuario.
 });
@@ -1738,59 +1787,104 @@ ipcMain.handle('get-history-videos', async () => {
             // ⭐ MÉTODO PRINCIPAL: Buscar en el DOM con selectores específicos del historial
             // El historial de YouTube usa una estructura diferente con yt-lockup-metadata-view-model
             
-            // Buscar todos los links de videos en el historial
-            const videoLinks = document.querySelectorAll('a.yt-lockup-metadata-view-model__title[href*="/watch?v="]');
-            console.log('[HISTORY] Links de historial encontrados:', videoLinks.length);
-            
-            for (const link of videoLinks) {
+            const cleanText = (text) => {
+              if (!text) return '';
+              return text.toString().replace(/\s+/g, ' ').trim();
+            };
+
+            const isDurationLike = (text) => {
+              if (!text) return false;
+              return /^\d{1,2}:\d{2}$/.test(text) || /^\d+\s*(minutos?|segundos?)/i.test(text);
+            };
+
+            const getTitleFromLink = (link) => {
+              if (!link) return '';
+              const rawTitle = cleanText(link.getAttribute('title') || link.textContent);
+              if (rawTitle && !isDurationLike(rawTitle) && rawTitle.toLowerCase() !== 'youtube') {
+                return rawTitle;
+              }
+              return cleanText(link.querySelector('yt-formatted-string, span')?.textContent);
+            };
+
+            const getChannelFromContainer = (container) => {
+              if (!container) return 'YouTube';
+              const selectors = [
+                '#upload-info ytd-channel-name yt-formatted-string#text a',
+                'ytd-channel-name a',
+                'ytd-channel-name yt-formatted-string#text a',
+                'a.yt-simple-endpoint.style-scope.yt-formatted-string',
+                '#owner-name a',
+                'ytd-channel-name span',
+                '.yt-formatted-string.ytd-channel-name'
+              ];
+              for (const selector of selectors) {
+                const el = container.querySelector(selector);
+                const text = cleanText(el?.textContent);
+                if (text && text.toLowerCase() !== 'youtube') {
+                  return text.split('•')[0].trim();
+                }
+              }
+              return 'YouTube';
+            };
+
+            // Buscar todos los elementos de historial con el nuevo DOM de YouTube
+            const historyItems = Array.from(document.querySelectorAll(
+              '.ytLockupViewModelMetadata, .ytLockupMetadataViewModelTextContainer, yt-lockup-metadata-view-model'
+            ));
+            console.log('[HISTORY] Items de historial encontrados:', historyItems.length);
+
+            for (const item of historyItems) {
               if (videos.length >= maxVideos) break;
-              
+
+              const link = item.querySelector('a.ytLockupMetadataViewModelTitle[href*="/watch?v="]');
+              if (!link) continue;
+
               const href = link.getAttribute('href') || '';
               const videoMatch = href.match(/v=([a-zA-Z0-9_-]{11})/);
               if (!videoMatch) continue;
-              
+
               const videoId = videoMatch[1];
               if (videos.some(v => v.videoId === videoId)) continue;
-              
-              // ⭐ Extraer título del span dentro del link
-              const titleSpan = link.querySelector('span.yt-core-attributed-string');
-              const title = titleSpan?.textContent?.trim() || link.getAttribute('aria-label')?.split(' - ')[0] || '';
-              
-              // ⭐ Extraer artista/canal del contenedor de metadata
-              let channel = 'YouTube';
-              const metadataContainer = link.closest('.yt-lockup-metadata-view-model');
-              if (metadataContainer) {
-                // El canal está en el primer span de metadata-text dentro de metadata-row
-                const channelEl = metadataContainer.querySelector('.yt-content-metadata-view-model__metadata-row span.yt-content-metadata-view-model__metadata-text');
-                if (channelEl) {
-                  // El texto del canal puede incluir íconos, así que tomamos solo el texto principal
-                  const channelText = channelEl.textContent?.trim() || '';
-                  // Quitar partes como " • 9 M de visualizaciones"
-                  channel = channelText.split('•')[0].trim() || channel;
+
+              let title = cleanText(link.querySelector('.ytAttributedStringHost')?.textContent || link.textContent);
+              if (!title || isDurationLike(title)) {
+                title = cleanText(link.getAttribute('aria-label') || '');
+                if (title.includes('•')) {
+                  title = title.split('•')[0].trim();
                 }
               }
-              
-              // ⭐ Extraer duración del aria-label si está disponible
+              if (!title || isDurationLike(title) || title.toLowerCase() === 'youtube') {
+                continue;
+              }
+
+              const metadataContainer = item.closest('.ytLockupViewModelMetadata, .ytLockupMetadataViewModelTextContainer, yt-lockup-metadata-view-model') || item;
+              let channel = 'YouTube';
+              const channelEl = metadataContainer.querySelector(
+                '.ytContentMetadataViewModelMetadataText, .ytAttributedStringHost.ytContentMetadataViewModelMetadataText, .ytLockupMetadataViewModelMetadataText'
+              );
+              if (channelEl) {
+                channel = cleanText(channelEl.textContent || channelEl.getAttribute('title') || 'YouTube');
+                channel = channel.split('•')[0].trim();
+              }
+
               const ariaLabel = link.getAttribute('aria-label') || '';
-              const durationMatch = ariaLabel.match(/(\\d+)\\s*minutos?\\s*y?\\s*(\\d+)?\\s*segundos?/i);
+              const durationMatch = ariaLabel.match(/(\d+)\s*minutos?\s*y?\s*(\d+)?\s*segundos?/i);
               let duration = '';
               if (durationMatch) {
                 const mins = parseInt(durationMatch[1]) || 0;
                 const secs = parseInt(durationMatch[2]) || 0;
                 duration = mins + ':' + secs.toString().padStart(2, '0');
               }
-              
-              if (title && title.length > 0) {
-                videos.push({
-                  videoId: videoId,
-                  title: title,
-                  channel: channel,
-                  thumbnail: 'https://i.ytimg.com/vi/' + videoId + '/mqdefault.jpg',
-                  url: 'https://www.youtube.com/watch?v=' + videoId,
-                  duration: duration
-                });
-                console.log('[HISTORY] Video:', title.substring(0, 40), '|', channel);
-              }
+
+              videos.push({
+                videoId: videoId,
+                title: title,
+                channel: channel,
+                thumbnail: 'https://i.ytimg.com/vi/' + videoId + '/mqdefault.jpg',
+                url: 'https://www.youtube.com/watch?v=' + videoId,
+                duration: duration
+              });
+              console.log('[HISTORY] Video:', title.substring(0, 40), '|', channel);
             }
             
             // Método 2: Fallback - Buscar en ytInitialData si no encontró suficientes
@@ -1798,37 +1892,95 @@ ipcMain.handle('get-history-videos', async () => {
               console.log('[HISTORY] Buscando en ytInitialData...');
               try {
                 if (window.ytInitialData) {
-                  const findVideos = (obj, depth = 0) => {
-                    if (videos.length >= maxVideos || depth > 20) return;
-                    if (!obj || typeof obj !== 'object') return;
-                    
-                    // Buscar videoRenderer
-                    if (obj.videoRenderer && obj.videoRenderer.videoId) {
-                      const vr = obj.videoRenderer;
-                      const videoId = vr.videoId;
-                      
-                      if (!videos.some(v => v.videoId === videoId)) {
-                        const title = vr.title?.runs?.[0]?.text || vr.title?.simpleText || '';
-                        const channel = vr.ownerText?.runs?.[0]?.text || 
-                                       vr.longBylineText?.runs?.[0]?.text || 
-                                       vr.shortBylineText?.runs?.[0]?.text || 'YouTube';
-                        const duration = vr.lengthText?.simpleText || '';
-                        
-                        if (title) {
-                          videos.push({
-                            videoId: videoId,
-                            title: title,
-                            channel: channel,
-                            thumbnail: 'https://i.ytimg.com/vi/' + videoId + '/mqdefault.jpg',
-                            url: 'https://www.youtube.com/watch?v=' + videoId,
-                            duration: duration
-                          });
-                          console.log('[HISTORY] ytInitialData Video:', title.substring(0, 40));
+                  const getTextFromRuns = (textObj) => {
+                    if (!textObj) return '';
+                    if (typeof textObj === 'string') return textObj.trim();
+                    if (Array.isArray(textObj)) {
+                      return textObj.map(t => t?.text || t).filter(Boolean).join('').trim();
+                    }
+                    if (textObj.runs?.length) {
+                      return textObj.runs.map(r => r.text).join('').trim();
+                    }
+                    return textObj.simpleText?.trim() || textObj.text?.trim() || '';
+                  };
+
+                  const getChannelText = (obj) => {
+                    if (!obj) return 'YouTube';
+                    const candidates = [
+                      obj.ownerText,
+                      obj.longBylineText,
+                      obj.shortBylineText,
+                      obj.channelName,
+                      obj.ownerText?.runs,
+                      obj.shortBylineText?.runs,
+                      obj.longBylineText?.runs,
+                      obj.serviceEndpoint?.watchEndpoint?.videoId
+                    ];
+                    for (const candidate of candidates) {
+                      const text = getTextFromRuns(candidate);
+                      if (text) return text;
+                    }
+                    return 'YouTube';
+                  };
+
+                  const getVideoData = (item) => {
+                    const videoId = item.videoId || item.videoId?.videoId;
+                    if (!videoId) return null;
+
+                    let title = '';
+                    if (item.title) title = getTextFromRuns(item.title);
+                    if (!title && item.headline) title = getTextFromRuns(item.headline);
+                    if (!title && item.titleText) title = getTextFromRuns(item.titleText);
+                    if (!title && item.name) title = getTextFromRuns(item.name);
+
+                    let channel = getChannelText(item);
+                    if (!channel && item.shortBylineText) channel = getTextFromRuns(item.shortBylineText);
+
+                    let duration = item.lengthText?.simpleText || getTextFromRuns(item.lengthText) || '';
+                    if (!duration && item.thumbnailOverlays) {
+                      for (const overlay of item.thumbnailOverlays) {
+                        const timeRenderer = overlay.thumbnailOverlayTimeStatusRenderer;
+                        if (timeRenderer) {
+                          duration = getTextFromRuns(timeRenderer.text);
+                          if (duration) break;
                         }
                       }
                     }
-                    
-                    // Recursión
+
+                    if (!title) return null;
+                    return { videoId, title, channel: channel || 'YouTube', duration };
+                  };
+
+                  const findVideos = (obj, depth = 0) => {
+                    if (videos.length >= maxVideos || depth > 25) return;
+                    if (!obj || typeof obj !== 'object') return;
+
+                    const rendererKeys = [
+                      'videoRenderer',
+                      'compactVideoRenderer',
+                      'playlistVideoRenderer',
+                      'gridVideoRenderer',
+                      'richItemRenderer'
+                    ];
+
+                    for (const key of rendererKeys) {
+                      if (obj[key]) {
+                        const data = getVideoData(obj[key]);
+                        if (data && !videos.some(v => v.videoId === data.videoId)) {
+                          videos.push({
+                            videoId: data.videoId,
+                            title: data.title,
+                            channel: data.channel,
+                            thumbnail: 'https://i.ytimg.com/vi/' + data.videoId + '/mqdefault.jpg',
+                            url: 'https://www.youtube.com/watch?v=' + data.videoId,
+                            duration: data.duration
+                          });
+                          console.log('[HISTORY] ytInitialData Video:', data.title.substring(0, 40));
+                          if (videos.length >= maxVideos) return;
+                        }
+                      }
+                    }
+
                     for (const key in obj) {
                       if (videos.length >= maxVideos) break;
                       const val = obj[key];
@@ -1842,7 +1994,7 @@ ipcMain.handle('get-history-videos', async () => {
                       }
                     }
                   };
-                  
+
                   findVideos(window.ytInitialData);
                 }
               } catch (e) {

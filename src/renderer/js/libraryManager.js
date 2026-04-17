@@ -66,7 +66,7 @@ class LibraryManager {
   }
   
   async showPlaylistsSection(addToHistory = true) {
-    console.log('[PLAYLISTS] Mostrando secciÃ³n de playlists...');
+    console.log('[PLAYLISTS] Mostrando sección de playlists...');
 
     if (addToHistory && window.navigationHistory) {
       window.navigationHistory.navigateTo('playlists');
@@ -263,13 +263,13 @@ class LibraryManager {
     const browseBtn = document.getElementById('browseMusic');
     
     if (isLoggedOut) {
-      if (titleEl) titleEl.textContent = 'Inicia sesiÃ³n para ver tu biblioteca';
-      if (descEl) descEl.textContent = 'Tus favoritos siguen guardados, inicia sesiÃ³n para verlos';
-      if (browseBtn) browseBtn.innerHTML = '<i class="fas fa-user-circle"></i> Iniciar sesiÃ³n';
+      if (titleEl) titleEl.textContent = 'Inicia sesión para ver tu biblioteca';
+      if (descEl) descEl.textContent = 'Tus favoritos siguen guardados, inicia sesión para verlos';
+      if (browseBtn) browseBtn.innerHTML = '<i class="fas fa-user-circle"></i> Iniciar sesión';
     } else {
-      if (titleEl) titleEl.textContent = 'Tu biblioteca estÃ¡ vacÃ­a';
-      if (descEl) descEl.textContent = 'Las canciones que marques con â¤ï¸ aparecerÃ¡n aquÃ­';
-      if (browseBtn) browseBtn.innerHTML = '<i class="fas fa-search"></i> Explorar mÃºsica';
+      if (titleEl) titleEl.textContent = 'Tu biblioteca está vacía';
+      if (descEl) descEl.textContent = 'Las canciones que marques con ❤️ aparecerán aquí';
+      if (browseBtn) browseBtn.innerHTML = '<i class="fas fa-search"></i> Explorar música';
     }
   }
   
@@ -437,10 +437,14 @@ class LibraryManager {
     const gridEl = document.getElementById('libraryGrid');
     if (!gridEl) return;
     
-    gridEl.innerHTML = favorites.map((fav, index) => `
+    gridEl.innerHTML = favorites.map((fav, index) => {
+      const bgImage = fav.thumbnail || `https://i.ytimg.com/vi/${fav.videoId}/maxresdefault.jpg`;
+      const fallbackImage = fav.videoId ? `https://i.ytimg.com/vi/${fav.videoId}/hqdefault.jpg` : './assets/img/icon.png';
+      return `
       <div class="library-card" 
            data-index="${index}" 
            data-video-id="${fav.videoId}"
+           style="--card-bg: url('${bgImage}');"
            draggable="true">
         <div class="library-card-drag" title="Arrastrar para reordenar">
           <i class="fas fa-grip-vertical"></i>
@@ -449,9 +453,9 @@ class LibraryManager {
           <i class="fas fa-times"></i>
         </button>
         <div class="library-card-image">
-          <img src="${fav.thumbnail || `https://i.ytimg.com/vi/${fav.videoId}/maxresdefault.jpg`}" 
+          <img src="${bgImage}" 
                alt="${fav.title}"
-               onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${fav.videoId}/hqdefault.jpg'; this.onerror=function(){this.src='./assets/img/icon.png'};">
+               onerror="this.onerror=null; this.src='${fallbackImage}'; this.onerror=function(){this.src='./assets/img/icon.png'};">
           <button class="library-card-play">
             <i class="fas fa-play"></i>
           </button>
@@ -459,7 +463,8 @@ class LibraryManager {
         <div class="library-card-title" title="${fav.title}">${fav.title || 'Sin título'}</div>
         <div class="library-card-artist">${fav.artist || fav.channel || 'Artista desconocido'}</div>
       </div>
-    `).join('');
+    `;
+    }).join('');
     
     this.setupGridDragAndDrop();
     this.setupGridEvents();

@@ -551,10 +551,11 @@ function isFavorite(videoId) {
 // Actualizar el botón de corazón del player
 function updateLikeButton() {
   const likeBtn = document.getElementById('likeBtn');
-  if (!likeBtn || !appState.currentTrack) return;
+  const currentTrack = appState.currentTrack || window.musicPlayer?.currentTrack;
+  if (!likeBtn || !currentTrack) return;
   
   const icon = likeBtn.querySelector('i');
-  if (isFavorite(appState.currentTrack.videoId)) {
+  if (isFavorite(currentTrack.videoId)) {
     icon.classList.remove('far');
     icon.classList.add('fas');
     likeBtn.classList.add('liked');
@@ -843,6 +844,9 @@ async function initApp() {
         thumbnail: videoInfo.thumbnail || appState.currentTrack?.thumbnail,
         channelAvatar: videoInfo.channelAvatar || appState.currentTrack?.channelAvatar
       };
+      if (window.musicPlayer) {
+        window.musicPlayer.currentTrack = appState.currentTrack;
+      }
 
       appState.nextVideoInfo = videoInfo.nextVideo || null;
       appState.prevVideoInfo = videoInfo.prevVideo || null;
@@ -1017,6 +1021,8 @@ function displayFavoritesInGrid(gridElement, videos) {
         <p class="card-artist" title="${artistName}">${artistName}</p>
       </div>
     `;
+    const favoriteBg = video.thumbnail || (video.videoId ? `https://i.ytimg.com/vi/${video.videoId}/maxresdefault.jpg` : './assets/img/icon.png');
+    card.style.setProperty('--card-bg', `url('${favoriteBg}')`);
     
     // Click en botón de quitar favorito
     const removeBtn = card.querySelector('.remove-favorite-btn');
@@ -1206,6 +1212,8 @@ function displayVideosInGrid(gridElement, videos) {
         <p class="card-artist" title="${artistName}">${artistName}</p>
       </div>
     `;
+    const fallbackBg = video.thumbnail || (video.videoId ? `https://i.ytimg.com/vi/${video.videoId}/maxresdefault.jpg` : './assets/img/icon.png');
+    card.style.setProperty('--card-bg', `url('${fallbackBg}')`);
     
     // Click para reproducir
     card.addEventListener('click', () => {
@@ -1360,7 +1368,7 @@ function renderHomeMusicGrid(gridEl, videos, emptyLabel) {
         </div>
         <div class="card-info">
           <p class="card-title">${emptyLabel}</p>
-          <p class="card-artist">Explora y vuelve aquÃ­</p>
+          <p class="card-artist">Explora y vuelve aquí</p>
         </div>
       </div>
     `;
@@ -1372,7 +1380,7 @@ function renderHomeMusicGrid(gridEl, videos, emptyLabel) {
     card.className = 'music-card';
     
     const artistName = video.channel || video.artist || 'YouTube';
-    const videoTitle = video.title || 'Sin tÃ­tulo';
+    const videoTitle = video.title || 'Sin título';
     
     card.innerHTML = `
       <div class="card-image">
@@ -1387,6 +1395,8 @@ function renderHomeMusicGrid(gridEl, videos, emptyLabel) {
         <p class="card-artist" title="${artistName}">${artistName}</p>
       </div>
     `;
+    const fallbackBg = video.thumbnail || (video.videoId ? `https://i.ytimg.com/vi/${video.videoId}/maxresdefault.jpg` : './assets/img/icon.png');
+    card.style.setProperty('--card-bg', `url('${fallbackBg}')`);
     
     card.addEventListener('click', () => {
       playTrack(video);
@@ -1570,17 +1580,17 @@ function renderDynamicCards() {
     {
       id: 'resume',
       title: 'Reanudar',
-      subtitle: resume ? resume.title : 'Sin reproducciÃ³n reciente',
-      hint: resume ? (resume.artist || resume.channel || 'YouTube') : 'Pon una canciÃ³n',
+      subtitle: resume ? resume.title : 'Sin reproducción reciente',
+      hint: resume ? (resume.artist || resume.channel || 'YouTube') : 'Pon una canción',
       icon: 'fa-play',
       accent: 'accent',
       track: resume
     },
     {
       id: 'top',
-      title: 'Top del dÃ­a',
+      title: 'Top del día',
       subtitle: topPick ? topPick.title : 'Tu ranking personal',
-      hint: topPick ? (topPick.artist || topPick.channel || 'YouTube') : 'Historial vacÃ­o',
+      hint: topPick ? (topPick.artist || topPick.channel || 'YouTube') : 'Historial vacío',
       icon: 'fa-bolt',
       accent: 'sun',
       track: topPick
@@ -1629,11 +1639,11 @@ function renderMoments() {
   if (!grid) return;
   
   const hour = new Date().getHours();
-  const momentLabel = hour < 12 ? 'MaÃ±ana' : hour < 19 ? 'Tarde' : 'Noche';
+  const momentLabel = hour < 12 ? 'Mañana' : hour < 19 ? 'Tarde' : 'Noche';
   if (subtitle) subtitle.textContent = `Mood perfecto para la ${momentLabel.toLowerCase()}`;
   
   const moments = [
-    { id: 'morning', title: 'Aurora', subtitle: 'Sube la energÃ­a', icon: 'fa-sun', accent: 'sun' },
+    { id: 'morning', title: 'Aurora', subtitle: 'Sube la energía', icon: 'fa-sun', accent: 'sun' },
     { id: 'afternoon', title: 'Rojo Vivo', subtitle: 'Ritmo continuo', icon: 'fa-fire', accent: 'accent' },
     { id: 'night', title: 'Medianoche', subtitle: 'Vibe nocturna', icon: 'fa-moon', accent: 'night' }
   ];
@@ -1674,12 +1684,12 @@ function renderHeroResume() {
   
   if (track) {
     if (cover) cover.src = track.thumbnail || `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`;
-    if (titleEl) titleEl.textContent = track.title || 'Sin tÃ­tulo';
+    if (titleEl) titleEl.textContent = track.title || 'Sin título';
     if (artistEl) artistEl.textContent = track.artist || track.channel || 'YouTube';
     if (resumeBtn) resumeBtn.disabled = false;
     card.dataset.videoId = track.videoId;
   } else {
-    if (titleEl) titleEl.textContent = 'Sin reproducciÃ³n';
+    if (titleEl) titleEl.textContent = 'Sin reproducción';
     if (artistEl) artistEl.textContent = 'Pon algo para empezar';
     if (resumeBtn) resumeBtn.disabled = true;
     card.dataset.videoId = '';

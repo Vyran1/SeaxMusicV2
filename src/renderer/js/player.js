@@ -123,8 +123,14 @@ class MusicPlayer {
     // Like button
     document.getElementById('likeBtn').addEventListener('click', () => this.toggleLike());
     
-    // Fullscreen button
-    document.getElementById('fullscreenBtn').addEventListener('click', () => this.toggleFullscreen());
+    // Configuración button
+    document.getElementById('fullscreenBtn').addEventListener('click', () => {
+      if (window.configManager) {
+        window.configManager.showConfigPage();
+      } else {
+        this.toggleFullscreen();
+      }
+    });
     
     // ⭐ Track image click → Open Now Playing
     const trackImage = document.getElementById('trackImage');
@@ -628,18 +634,17 @@ class MusicPlayer {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
   
-  toggleLike() {
-    if (!this.currentTrack) return;
+  async toggleLike() {
+    const track = this.currentTrack || window.appState?.currentTrack;
+    if (!track) return;
     
     // Usar favoritesManager para toggle y persistir
     if (window.favoritesManager) {
-      window.favoritesManager.toggleFavorite(this.currentTrack);
+      await window.favoritesManager.toggleFavorite(track);
     }
     
-    // Actualizar UI de ambos lugares
+    // Actualizar UI de ambos lugares después de que cambie el estado
     this.updateLikeButton();
-    
-    // Sincronizar con Now Playing
     if (window.nowPlayingManager) {
       window.nowPlayingManager.updateLikeButton();
     }
@@ -651,7 +656,8 @@ class MusicPlayer {
     if (!likeBtn) return;
     
     const icon = likeBtn.querySelector('i');
-    const isLiked = this.currentTrack && window.favoritesManager?.isFavorite(this.currentTrack.videoId);
+    const track = this.currentTrack || window.appState?.currentTrack;
+    const isLiked = track && window.favoritesManager?.isFavorite(track.videoId);
     
     if (isLiked) {
       icon.className = 'fas fa-heart';

@@ -1,5 +1,12 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+function getBestThumbnail(videoId, url = '') {
+  if (videoId) {
+    return `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+  }
+  return url.replace(/\/(?:default|mqdefault|hqdefault|sddefault)\.jpg$/, '/maxresdefault.jpg');
+}
+
 // ===== Mantener reproducción en segundo plano (anti-throttle) =====
 try {
   const forceVisible = () => {
@@ -599,6 +606,29 @@ function attachVolumeObserver() {
   }
 }
 
+function attachPlaybackListeners(video) {
+  if (!video || video._seaxPlaybackListenersAttached) return;
+  video._seaxPlaybackListenersAttached = true;
+
+  video.addEventListener('pause', () => {
+    window.__seaxUserPaused = true;
+    console.log('[PLAYBACK] Video pause event detected');
+    if (window.lastVideoPausedState !== true) {
+      window.lastVideoPausedState = true;
+      ipcRenderer.send('video-paused');
+    }
+  });
+
+  video.addEventListener('play', () => {
+    window.__seaxUserPaused = false;
+    console.log('[PLAYBACK] Video play event detected');
+    if (window.lastVideoPausedState !== false) {
+      window.lastVideoPausedState = false;
+      ipcRenderer.send('video-playing');
+    }
+  });
+}
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', attachVolumeObserver);
 } else {
@@ -797,12 +827,14 @@ setInterval(() => {
   if (video) {
     // Asegurar observer de volumen para el video actual
     attachVolumeObserver();
+    attachPlaybackListeners(video);
 
     // ===== Watchdog anti-bloqueo de reproducción =====
+    const now = Date.now();
+    let timeAdvanced = false;
     try {
       const player = document.querySelector('#movie_player');
       const isAd = !!(player && player.classList.contains('ad-showing'));
-      const now = Date.now();
       const currentTime = video.currentTime || 0;
 
       if (window.__seaxLastPlaybackTime === undefined) {
@@ -810,7 +842,7 @@ setInterval(() => {
         window.__seaxLastPlaybackTs = now;
       }
 
-      const timeAdvanced = currentTime > window.__seaxLastPlaybackTime + 0.01;
+      timeAdvanced = currentTime > window.__seaxLastPlaybackTime + 0.01;
       if (timeAdvanced) {
         window.__seaxLastPlaybackTime = currentTime;
         window.__seaxLastPlaybackTs = now;
@@ -830,11 +862,17 @@ setInterval(() => {
     } catch (e) {
       // Evitar ruido en consola
     }
-    const isPaused = video.paused;
-    if (isPaused !== window.lastVideoPausedState) {
-      window.lastVideoPausedState = isPaused;
-      console.log(`[PLAYBACK] Playback state: ${isPaused ? 'paused' : 'playing'}`);
-      ipcRenderer.send(isPaused ? 'video-paused' : 'video-playing');
+    const isUserPaused = !!window.__seaxUserPaused;
+    const isVideoPaused = video.paused;
+    const stalledMs = now - (window.__seaxLastPlaybackTs || now);
+    const isPlaybackFrozen = !timeAdvanced && stalledMs > 3000;
+    const shouldSendPaused = isVideoPaused && (isUserPaused || isPlaybackFrozen);
+    const nextState = shouldSendPaused ? 'paused' : 'playing';
+
+    if ((nextState === 'paused') !== window.lastVideoPausedState) {
+      window.lastVideoPausedState = nextState === 'paused';
+      console.log(`[PLAYBACK] Playback state: ${nextState}`);
+      ipcRenderer.send(nextState === 'paused' ? 'video-paused' : 'video-playing');
     }
   }
 }, 1000);
@@ -859,16 +897,18 @@ setInterval(() => {
 
   // ⭐ Título: buscar en h1.ytd-watch-metadata o yt-formatted-string con title
   let videoTitle = '';
-  const titleElement = document.querySelector('h1.ytd-watch-metadata yt-formatted-string') ||
+  const titleElement = document.querySelector('#title h1 yt-formatted-string') ||
                        document.querySelector('ytd-watch-metadata h1 yt-formatted-string') ||
-                       document.querySelector('h1 yt-formatted-string.ytd-watch-metadata');
+                       document.querySelector('h1.ytd-watch-metadata yt-formatted-string') ||
+                       document.querySelector('h1 yt-formatted-string#text');
   if (titleElement) {
     videoTitle = titleElement.getAttribute('title') || titleElement.textContent?.trim() || '';
   }
   // Fallback
   if (!videoTitle) {
-    videoTitle = document.querySelector('h1.title yt-formatted-string')?.textContent?.trim() ||
-                 document.querySelector('.title.ytd-video-primary-info-renderer')?.textContent?.trim() || '';
+    videoTitle = document.querySelector('#title yt-formatted-string')?.textContent?.trim() ||
+                 document.querySelector('ytd-video-primary-info-renderer h1 yt-formatted-string')?.textContent?.trim() ||
+                 document.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim() || '';
   }
   if (!videoTitle && document.title) {
     videoTitle = document.title.replace(' - YouTube', '').trim();
@@ -885,17 +925,19 @@ setInterval(() => {
     videoTitle = micro.title.simpleText;
   }
   
-  // ⭐ Artista/Canal: buscar en ytd-channel-name #text
+  // ⭐ Artista/Canal: usar el contenedor de upload-info y el canal actual
   let videoChannel = '';
-  const channelElement = document.querySelector('ytd-channel-name #text a') ||
-                         document.querySelector('ytd-channel-name #text yt-formatted-string a') ||
+  const channelElement = document.querySelector('#upload-info ytd-channel-name yt-formatted-string#text a') ||
+                         document.querySelector('#upload-info ytd-channel-name a') ||
+                         document.querySelector('ytd-channel-name #text a') ||
                          document.querySelector('ytd-channel-name yt-formatted-string#text a');
   if (channelElement) {
     videoChannel = channelElement.textContent?.trim() || '';
   }
-  // Fallback: usar el atributo title del contenedor
+  // Fallback: usar el atributo title o el contenido del contenedor
   if (!videoChannel) {
-    const channelContainer = document.querySelector('ytd-channel-name #text') ||
+    const channelContainer = document.querySelector('#upload-info ytd-channel-name yt-formatted-string#text') ||
+                             document.querySelector('ytd-channel-name #text') ||
                              document.querySelector('ytd-channel-name yt-formatted-string#text');
     if (channelContainer) {
       videoChannel = channelContainer.getAttribute('title') || channelContainer.textContent?.trim() || '';
@@ -955,7 +997,7 @@ setInterval(() => {
       nextVideoInfo = {
         videoId: nextVideoId,
         title: nextTitle,
-        thumbnail: nextPreview || (nextVideoId ? `https://i.ytimg.com/vi/${nextVideoId}/mqdefault.jpg` : ''),
+        thumbnail: getBestThumbnail(nextVideoId, nextPreview || (nextVideoId ? `https://i.ytimg.com/vi/${nextVideoId}/mqdefault.jpg` : '')),
         channel: ''
       };
     }
@@ -980,7 +1022,7 @@ setInterval(() => {
       prevVideoInfo = {
         videoId: prevVideoId,
         title: prevTitle.replace('Ver de nuevo', '').trim() || 'Anterior',
-        thumbnail: prevPreview || (prevVideoId ? `https://i.ytimg.com/vi/${prevVideoId}/mqdefault.jpg` : ''),
+        thumbnail: getBestThumbnail(prevVideoId, prevPreview || (prevVideoId ? `https://i.ytimg.com/vi/${prevVideoId}/mqdefault.jpg` : '')),
         channel: ''
       };
     }
@@ -994,7 +1036,7 @@ setInterval(() => {
       channel: videoChannel,
       channelAvatar: channelAvatar,
       duration: duration,
-      thumbnail: thumbUrl || (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : ''),
+      thumbnail: getBestThumbnail(videoId, thumbUrl || (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : '')),
       nextVideo: nextVideoInfo,
       prevVideo: prevVideoInfo
     });
