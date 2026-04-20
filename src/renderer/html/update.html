@@ -12,18 +12,46 @@
   <div class="update-launcher-modal">
     <aside class="update-sidebar">
       <div class="logo">
-        <img src="../assets/img/icon.png" alt="SeaxMusic Logo" width="45" height="45">
-        <span>SeaxMusic</span>
+        <img src="../assets/img/icon.png" alt="SeaxMusic Logo" width="48" height="48">
+        <div>
+          <span class="logo-title">SeaxMusic</span>
+          <span class="logo-subtitle">Actualización</span>
+        </div>
       </div>
       <div class="version-list" id="version-list"></div>
+      <div class="sidebar-note">Selecciona una versión en la lista para ver detalles y commits asociados.</div>
     </aside>
     <main class="update-content">
       <div class="content-scroll">
-        <h1 id="main-version-title">Versión</h1>
-        <div id="main-version-date" class="main-version-date"></div>
-        <div id="main-changelog" class="main-changelog"></div>
+        <header class="update-header">
+          <div>
+            <span class="update-badge">Actualización disponible</span>
+            <h1 id="main-version-title">Versión</h1>
+            <p id="main-version-date" class="main-version-date"></p>
+          </div>
+          <div class="version-stat">
+            <span id="commit-count" class="commit-count"></span>
+            <span id="release-source" class="release-source">GitHub Releases</span>
+            <a id="release-link" class="release-link" href="#" target="_blank" rel="noopener" hidden>Ver release</a>
+          </div>
+        </header>
+        <section class="changelog-card">
+          <div class="section-label">Notas de la versión</div>
+          <div id="main-changelog" class="main-changelog"></div>
+        </section>
+        <section class="commit-section" id="commit-section">
+          <div class="section-header">
+            <div>
+              <span class="section-label">Commits recientes</span>
+              <p class="section-subtitle">Cambios extraídos de GitHub para esta versión.</p>
+            </div>
+            <span id="commit-badge" class="commit-badge"></span>
+          </div>
+          <div class="commit-list" id="commit-list"></div>
+        </section>
       </div>
       <div class="update-actions-fixed">
+        <div class="action-help">La app se cerrará para aplicar la actualización.</div>
         <button id="later-btn" class="secondary">Más tarde</button>
         <button id="install-btn" class="primary">Actualizar ahora</button>
       </div>

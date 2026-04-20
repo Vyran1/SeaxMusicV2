@@ -11,6 +11,7 @@ class AppUpdater {
         this.updateWindow = null;
         this.mainWindow = null;
         this.pendingUpdateInfo = null;
+        this.enrichedCommits = [];
         this._minimizeMainHandler = null;
         this._restoreMainHandler = null;
         this._focusMainHandler = null;
@@ -155,7 +156,7 @@ class AppUpdater {
      * Obtener releases de GitHub
      */
     async fetchGitHubReleases() {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
         const options = {
             hostname: 'api.github.com',
             path: `/repos/${this.githubOwner}/${this.githubRepo}/releases`,
@@ -193,6 +194,112 @@ class AppUpdater {
             req.end();
         });
     }
+
+    getCleanTag(tag) {
+        if (!tag) return '';
+        return tag.toString().trim().replace(/^v/, '');
+    }
+
+    async fetchGitHubCommits(perPage = 10) {
+        return new Promise((resolve) => {
+            const options = {
+                hostname: 'api.github.com',
+                path: `/repos/${this.githubOwner}/${this.githubRepo}/commits?per_page=${perPage}`,
+                method: 'GET',
+                headers: {
+                    'User-Agent': 'SeaxMusic-Updater',
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            };
+
+            const req = https.request(options, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                    try {
+                        if (res.statusCode === 200) {
+                            const commits = JSON.parse(data);
+                            resolve(commits.map(c => ({
+                                sha: c.sha,
+                                message: c.commit.message.split('\n')[0],
+                                author: (c.commit.author && c.commit.author.name) || (c.author && c.author.login) || 'Desconocido',
+                                date: c.commit.author ? c.commit.author.date : '',
+                                url: c.html_url || (c.author && c.author.html_url) || ''
+                            })));
+                        } else {
+                            console.log('⚠️ GitHub commits responded with:', res.statusCode);
+                            resolve([]);
+                        }
+                    } catch (e) {
+                        console.error('❌ Error parseando commits:', e);
+                        resolve([]);
+                    }
+                });
+            });
+
+            req.on('error', (e) => {
+                console.error('❌ Error obteniendo commits de GitHub:', e);
+                resolve([]);
+            });
+
+            req.end();
+        });
+    }
+
+    async fetchReleaseCommits(currentVersion, latestTag) {
+        const current = this.getCleanTag(currentVersion);
+        const latest = this.getCleanTag(latestTag);
+        if (!latest) return [];
+
+        const compareFrom = current || 'main';
+        const compareTo = latest;
+        const comparePath = `/repos/${this.githubOwner}/${this.githubRepo}/compare/${compareFrom}...${compareTo}`;
+        const options = {
+            hostname: 'api.github.com',
+            path: comparePath,
+            method: 'GET',
+            headers: {
+                'User-Agent': 'SeaxMusic-Updater',
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        };
+
+        return new Promise((resolve) => {
+            const req = https.request(options, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', async () => {
+                    try {
+                        if (res.statusCode === 200) {
+                            const result = JSON.parse(data);
+                            if (Array.isArray(result.commits) && result.commits.length > 0) {
+                                resolve(result.commits.map(c => ({
+                                    sha: c.sha,
+                                    message: c.commit.message.split('\n')[0],
+                                    author: (c.commit.author && c.commit.author.name) || (c.author && c.author.login) || 'Desconocido',
+                                    date: c.commit.author ? c.commit.author.date : '',
+                                    url: c.html_url || ''
+                                })));
+                                return;
+                            }
+                        }
+                        // Fallback: obtener commits recientes si compare falla
+                        resolve(await this.fetchGitHubCommits(10));
+                    } catch (e) {
+                        console.error('❌ Error parseando compare commits:', e);
+                        resolve(await this.fetchGitHubCommits(10));
+                    }
+                });
+            });
+
+            req.on('error', async (e) => {
+                console.error('❌ Error comparando versiones en GitHub:', e);
+                resolve(await this.fetchGitHubCommits(10));
+            });
+
+            req.end();
+        });
+    }
     
     /**
      * Formatear releases de GitHub para el modal
@@ -206,7 +313,8 @@ class AppUpdater {
             .map(r => ({
                 version: r.tag_name.replace(/^v/, ''),
                 notes: r.body || 'Sin notas de versión',
-                date: r.published_at ? r.published_at.split('T')[0] : ''
+                date: r.published_at ? r.published_at.split('T')[0] : '',
+                releaseUrl: r.html_url || `https://github.com/${this.githubOwner}/${this.githubRepo}/releases/tag/${r.tag_name}`
             }))
             .sort((a, b) => this.isVersionGreater(a.version, b.version) ? -1 : 1);
     }
@@ -237,6 +345,8 @@ class AppUpdater {
                 version: info.version,
                 releaseNotes: info.releaseNotes,
                 releaseDate: info.releaseDate,
+                releaseUrl: info.releaseUrl || `https://github.com/${this.githubOwner}/${this.githubRepo}/releases/tag/v${info.version}`,
+                commitList: info.commitList || [],
                 timestamp: new Date().toISOString()
             };
             fs.writeFileSync(this.updateInfoPath, JSON.stringify(saveData, null, 2), 'utf8');
@@ -273,13 +383,20 @@ class AppUpdater {
             if (this.isVersionGreater(pending.version, currentVersion)) {
                 console.log('🔔 Mostrando actualización pendiente:', pending.version, '> actual:', currentVersion);
                 
-                // Si no tiene releaseNotes formateados, obtenerlos de GitHub
-                if (!pending.releaseNotes || (Array.isArray(pending.releaseNotes) && pending.releaseNotes.length === 0)) {
+                if ((!pending.releaseNotes || (Array.isArray(pending.releaseNotes) && pending.releaseNotes.length === 0))) {
                     const releases = await this.fetchGitHubReleases();
                     const formattedReleases = this.formatReleasesForModal(releases, currentVersion);
                     if (formattedReleases.length > 0) {
                         pending.releaseNotes = formattedReleases;
                     }
+                }
+
+                if (!pending.releaseUrl) {
+                    pending.releaseUrl = `https://github.com/${this.githubOwner}/${this.githubRepo}/releases/tag/v${pending.version}`;
+                }
+
+                if (!Array.isArray(pending.commitList) || pending.commitList.length === 0) {
+                    pending.commitList = await this.fetchReleaseCommits(currentVersion, pending.version);
                 }
                 
                 setTimeout(() => {
@@ -363,7 +480,9 @@ class AppUpdater {
             const enrichedInfo = {
                 ...info,
                 releaseNotes: formattedReleases.length > 0 ? formattedReleases : info.releaseNotes,
-                releaseDate: info.releaseDate || new Date().toISOString()
+                releaseDate: info.releaseDate || new Date().toISOString(),
+                releaseUrl: info.releaseUrl || `https://github.com/${this.githubOwner}/${this.githubRepo}/releases/tag/v${info.version}`,
+                commitList: Array.isArray(info.commitList) && info.commitList.length > 0 ? info.commitList : (this.enrichedCommits || [])
             };
             
             // Guardar como pendiente
@@ -432,8 +551,12 @@ class AppUpdater {
             }
             
             log(`🆕 Nueva versión disponible: ${latestVersion}`);
-            log('⏳ Iniciando descarga con electron-updater...');
+            log('⏳ Recopilando commits y notas antes de descargar...');
             
+            this.enrichedCommits = await this.fetchReleaseCommits(currentVersion, latestVersion);
+            log(`📝 Commits encontrados: ${this.enrichedCommits.length}`);
+            
+            log('⏳ Iniciando descarga con electron-updater...');
             autoUpdater.checkForUpdatesAndNotify()
                 .then(result => {
                     log('📩 electron-updater Promise resuelta');
@@ -557,7 +680,9 @@ class AppUpdater {
                 currentVersion: app.getVersion(),
                 version: info.version,
                 releaseNotes: info.releaseNotes,
-                releaseDate: info.releaseDate || new Date().toISOString()
+                releaseDate: info.releaseDate || new Date().toISOString(),
+                releaseUrl: info.releaseUrl || `https://github.com/${this.githubOwner}/${this.githubRepo}/releases/tag/v${info.version}`,
+                commitList: info.commitList || []
             };
             if (this.updateWindow && !this.updateWindow.isDestroyed()) {
                 this.updateWindow.webContents.send('update-info', updateData);
