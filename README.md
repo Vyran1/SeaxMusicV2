@@ -31,19 +31,39 @@ npm run dev
 
 ```
 SeaxMusicV2/
+├── docs/                    # Documentación y notas del proyecto
+│   └── Comandosupdate.md
 ├── src/
 │   ├── main/                 # Proceso principal de Electron
-│   │   └── main.js           # Ventanas, IPC, backend y lógica de app
-│   ├── renderer/             # Interfaz de usuario
-│   │   ├── index.html        # Pantalla principal
-│   │   ├── css/              # Estilos de la app
-│   │   └── js/               # Lógica de UI y reproductor
-│   ├── backend/              # Plantillas de backend oculto para YouTube
-│   │   ├── youtube-player.html
-│   │   └── youtube-player.js
-│   └── preload/              # Scripts seguros para IPC
-│       ├── preload.js
-│       └── backend-preload.js
+│   │   ├── main.js           # Ventanas, IPC y lógica principal
+│   │   └── services/         # Servicios específicos del main process
+│   │       ├── autoUpdater.js
+│   │       └── discordRPC.js
+│   ├── preload/              # Scripts seguros para IPC
+│   │   ├── preload.js
+│   │   └── scripts/          # Preload scripts especializados
+│   │       ├── backend-preload.js
+│   │       ├── login-preload.js
+│   │       ├── pip-preload.js
+│   │       ├── aux-preload.js
+│   │       ├── updatePreload.js
+│   │       └── youtube-content.js
+│   └── renderer/             # Interfaz de usuario
+│       ├── index.html        # Pantalla principal
+│       ├── css/              # Estilos de la app
+│       │   └── styles.css
+│       ├── html/             # Plantillas y vistas secundarias
+│       │   ├── profile.html
+│       │   └── update.html
+│       └── js/               # Lógica de renderer segmentada
+│           ├── core/         # Núcleo de reproducción y UI
+│           │   ├── app.js
+│           │   ├── player.js
+│           │   └── ui.js
+│           └── pages/        # Scripts por página / sección
+│               ├── auth.js
+│               ├── profile.js
+│               └── update.js
 ├── build/                    # Recursos de build y configuración de empaquetado
 ├── package.json              # Configuración del proyecto
 └── README.md                 # Documentación del proyecto

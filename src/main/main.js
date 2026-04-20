@@ -2,8 +2,8 @@ const { app, BrowserWindow, ipcMain, session, powerSaveBlocker } = require('elec
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const discordRPC = require('./discordRPC');
-const AppUpdater = require('./autoUpdater');
+const discordRPC = require('./services/discordRPC');
+const AppUpdater = require('./services/autoUpdater');
 
 // Evitar throttling en segundo plano (audio estable)
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
@@ -255,7 +255,7 @@ function createBackendWindow(id) {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, '../preload/backend-preload.js'),
+      preload: path.join(__dirname, '../preload/scripts/backend-preload.js'),
       partition: 'persist:youtube', // ⭐ CORRECCIÓN: Usar partition
       backgroundThrottling: false
     }
@@ -283,8 +283,8 @@ function createBackendWindow(id) {
 function createYouTubeWindow(isLoginWindow = false) {
   // ⭐ Elegir el preload correcto según el tipo de ventana
   const preloadPath = isLoginWindow 
-    ? path.join(__dirname, '../preload/login-preload.js')    // Login: solo detecta login
-    : path.join(__dirname, '../preload/backend-preload.js'); // Player: controles de video
+    ? path.join(__dirname, '../preload/scripts/login-preload.js')    // Login: solo detecta login
+    : path.join(__dirname, '../preload/scripts/backend-preload.js'); // Player: controles de video
   
   const windowConfig = {
     width: isLoginWindow ? 500 : 1280,
@@ -336,7 +336,7 @@ function createPipWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, '../preload/pip-preload.js')
+      preload: path.join(__dirname, '../preload/scripts/pip-preload.js')
     }
   });
 
@@ -1153,7 +1153,7 @@ function createAuxYoutubeWindow() {
       contextIsolation: true,
       // ⭐ IMPORTANTE: Usar preload ESPECÍFICO para ventana auxiliar
       // NO usar backend-preload.js porque envía eventos de video-info
-      preload: path.join(__dirname, '../preload/aux-preload.js'),
+      preload: path.join(__dirname, '../preload/scripts/aux-preload.js'),
       backgroundThrottling: false
     }
   });
@@ -2955,7 +2955,7 @@ ipcMain.handle('open-youtube-login-window', async () => {
         contextIsolation: true,
         // ⭐ IMPORTANTE: Usar preload ESPECÍFICO para login
         // NO usar backend-preload.js porque envía eventos de video-info
-        preload: path.join(__dirname, '../preload/login-preload.js'),
+        preload: path.join(__dirname, '../preload/scripts/login-preload.js'),
         partition: 'persist:youtube', // ⭐ Misma partition = misma sesión
         backgroundThrottling: false
       },

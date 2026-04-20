@@ -621,7 +621,7 @@ class AppUpdater {
             webPreferences: {
                 nodeIntegration: false,
                 contextIsolation: true,
-                preload: require('path').join(__dirname, '../preload/scripts/updatePreload.js')
+                preload: require('path').join(__dirname, '../../preload/scripts/updatePreload.js')
             }
         });
 
