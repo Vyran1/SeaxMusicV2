@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=900, initial-scale=1.0">
   <title>Actualización disponible</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Outfit:wght@500;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/update.css">
 </head>
 <body>
@@ -20,43 +20,34 @@
         </div>
       </div>
       <div class="version-list" id="version-list">
-        <!-- Cargando versiones... -->
+        <!-- JS inyectará aquí -->
       </div>
-      <div class="sidebar-note">Explora los cambios y mejoras de esta nueva versión.</div>
+      <div class="sidebar-note">Mejorando tu experiencia musical con cada versión.</div>
     </aside>
     <main class="update-content">
       <div class="content-scroll">
         <header class="update-header">
-          <div>
-            <span class="update-badge">Nueva versión lista</span>
-            <h1 id="main-version-title">Cargando...</h1>
-            <p id="main-version-date" class="main-version-date"></p>
-          </div>
-          <div class="version-stat">
-            <span id="commit-count" class="commit-count">--</span>
-            <span id="release-source" class="release-source">GitHub Official Release</span>
-            <a id="release-link" class="release-link" href="#" target="_blank" rel="noopener" hidden>Ver en GitHub</a>
-          </div>
+          <span class="update-badge">Nueva versión disponible</span>
+          <h1 id="main-version-title">v2.3.0</h1>
+          <p id="main-version-date" class="main-version-date"></p>
         </header>
+        
         <section class="changelog-card">
           <span class="section-label">Notas de la versión</span>
           <div id="main-changelog" class="main-changelog">
-            <p>Obteniendo detalles de la actualización...</p>
+            Cargando notas...
           </div>
         </section>
-        <section class="commit-section" id="commit-section">
-          <div class="section-header">
-            <div>
-              <span class="section-label">Historial de cambios</span>
-            </div>
-            <span id="commit-badge" class="commit-badge"></span>
-          </div>
+
+        <section class="commit-section">
+          <span class="section-label">Cambios recientes</span>
           <div class="commit-list" id="commit-list"></div>
         </section>
       </div>
+
       <div class="update-actions-fixed">
-        <div class="action-help">Se requiere reiniciar para aplicar los cambios.</div>
-        <button id="later-btn" class="secondary">Quizás luego</button>
+        <span id="commit-count" class="action-help">Calculando cambios...</span>
+        <button id="later-btn" class="secondary">Más tarde</button>
         <button id="install-btn" class="primary">Actualizar ahora</button>
       </div>
     </main>

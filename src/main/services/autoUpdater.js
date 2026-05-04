@@ -662,7 +662,7 @@ class AppUpdater {
         };
         this.mainWindow.on('focus', this._focusMainHandler);
 
-        this.updateWindow.loadFile(require('path').join(__dirname, '../renderer/html/update.html'));
+        this.updateWindow.loadFile(require('path').join(__dirname, '../../renderer/html/update.html'));
 
         this.updateWindow.once('ready-to-show', () => {
             this.updateWindow.show();
