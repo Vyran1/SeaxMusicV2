@@ -1,0 +1,93 @@
+/* Reset and base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  width: 100%;
+}
+
+/* ===== ESTILOS GLOBALES PREMIUM PARA IMÁGENES ===== */
+/* Eliminar bordes negros de YouTube - TODAS las imágenes cuadradas con cover */
+
+/* Todos los contenedores de imágenes DEBEN ser cuadrados con estilo premium */
+.card-image,
+.library-card-image,
+.chart-thumbnail,
+.track-image-container,
+.carousel-item-image,
+.search-result-card .card-image,
+.music-card .card-image,
+.recent-card .card-image {
+  aspect-ratio: 1 / 1 !important;
+  overflow: hidden !important;
+  position: relative !important;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* ⭐ TODAS las imágenes de música: recorte cuadrado premium SIN bordes negros */
+img[src*="youtube.com/vi"],
+img[src*="ytimg.com"],
+img[src*="i.ytimg.com"],
+img[src*="img.youtube.com"],
+.card-img,
+.card-image img,
+.library-card-image img,
+.list-item-image img,
+.carousel-cover,
+.chart-thumbnail img,
+.search-result-card .card-img,
+.search-result-card img,
+.music-card .card-img,
+.music-card img,
+.library-card img,
+.recent-card img,
+.history-item img,
+.queue-item img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+  /* ⭐ ZOOM 35% para eliminar bordes negros de YouTube */
+  transform: scale(1.35);
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Efecto hover en imágenes - zoom extra */
+.music-card:hover .card-img,
+.music-card:hover img,
+.library-card:hover img,
+.search-result-card:hover .card-img {
+  transform: scale(1.45);
+}
+
+/* Track image del player bar - tamaño fijo SIN zoom */
+.player-bar .track-image {
+  width: 56px !important;
+  height: 56px !important;
+  min-width: 56px !important;
+  flex-shrink: 0 !important;
+  object-fit: cover;
+  object-position: center center;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  /* ⭐ Sin zoom - ya está bien encuadrada */
+  transform: scale(1) !important;
+}

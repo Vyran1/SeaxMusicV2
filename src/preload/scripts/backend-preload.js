@@ -17,7 +17,7 @@ try {
       webkitVisibilityState: { get: () => 'visible' }
     };
     for (const key of Object.keys(props)) {
-      try { Object.defineProperty(doc, key, props[key]); } catch (e) {}
+      try { Object.defineProperty(doc, key, props[key]); } catch (e) { }
     }
   };
 
@@ -25,13 +25,13 @@ try {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && !window.__seaxUserPaused) {
       const v = document.querySelector('video');
-      v?.play?.().catch(() => {});
+      v?.play?.().catch(() => { });
     }
   });
-} catch (e) {}
+} catch (e) { }
 
 // ===== BLOQUEADOR DE ANUNCIOS DE YOUTUBE (basado en kananinirav/Youtube-AdBlocker) =====
-(function() {
+(function () {
   const debugMessages = false;
   let isAdFound = false;
   let adLoop = 0;
@@ -77,7 +77,7 @@ try {
         // Método 2: Speed skip - acelerar y saltar al final
         const skipButtons = [
           'ytp-ad-skip-button-container',
-          'ytp-ad-skip-button-modern', 
+          'ytp-ad-skip-button-modern',
           '.videoAdUiSkipButton',
           '.ytp-ad-skip-button',
           '.ytp-ad-skip-button-slot',
@@ -97,7 +97,7 @@ try {
           if (video.duration) {
             video.currentTime = video.duration + 0.1;
           }
-          
+
           video.play();
           log('Anuncio saltado ✔️');
         }
@@ -343,22 +343,22 @@ contextBridge.exposeInMainWorld('youtubeAPI', {
   notifyLogin: (userInfo) => {
     ipcRenderer.send('youtube-login-success', userInfo);
   },
-  
+
   notifyLogout: (logoutInfo) => {
     ipcRenderer.send('youtube-logout-success', logoutInfo);
   },
-  
+
   // Obtener el estado actual de login
   getLoginStatus: () => {
     return isLoggedIn;
   },
-  
+
   onMessage: (callback) => {
     ipcRenderer.on('message-from-app', (event, data) => {
       callback(data);
     });
   },
-  
+
   log: (message) => {
     console.log('[YouTube]', message);
   }
@@ -368,7 +368,7 @@ contextBridge.exposeInMainWorld('youtubeAPI', {
 // Función para extraer videos de la página actual
 function extractVideosFromPage(maxCount = 10) {
   const videos = [];
-  
+
   // Selectores para videos en YouTube
   const videoSelectors = [
     'ytd-rich-item-renderer',           // Home page
@@ -376,42 +376,42 @@ function extractVideosFromPage(maxCount = 10) {
     'ytd-compact-video-renderer',       // Sidebar
     'ytd-grid-video-renderer'           // Grids
   ];
-  
+
   for (const selector of videoSelectors) {
     const videoElements = document.querySelectorAll(selector);
-    
+
     for (const el of videoElements) {
       if (videos.length >= maxCount) break;
-      
+
       try {
         // Extraer título
         const titleEl = el.querySelector('#video-title, #video-title-link, a#video-title');
         const title = titleEl?.textContent?.trim() || titleEl?.getAttribute('title') || '';
-        
+
         // Extraer URL del video
         const linkEl = el.querySelector('a#thumbnail, a#video-title-link, a#video-title');
         const href = linkEl?.getAttribute('href') || '';
-        
+
         // Extraer video ID
         const videoIdMatch = href.match(/(?:v=|shorts\/)([a-zA-Z0-9_-]{11})/);
         const videoId = videoIdMatch ? videoIdMatch[1] : null;
-        
+
         // Extraer thumbnail
         const thumbEl = el.querySelector('img#img, img.yt-core-image');
         const thumbnail = thumbEl?.src || (videoId ? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg` : '');
-        
+
         // Extraer canal
         const channelEl = el.querySelector('#channel-name a, #text-container yt-formatted-string a, ytd-channel-name a');
         const channel = channelEl?.textContent?.trim() || '';
-        
+
         // Extraer duración
         const durationEl = el.querySelector('span.ytd-thumbnail-overlay-time-status-renderer, #time-status span');
         const duration = durationEl?.textContent?.trim() || '';
-        
+
         // Extraer vistas
         const viewsEl = el.querySelector('#metadata-line span:first-child, span.ytd-video-meta-block');
         const views = viewsEl?.textContent?.trim() || '';
-        
+
         if (title && videoId && !videos.some(v => v.videoId === videoId)) {
           videos.push({
             title,
@@ -427,10 +427,10 @@ function extractVideosFromPage(maxCount = 10) {
         console.error('[EXTRACT] Error extrayendo video:', e);
       }
     }
-    
+
     if (videos.length >= maxCount) break;
   }
-  
+
   return videos;
 }
 
@@ -456,7 +456,7 @@ ipcRenderer.on('youtube-control', (event, action, value) => {
   // ⭐ ESPERAR a que el video element esté disponible si no existe aún
   const findVideoElement = () => {
     let video = document.querySelector('video');
-    
+
     if (!video) {
       // Si no existe video element, buscar en iframes (YouTube podría usar iframes)
       const iframes = document.querySelectorAll('iframe');
@@ -470,16 +470,17 @@ ipcRenderer.on('youtube-control', (event, action, value) => {
         }
       }
     }
-    
+
     if (!video) {
-      console.warn('⚠️ Video element not found yet, retrying...');
-      // Reintentar en 100ms
-      setTimeout(() => ipcRenderer.send('retry-youtube-control', { action, value }), 100);
+      // Ignorar controles de volumen si no hay video para evitar logs masivos
+      if (action !== 'volume' && action !== 'seek') {
+        console.warn(`⚠️ Video element not found for action ${action}`);
+      }
       return null;
     }
     return video;
   };
-  
+
   const video = findVideoElement();
   if (!video) {
     return;
@@ -606,6 +607,60 @@ function attachVolumeObserver() {
   }
 }
 
+// ===== REAL-TIME AUDIO VISUALIZER =====
+let seaxAudioCtx = null;
+let seaxAnalyser = null;
+let seaxAudioSource = null;
+let seaxDataArray = null;
+let seaxVisualizerInterval = null;
+
+function setupAudioVisualizer(video) {
+  if (!video || video._seaxAudioVisualizerAttached) return;
+  video._seaxAudioVisualizerAttached = true;
+
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    
+    seaxAudioCtx = new AudioContext();
+    seaxAnalyser = seaxAudioCtx.createAnalyser();
+    seaxAnalyser.fftSize = 64;
+    
+    seaxAudioSource = seaxAudioCtx.createMediaElementSource(video);
+    seaxAudioSource.connect(seaxAnalyser);
+    seaxAnalyser.connect(seaxAudioCtx.destination);
+    
+    seaxDataArray = new Uint8Array(seaxAnalyser.frequencyBinCount);
+    
+    seaxVisualizerInterval = setInterval(() => {
+      if (video.paused || !seaxAnalyser) return;
+      
+      seaxAnalyser.getByteFrequencyData(seaxDataArray);
+      
+      const simplifiedData = [];
+      const step = Math.floor(seaxDataArray.length / 12);
+      for (let i = 0; i < 12; i++) {
+        let sum = 0;
+        for (let j = 0; j < step; j++) {
+          sum += seaxDataArray[i * step + j];
+        }
+        simplifiedData.push(Math.round(sum / step));
+      }
+      
+      // Solo enviar si hay datos para no saturar
+      let sum = 0;
+      for (let i = 0; i < simplifiedData.length; i++) sum += simplifiedData[i];
+      if (sum > 0) {
+        ipcRenderer.send('audio-frequency-data', simplifiedData);
+      }
+    }, 60);
+    
+    console.log('[SeaxMusic] 🎛️ Real-time audio visualizer connected');
+  } catch (e) {
+    console.log('[SeaxMusic] Visualizador de audio CORS-blocked o error:', e.message);
+  }
+}
+
 function attachPlaybackListeners(video) {
   if (!video || video._seaxPlaybackListenersAttached) return;
   video._seaxPlaybackListenersAttached = true;
@@ -625,6 +680,13 @@ function attachPlaybackListeners(video) {
     if (window.lastVideoPausedState !== false) {
       window.lastVideoPausedState = false;
       ipcRenderer.send('video-playing');
+    }
+    
+    // Iniciar o resumir visualizador de audio
+    if (!video._seaxAudioVisualizerAttached) {
+      setupAudioVisualizer(video);
+    } else if (seaxAudioCtx && seaxAudioCtx.state === 'suspended') {
+      seaxAudioCtx.resume();
     }
   });
 }
@@ -659,21 +721,21 @@ let repeatCooldown = false;
 function repeatCurrentVideo() {
   const video = document.querySelector('video');
   if (!video) return;
-  
+
   const now = Date.now();
   // Cooldown de 2 segundos para evitar triggers múltiples
   if (now - lastRepeatTriggered < 2000) {
     console.log('[REPEAT] Cooldown activo, ignorando...');
     return;
   }
-  
+
   lastRepeatTriggered = now;
   console.log('[REPEAT] 🔁 Repitiendo canción...');
-  
+
   // Método robusto: seek + play con múltiples intentos
   video.currentTime = 0;
   video.pause();
-  
+
   setTimeout(() => {
     video.currentTime = 0;
     video.play().then(() => {
@@ -696,30 +758,30 @@ setInterval(() => {
       currentTime: video.currentTime,
       duration: video.duration
     });
-    
+
     // ⭐ DETECCIÓN ROBUSTA DE FIN DE VIDEO
     const timeRemaining = video.duration - video.currentTime;
     const isNearEnd = timeRemaining < 0.5 && timeRemaining >= 0;
     const isAtEnd = video.ended || (video.currentTime >= video.duration - 0.1);
-    
+
     if ((isNearEnd || isAtEnd) && !videoEndedNotified && !repeatCooldown) {
       videoEndedNotified = true;
       repeatCooldown = true;
-      
+
       console.log('[VIDEO] 🏁 Video terminado - Repeat mode:', repeatMode);
-      
+
       if (repeatMode === 'one') {
         repeatCurrentVideo();
       } else {
         ipcRenderer.send('video-ended');
       }
-      
+
       // Reset cooldown después de 3 segundos
       setTimeout(() => {
         repeatCooldown = false;
       }, 3000);
     }
-    
+
     // Resetear flag cuando el video está en progreso (más del 5% y menos del 95%)
     if (video.currentTime > video.duration * 0.05 && video.currentTime < video.duration * 0.95) {
       videoEndedNotified = false;
@@ -733,10 +795,10 @@ setTimeout(() => {
     const video = document.querySelector('video');
     if (video && !video._seaxEndListenerAdded) {
       video._seaxEndListenerAdded = true;
-      
+
       video.addEventListener('ended', () => {
         console.log('[VIDEO] Evento ended disparado - Repeat mode:', repeatMode);
-        
+
         if (repeatMode === 'one' && !repeatCooldown) {
           repeatCooldown = true;
           repeatCurrentVideo();
@@ -746,7 +808,7 @@ setTimeout(() => {
           ipcRenderer.send('video-ended');
         }
       });
-      
+
       // También escuchar pause al final del video
       video.addEventListener('pause', () => {
         if (video.currentTime >= video.duration - 0.5 && repeatMode === 'one' && !repeatCooldown) {
@@ -758,11 +820,11 @@ setTimeout(() => {
           }, 100);
         }
       });
-      
+
       console.log('[PRELOAD] ✅ Listeners de video configurados');
     }
   };
-  
+
   // Configurar inmediatamente y también observar cambios
   setupVideoEndListener();
   setInterval(setupVideoEndListener, 2000);
@@ -775,11 +837,11 @@ let lastVideoUrl = '';
 function isLoginUrl(url) {
   if (!url) return false;
   return url.includes('accounts.google.com') ||
-         url.includes('signin') ||
-         url.includes('ServiceLogin') ||
-         url.includes('Logout') ||
-         url.includes('login') ||
-         url.includes('auth');
+    url.includes('signin') ||
+    url.includes('ServiceLogin') ||
+    url.includes('Logout') ||
+    url.includes('login') ||
+    url.includes('auth');
 }
 
 setInterval(() => {
@@ -856,7 +918,7 @@ setInterval(() => {
         const lastRecover = window.__seaxLastRecoverTs || 0;
         if (now - lastRecover > 10000) {
           window.__seaxLastRecoverTs = now;
-          video.play().catch(() => {});
+          video.play().catch(() => { });
         }
       }
     } catch (e) {
@@ -880,7 +942,7 @@ setInterval(() => {
 // ===== DETECTAR INFORMACIÓN DEL VIDEO CADA SEGUNDO =====
 setInterval(() => {
   const video = document.querySelector('video');
-  
+
   let thumbUrl = '';
   let playerResponse = null;
   try {
@@ -890,7 +952,7 @@ setInterval(() => {
       const raw = window.ytplayer.config.args.player_response;
       playerResponse = typeof raw === 'string' ? JSON.parse(raw) : raw;
     }
-  } catch (e) {}
+  } catch (e) { }
 
   const videoDetails = playerResponse?.videoDetails;
   const micro = playerResponse?.microformat?.playerMicroformatRenderer;
@@ -898,24 +960,24 @@ setInterval(() => {
   // ⭐ Título: buscar en h1.ytd-watch-metadata o yt-formatted-string con title
   let videoTitle = '';
   const titleElement = document.querySelector('#title h1 yt-formatted-string') ||
-                       document.querySelector('ytd-watch-metadata h1 yt-formatted-string') ||
-                       document.querySelector('h1.ytd-watch-metadata yt-formatted-string') ||
-                       document.querySelector('h1 yt-formatted-string#text');
+    document.querySelector('ytd-watch-metadata h1 yt-formatted-string') ||
+    document.querySelector('h1.ytd-watch-metadata yt-formatted-string') ||
+    document.querySelector('h1 yt-formatted-string#text');
   if (titleElement) {
     videoTitle = titleElement.getAttribute('title') || titleElement.textContent?.trim() || '';
   }
   // Fallback
   if (!videoTitle) {
     videoTitle = document.querySelector('#title yt-formatted-string')?.textContent?.trim() ||
-                 document.querySelector('ytd-video-primary-info-renderer h1 yt-formatted-string')?.textContent?.trim() ||
-                 document.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim() || '';
+      document.querySelector('ytd-video-primary-info-renderer h1 yt-formatted-string')?.textContent?.trim() ||
+      document.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim() || '';
   }
   if (!videoTitle && document.title) {
     videoTitle = document.title.replace(' - YouTube', '').trim();
   }
   if (!videoTitle) {
     const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
-                   document.querySelector('meta[itemprop="name"]')?.getAttribute('content');
+      document.querySelector('meta[itemprop="name"]')?.getAttribute('content');
     if (ogTitle) videoTitle = ogTitle.trim();
   }
   if (!videoTitle && videoDetails?.title) {
@@ -924,28 +986,28 @@ setInterval(() => {
   if (!videoTitle && micro?.title?.simpleText) {
     videoTitle = micro.title.simpleText;
   }
-  
+
   // ⭐ Artista/Canal: usar el contenedor de upload-info y el canal actual
   let videoChannel = '';
   const channelElement = document.querySelector('#upload-info ytd-channel-name yt-formatted-string#text a') ||
-                         document.querySelector('#upload-info ytd-channel-name a') ||
-                         document.querySelector('ytd-channel-name #text a') ||
-                         document.querySelector('ytd-channel-name yt-formatted-string#text a');
+    document.querySelector('#upload-info ytd-channel-name a') ||
+    document.querySelector('ytd-channel-name #text a') ||
+    document.querySelector('ytd-channel-name yt-formatted-string#text a');
   if (channelElement) {
     videoChannel = channelElement.textContent?.trim() || '';
   }
   // Fallback: usar el atributo title o el contenido del contenedor
   if (!videoChannel) {
     const channelContainer = document.querySelector('#upload-info ytd-channel-name yt-formatted-string#text') ||
-                             document.querySelector('ytd-channel-name #text') ||
-                             document.querySelector('ytd-channel-name yt-formatted-string#text');
+      document.querySelector('ytd-channel-name #text') ||
+      document.querySelector('ytd-channel-name yt-formatted-string#text');
     if (channelContainer) {
       videoChannel = channelContainer.getAttribute('title') || channelContainer.textContent?.trim() || '';
     }
   }
   if (!videoChannel) {
     const metaAuthor = document.querySelector('meta[name="author"]')?.getAttribute('content') ||
-                      document.querySelector('meta[itemprop="author"]')?.getAttribute('content');
+      document.querySelector('meta[itemprop="author"]')?.getAttribute('content');
     if (metaAuthor) {
       videoChannel = metaAuthor.trim();
     }
@@ -956,14 +1018,14 @@ setInterval(() => {
   if (!videoChannel && micro?.ownerChannelName) {
     videoChannel = micro.ownerChannelName;
   }
-  
+
   // Extraer avatar del canal
   const channelAvatar = document.querySelector('ytd-video-owner-renderer #avatar img')?.src ||
-                       document.querySelector('#owner #avatar img')?.src ||
-                       document.querySelector('yt-img-shadow#avatar img')?.src || '';
-  
+    document.querySelector('#owner #avatar img')?.src ||
+    document.querySelector('yt-img-shadow#avatar img')?.src || '';
+
   const duration = video ? Math.floor(video.duration) : 0;
-  
+
   // ⭐ Extraer videoId de la URL
   const urlParams = new URLSearchParams(window.location.search);
   let videoId = urlParams.get('v') || '';
@@ -976,7 +1038,7 @@ setInterval(() => {
   } else if (micro?.thumbnail?.thumbnails?.length) {
     thumbUrl = micro.thumbnail.thumbnails.slice(-1)[0]?.url || '';
   }
-  
+
   // ⭐ Extraer información del siguiente video desde ytp-next-button
   let nextVideoInfo = null;
   const nextButton = document.querySelector('.ytp-next-button');
@@ -984,15 +1046,15 @@ setInterval(() => {
     const nextPreview = nextButton.getAttribute('data-preview') || '';
     const nextTitle = nextButton.getAttribute('data-tooltip-text') || '';
     const nextHref = nextButton.getAttribute('href') || '';
-    
+
     // Extraer videoId del href o data-preview
     let nextVideoId = '';
     const hrefMatch = nextHref.match(/v=([a-zA-Z0-9_-]{11})/);
     const previewMatch = nextPreview.match(/\/vi\/([a-zA-Z0-9_-]{11})\//);
-    
+
     if (hrefMatch) nextVideoId = hrefMatch[1];
     else if (previewMatch) nextVideoId = previewMatch[1];
-    
+
     if (nextVideoId || nextTitle) {
       nextVideoInfo = {
         videoId: nextVideoId,
@@ -1002,7 +1064,7 @@ setInterval(() => {
       };
     }
   }
-  
+
   // ⭐ Extraer información del video anterior desde ytp-prev-button
   let prevVideoInfo = null;
   const prevButton = document.querySelector('.ytp-prev-button');
@@ -1010,14 +1072,14 @@ setInterval(() => {
     const prevTitle = prevButton.getAttribute('title') || prevButton.getAttribute('data-tooltip-text') || '';
     const prevHref = prevButton.getAttribute('href') || '';
     const prevPreview = prevButton.getAttribute('data-preview') || '';
-    
+
     let prevVideoId = '';
     const hrefMatch = prevHref.match(/v=([a-zA-Z0-9_-]{11})/);
     const previewMatch = prevPreview.match(/\/vi\/([a-zA-Z0-9_-]{11})\//);
-    
+
     if (hrefMatch) prevVideoId = hrefMatch[1];
     else if (previewMatch) prevVideoId = previewMatch[1];
-    
+
     if (prevVideoId || prevTitle) {
       prevVideoInfo = {
         videoId: prevVideoId,
@@ -1058,7 +1120,7 @@ class YouTubeAdBlocker {
     this.isInAdMode = false;
     this.checkInterval = null;
     this.observerSetup = false;
-    
+
     // Selectores de YouTube para anuncios
     this.selectors = {
       // Botones de saltar anuncio
@@ -1072,7 +1134,7 @@ class YouTubeAdBlocker {
         '.videoAdUiSkipButton',
         '.ytp-ad-skip-button-slot button'
       ],
-      
+
       // Indicadores de anuncio reproduciéndose
       adPlaying: [
         '.ad-showing',
@@ -1081,7 +1143,7 @@ class YouTubeAdBlocker {
         '.ytp-ad-module',
         '[class*="ad-interrupting"]'
       ],
-      
+
       // Overlays y banners
       adOverlays: [
         '.ytp-ad-overlay-container',
@@ -1103,7 +1165,7 @@ class YouTubeAdBlocker {
         'ytd-movie-offer-module-renderer',
         '.masthead-ad-control'
       ],
-      
+
       // Contenedores de anuncios de video
       videoAdContainers: [
         '.ytp-ad-player-overlay-instream-info',
@@ -1111,7 +1173,7 @@ class YouTubeAdBlocker {
         '.ytp-ad-preview-container',
         '.ytp-ad-message-container'
       ],
-      
+
       // Botón de cerrar overlay
       closeButtons: [
         '.ytp-ad-overlay-close-button',
@@ -1120,7 +1182,7 @@ class YouTubeAdBlocker {
         '[aria-label="Cerrar"]'
       ]
     };
-    
+
     console.log('🛡️ [AD-BLOCKER] Sistema de bloqueo de anuncios inicializado');
   }
 
@@ -1128,16 +1190,16 @@ class YouTubeAdBlocker {
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
     }
-    
+
     // Verificar anuncios cada 50ms para respuesta rápida
     this.checkInterval = setInterval(() => this.checkAndBlockAds(), 50);
-    
+
     // Configurar MutationObserver para detectar cambios en el DOM
     this.setupMutationObserver();
-    
+
     // Inyectar CSS para ocultar elementos de anuncios
     this.injectAdBlockingCSS();
-    
+
     console.log('🛡️ [AD-BLOCKER] Sistema activado');
   }
 
@@ -1152,7 +1214,7 @@ class YouTubeAdBlocker {
 
   checkAndBlockAds() {
     if (!this.isEnabled) return;
-    
+
     try {
       this.trySkipAd();
       this.handleActiveAd();
@@ -1166,7 +1228,7 @@ class YouTubeAdBlocker {
   trySkipAd() {
     for (const selector of this.selectors.skipButtons) {
       const skipButton = document.querySelector(selector);
-      
+
       if (skipButton && this.isElementVisible(skipButton)) {
         skipButton.click();
         this.adsSkipped++;
@@ -1180,9 +1242,9 @@ class YouTubeAdBlocker {
   handleActiveAd() {
     const video = document.querySelector('video');
     if (!video) return;
-    
+
     const isAdPlaying = this.isAdCurrentlyPlaying();
-    
+
     if (isAdPlaying) {
       // Guardar valores originales SOLO si no estamos ya en modo anuncio
       if (!this.isInAdMode) {
@@ -1193,18 +1255,18 @@ class YouTubeAdBlocker {
         this.originalMuted = video.muted;
         console.log(`🛡️ [AD-BLOCKER] Guardando estado original: vol=${this.originalVolume}, rate=${this.originalPlaybackRate}`);
       }
-      
+
       // Silenciar y acelerar el anuncio
       video.volume = 0;
       video.muted = true;
       video.playbackRate = 16;
       this.adsMuted++;
-      
+
       // Intentar saltar al final
       if (video.duration && isFinite(video.duration) && video.duration > 0 && video.duration < 120) {
         video.currentTime = video.duration - 0.1;
       }
-      
+
     } else if (this.isInAdMode) {
       // Restaurar valores originales cuando termina el anuncio
       this.isInAdMode = false;
@@ -1226,13 +1288,13 @@ class YouTubeAdBlocker {
     if (player && player.classList.contains('ad-showing')) {
       return true;
     }
-    
+
     // Verificar también el texto de "Anuncio" o "Ad" visible
     const adText = document.querySelector('.ytp-ad-text');
     if (adText && this.isElementVisible(adText)) {
       return true;
     }
-    
+
     return false;
   }
 
@@ -1262,10 +1324,10 @@ class YouTubeAdBlocker {
 
   isElementVisible(element) {
     if (!element) return false;
-    
+
     const style = window.getComputedStyle(element);
     const rect = element.getBoundingClientRect();
-    
+
     return (
       style.display !== 'none' &&
       style.visibility !== 'hidden' &&
@@ -1278,11 +1340,11 @@ class YouTubeAdBlocker {
 
   setupMutationObserver() {
     if (this.observerSetup) return;
-    
+
     const observer = new MutationObserver((mutations) => {
       this.checkAndBlockAds();
     });
-    
+
     const targetNode = document.body || document.documentElement;
     if (targetNode) {
       observer.observe(targetNode, {
@@ -1298,9 +1360,9 @@ class YouTubeAdBlocker {
 
   injectAdBlockingCSS() {
     const styleId = 'seaxmusic-ad-blocker-style';
-    
+
     if (document.getElementById(styleId)) return;
-    
+
     const css = `
       .ytp-ad-overlay-container,
       .ytp-ad-overlay-slot,
@@ -1349,11 +1411,11 @@ class YouTubeAdBlocker {
         pointer-events: auto !important;
       }
     `;
-    
+
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = css;
-    
+
     const target = document.head || document.documentElement;
     if (target) {
       target.appendChild(style);
@@ -1404,32 +1466,32 @@ function checkYouTubeLoginStatus() {
   try {
     // Detectar login en YouTube buscando el elemento ytd-topbar-menu-button-renderer
     // Este elemento contiene el avatar y nombre del usuario logueado
-    
+
     // 1. El selector más confiable: ytd-topbar-menu-button-renderer con el avatar IMG dentro
     const topbarMenuButton = document.querySelector('ytd-topbar-menu-button-renderer');
-    const hasAvatarImg = topbarMenuButton?.querySelector('img[src*="ggpht"]') || 
-                         topbarMenuButton?.querySelector('img[src*="lh3"]');
-    
+    const hasAvatarImg = topbarMenuButton?.querySelector('img[src*="ggpht"]') ||
+      topbarMenuButton?.querySelector('img[src*="lh3"]');
+
     // 2. Buscar el botón de usuario en la barra superior (topbar)
     const userButton = document.querySelector('button[aria-label*="Cuenta"], button[aria-label*="gusto"], button[aria-label*="perfil"]');
-    
+
     // 3. Buscar elemento con información del usuario
     const userMenu = document.querySelector('yt-simple-endpoint#endpoint[href*="accounts.google"]');
-    
+
     // 4. Buscar el img del avatar (del topbar button) - SOLO si tiene src
-    const profileImage = hasAvatarImg || 
-                        document.querySelector('#avatar-button img[src*="ggpht"]') || 
-                        document.querySelector('button img[src*="lh3"]');
-    
+    const profileImage = hasAvatarImg ||
+      document.querySelector('#avatar-button img[src*="ggpht"]') ||
+      document.querySelector('button img[src*="lh3"]');
+
     // 5. Verificar si hay un elemento de logout visible (link con href="/logout")
     const logoutLink = document.querySelector('a[href="/logout"]') ||
-                      document.querySelector('a[href*="Logout"]');
-    
+      document.querySelector('a[href*="Logout"]');
+
     // 6. Verificar localStorage/sessionStorage para datos de sesión
-    const hasSessionData = !!sessionStorage.getItem('_GA_SESSION_ID') || 
-                          !!localStorage.getItem('SAPISID') ||
-                          !!document.cookie.includes('SAPISID');
-    
+    const hasSessionData = !!sessionStorage.getItem('_GA_SESSION_ID') ||
+      !!localStorage.getItem('SAPISID') ||
+      !!document.cookie.includes('SAPISID');
+
     // LOGIN se detecta si hay: avatar con src válido, OR logout link visible, OR session data
     // Pero el avatar DEBE tener una URL válida (src que no esté vacío)
     const loginDetected = !!(profileImage || (logoutLink && hasSessionData) || (topbarMenuButton && hasAvatarImg));
@@ -1437,13 +1499,13 @@ function checkYouTubeLoginStatus() {
     if (loginDetected && !isLoggedIn) {
       isLoggedIn = true;
       console.log('[LOGIN] YOUTUBE LOGIN DETECTADO');
-      
+
       // ⭐ Función para extraer datos del usuario
       const extractUserData = () => {
         let userName = 'YouTube User';
         let userHandle = '';
         let userAvatar = '';
-        
+
         // 1. Buscar en ytd-active-account-header-renderer (menú de perfil desplegado)
         const accountHeader = document.querySelector('ytd-active-account-header-renderer');
         if (accountHeader) {
@@ -1452,22 +1514,22 @@ function checkYouTubeLoginStatus() {
           if (nameEl) {
             userName = nameEl.textContent?.trim() || nameEl.getAttribute('title') || 'YouTube User';
           }
-          
+
           // Handle: #channel-handle
           const handleEl = accountHeader.querySelector('#channel-handle');
           if (handleEl) {
             userHandle = handleEl.textContent?.trim() || handleEl.getAttribute('title') || '';
           }
-          
+
           // Avatar: #avatar img
-          const avatarImg = accountHeader.querySelector('#avatar img') || 
-                           accountHeader.querySelector('yt-img-shadow#avatar img') ||
-                           accountHeader.querySelector('yt-img-shadow img');
+          const avatarImg = accountHeader.querySelector('#avatar img') ||
+            accountHeader.querySelector('yt-img-shadow#avatar img') ||
+            accountHeader.querySelector('yt-img-shadow img');
           if (avatarImg && avatarImg.src && avatarImg.src.startsWith('http')) {
             userAvatar = avatarImg.src;
           }
         }
-        
+
         // 2. Fallback: avatar del topbar
         if (!userAvatar) {
           const topbarImg = document.querySelector('ytd-topbar-menu-button-renderer img[src*="ggpht"]');
@@ -1475,25 +1537,25 @@ function checkYouTubeLoginStatus() {
             userAvatar = topbarImg.src;
           }
         }
-        
+
         return { userName, userHandle, userAvatar };
       };
-      
+
       // ⭐ Intentar abrir el menú de usuario para obtener los datos
       const userButton = document.querySelector('ytd-topbar-menu-button-renderer button, #avatar-btn, button[aria-label*="Cuenta"]');
-      
+
       if (userButton) {
         console.log('[LOGIN] Abriendo menú de usuario para extraer datos...');
         userButton.click();
-        
+
         // Esperar a que el menú se abra y extraer datos
         setTimeout(() => {
           const data = extractUserData();
           console.log('[LOGIN] Datos extraídos - Nombre:', data.userName, 'Handle:', data.userHandle, 'Avatar:', data.userAvatar ? 'OK' : 'EMPTY');
-          
+
           // Cerrar el menú haciendo clic fuera o en el botón de nuevo
           userButton.click();
-          
+
           // Enviar notificación de login
           ipcRenderer.send('youtube-login-success', {
             isLoggedIn: true,
@@ -1507,7 +1569,7 @@ function checkYouTubeLoginStatus() {
         // Sin botón, enviar con datos básicos
         const data = extractUserData();
         console.log('[LOGIN] Datos extraídos (sin menú) - Nombre:', data.userName, 'Handle:', data.userHandle);
-        
+
         ipcRenderer.send('youtube-login-success', {
           isLoggedIn: true,
           timestamp: new Date().toISOString(),
@@ -1516,11 +1578,11 @@ function checkYouTubeLoginStatus() {
           userAvatar: data.userAvatar
         });
       }
-      
+
     } else if (!loginDetected && isLoggedIn) {
       isLoggedIn = false;
       console.log('[LOGOUT] YOUTUBE LOGOUT DETECTADO');
-      
+
       // Enviar notificación de logout
       ipcRenderer.send('youtube-logout-success', {
         isLoggedIn: false,
@@ -1543,19 +1605,19 @@ setTimeout(() => {
       attributeFilter: ['aria-label', 'src'],
       characterData: false
     };
-    
+
     // Usar document.documentElement en lugar de document.body para mayor compatibilidad
     const observeTarget = document.body || document.documentElement;
-    
+
     if (!observeTarget) {
       console.log('[WARNING] No se puede observar: document.body y documentElement no disponibles');
       return;
     }
-    
+
     mutationObserver = new MutationObserver(() => {
       checkYouTubeLoginStatus();
     });
-    
+
     mutationObserver.observe(observeTarget, config);
     console.log('[OBSERVER] MutationObserver iniciado para detectar login');
   } catch (error) {

@@ -1,0 +1,24 @@
+﻿:root {
+  /* Dark theme colors */
+  --bg-primary: #121212;
+  --bg-secondary: #181818;
+  --bg-tertiary: #282828;
+  --bg-hover: #2a2a2a;
+
+  /* Accent colors */
+  --accent-primary: #E13838;
+  --accent-hover: #F04848;
+  --accent-dark: #C12828;
+  --accent-rgb: 225, 56, 56;
+  --accent-soft: rgba(var(--accent-rgb), 0.14);
+  --accent-border: rgba(var(--accent-rgb), 0.28);
+
+  /* Text colors */
+  --text-primary: #FFFFFF;
+  --text-secondary: #B3B3B3;
+  --text-muted: #6B6B6B;
+
+  /* UI elements */
+  --border-color: #333333;
+  --shadow: rgba(0, 0, 0, 0.5);
+}

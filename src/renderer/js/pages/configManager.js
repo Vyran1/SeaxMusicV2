@@ -3,46 +3,60 @@ class ConfigManager {
     this.themeKey = 'seaxmusic_theme';
     this.themes = {
       rojo: {
-        name: 'Rojo',
-        primary: '#E13838',
-        hover: '#F04848',
-        dark: '#C12828',
-        rgb: '225, 56, 56'
+        name: 'Rojo Neón',
+        primary: '#FF1E1E',
+        hover: '#FF4B4B',
+        dark: '#D70000',
+        rgb: '255, 30, 30'
       },
       naranja: {
-        name: 'Naranja',
-        primary: '#F08C38',
-        hover: '#FF9B37',
-        dark: '#C26E24',
-        rgb: '240, 140, 56'
+        name: 'Naranja Eléctrico',
+        primary: '#FF8C00',
+        hover: '#FFA500',
+        dark: '#D2691E',
+        rgb: '255, 140, 0'
       },
       magenta: {
-        name: 'Magenta',
-        primary: '#A82DDC',
-        hover: '#C74EE8',
-        dark: '#8B23B1',
-        rgb: '168, 45, 220'
+        name: 'Magenta Neón',
+        primary: '#E600FF',
+        hover: '#F046FF',
+        dark: '#B300C7',
+        rgb: '230, 0, 255'
       },
       rosado: {
-        name: 'Rosado',
-        primary: '#FF5CAD',
-        hover: '#FF7ED6',
-        dark: '#C84382',
-        rgb: '255, 92, 173'
+        name: 'Rosado Vibrante',
+        primary: '#FF0080',
+        hover: '#FF409F',
+        dark: '#C70064',
+        rgb: '255, 0, 128'
       },
       verde: {
-        name: 'Verde',
-        primary: '#2BB33F',
-        hover: '#4CD65C',
-        dark: '#1F8A2D',
-        rgb: '43, 179, 63'
+        name: 'Verde Neón',
+        primary: '#48FF00',
+        hover: '#73FF3A',
+        dark: '#39CC00',
+        rgb: '72, 255, 0'
       },
       amarillo: {
-        name: 'Amarillo',
-        primary: '#F5C82E',
-        hover: '#F5D74F',
-        dark: '#C7A423',
-        rgb: '245, 200, 46'
+        name: 'Amarillo Neón',
+        primary: '#FAFF00',
+        hover: '#FBFF40',
+        dark: '#C4C700',
+        rgb: '250, 255, 0'
+      },
+      azul: {
+        name: 'Azul Eléctrico',
+        primary: '#0066FF',
+        hover: '#3385FF',
+        dark: '#0047B3',
+        rgb: '0, 102, 255'
+      },
+      cian: {
+        name: 'Cian Neón',
+        primary: '#00FFF2',
+        hover: '#33FFF7',
+        dark: '#00B3AA',
+        rgb: '0, 255, 242'
       }
     };
 
@@ -86,18 +100,50 @@ class ConfigManager {
       this.updateSelectedSwatch('rojo');
     });
 
-    this.updateSelectedSwatch(localStorage.getItem(this.themeKey) || 'rojo');
+    const savedTheme = localStorage.getItem(this.themeKey) || 'rojo';
+    this.updateSelectedSwatch(savedTheme);
   }
 
   applyTheme(themeName) {
-    const theme = this.themes[themeName] || this.themes.rojo;
-    document.documentElement.style.setProperty('--accent-primary', theme.primary);
-    document.documentElement.style.setProperty('--accent-hover', theme.hover);
-    document.documentElement.style.setProperty('--accent-dark', theme.dark);
-    document.documentElement.style.setProperty('--accent-rgb', theme.rgb);
-    document.documentElement.style.setProperty('--accent-soft', `rgba(${theme.rgb}, 0.14)`);
-    document.documentElement.style.setProperty('--accent-border', `rgba(${theme.rgb}, 0.28)`);
     localStorage.setItem(this.themeKey, themeName);
+
+    // ── Modo especial: "Del álbum" ──────────────────────────────────────
+    if (themeName === 'album') {
+      // Activar el modo dinámico en el auraEngine
+      window._auraAlbumModeEnabled = true;
+
+      // Si ya hay una canción sonando, aplicar su color inmediatamente
+      const trackImage = document.getElementById('trackImage');
+      const src = trackImage?.getAttribute('src');
+      if (src && !src.includes('icon.png') && !src.includes('data:')) {
+        window.auraEngine?.processAlbumArt(src, true);
+      } else {
+        // Intentar con el thumbnail de la canción actual
+        const currentTrack = window.musicPlayer?.currentTrack || window.appState?.currentTrack;
+        if (currentTrack?.thumbnail) {
+          window.auraEngine?.processAlbumArt(currentTrack.thumbnail, true);
+        }
+      }
+      return;
+    }
+
+    // ── Modo fijo: color elegido ────────────────────────────────────────
+    // Desactivar el modo dinámico
+    window._auraAlbumModeEnabled = false;
+
+    const theme = this.themes[themeName] || this.themes.rojo;
+    const root = document.documentElement;
+    root.style.setProperty('--accent-primary', theme.primary);
+    root.style.setProperty('--accent-hover',   theme.hover);
+    root.style.setProperty('--accent-dark',     theme.dark);
+    root.style.setProperty('--accent-rgb',      theme.rgb);
+    root.style.setProperty('--accent-soft',     `rgba(${theme.rgb}, 0.14)`);
+    root.style.setProperty('--accent-border',   `rgba(${theme.rgb}, 0.28)`);
+
+    // Resetear variables de aura al color fijo elegido
+    const [r, g, b] = theme.rgb.split(',').map(s => s.trim());
+    root.style.setProperty('--aura-glow',  `rgba(${r}, ${g}, ${b}, 0.14)`);
+    root.style.setProperty('--aura-color', `rgba(${r}, ${g}, ${b}, 0.07)`);
   }
 
   updateSelectedSwatch(activeTheme) {
@@ -110,6 +156,11 @@ class ConfigManager {
         swatch.setAttribute('aria-pressed', 'false');
       }
     });
+  }
+
+  // Utilidad pública: ¿está activo el modo "Del álbum"?
+  static isAlbumModeActive() {
+    return localStorage.getItem('seaxmusic_theme') === 'album';
   }
 }
 

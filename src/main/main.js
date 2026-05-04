@@ -14,7 +14,6 @@ const cachePath = path.join(app.getPath('userData'), 'Cache');
 app.setPath('cache', cachePath);
 
 // ⭐ Auto-updater instance
-// ⭐ Auto-updater instance
 // Recibir volumen real del backend y reenviar al renderer (debe ir después de la inicialización de mainWindow)
 ipcMain.on('video-volume-updated', (event, realVolume) => {
   if (!isEventFromActiveYouTube(event)) return;
@@ -210,9 +209,9 @@ function createMainWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
-    
+
     const isDevMode = process.argv.includes('--dev');
-    
+
     if (isDevMode) {
       // ⭐ DEV MODE: Mantener ventanas abiertas para debug
       console.log('[DEV] Ventana principal cerrada - YouTube y Login permanecen abiertas para debug');
@@ -282,10 +281,10 @@ function createBackendWindow(id) {
 // ⭐ CORRECCIÓN: Crear ventana YouTube con partition (no session)
 function createYouTubeWindow(isLoginWindow = false) {
   // ⭐ Elegir el preload correcto según el tipo de ventana
-  const preloadPath = isLoginWindow 
+  const preloadPath = isLoginWindow
     ? path.join(__dirname, '../preload/scripts/login-preload.js')    // Login: solo detecta login
     : path.join(__dirname, '../preload/scripts/backend-preload.js'); // Player: controles de video
-  
+
   const windowConfig = {
     width: isLoginWindow ? 500 : 1280,
     height: isLoginWindow ? 700 : 720,
@@ -308,10 +307,10 @@ function createYouTubeWindow(isLoginWindow = false) {
       modal: true
     })
   };
-  
+
   const win = new BrowserWindow(windowConfig);
   if (!isLoginWindow) {
-    try { win.setTitle('SeaxMusic Video'); } catch (e) {}
+    try { win.setTitle('SeaxMusic Video'); } catch (e) { }
   }
   return win;
 }
@@ -342,7 +341,7 @@ function createPipWindow() {
 
   try {
     pipWindow.setAlwaysOnTop(true, 'screen-saver');
-  } catch (e) {}
+  } catch (e) { }
 
   pipWindow.loadFile(path.join(__dirname, '../renderer/html/pip.html'));
   pipWindow.webContents.once('did-finish-load', () => {
@@ -392,7 +391,7 @@ async function setVideoOnlyMode(win, enabled) {
       videoViewCssKey = await win.webContents.insertCSS(css);
     }
   } else if (videoViewCssKey) {
-    try { await win.webContents.removeInsertedCSS(videoViewCssKey); } catch (e) {}
+    try { await win.webContents.removeInsertedCSS(videoViewCssKey); } catch (e) { }
     videoViewCssKey = null;
   }
 }
@@ -406,26 +405,26 @@ ipcMain.handle('create-backend-player', async (event, playerId) => {
     youtubeWindow.focus();
     return { success: true, playerId, reused: true };
   }
-  
+
   youtubeWindow = createYouTubeWindow(false);
-  
+
   console.log('[YOUTUBE] YouTube window creada por create-backend-player');
   youtubeWindow.loadURL('https://www.youtube.com');
-  
+
   // En modo dev, mostrar ventana y DevTools inmediatamente
   if (process.argv.includes('--dev')) {
     youtubeWindow.show();
     youtubeWindow.webContents.openDevTools({ mode: 'detach' });
     console.log('[DEV] YouTube window visible con DevTools');
   }
-  
+
   const ytWin = youtubeWindow;
   youtubeWindow.on('closed', () => {
     if (youtubeWindow === ytWin) {
       youtubeWindow = null;
     }
   });
-  
+
   return { success: true, playerId };
 });
 
@@ -434,35 +433,35 @@ ipcMain.handle('dj-preload-next', async (event, { url }) => {
   try {
     if (!url) return { success: false, error: 'URL requerida' };
 
-  if (!djWindow || djWindow.isDestroyed()) {
-    djWindow = createYouTubeWindow(false);
-    if (process.argv.includes('--dev')) {
-      djWindow.webContents.openDevTools({ mode: 'detach' });
+    if (!djWindow || djWindow.isDestroyed()) {
+      djWindow = createYouTubeWindow(false);
+      if (process.argv.includes('--dev')) {
+        djWindow.webContents.openDevTools({ mode: 'detach' });
+      }
+      const djWin = djWindow;
+      djWindow.on('closed', () => {
+        if (djWindow === djWin) {
+          djWindow = null;
+        }
+      });
     }
-    const djWin = djWindow;
-    djWindow.on('closed', () => {
-      if (djWindow === djWin) {
-        djWindow = null;
-      }
-    });
-  }
 
-  djWindow.loadURL(url);
+    djWindow.loadURL(url);
 
-  // Marcar como inactiva y preparar en silencio (tras cargar)
-  try {
-    djWindow.webContents.once('did-finish-load', () => {
-      if (djWindow && !djWindow.isDestroyed()) {
-        djWindow.webContents.send('dj-set-mode', { inactive: true });
-        djWindow.webContents.send('youtube-control', 'volume', 0);
-        djWindow.webContents.send('youtube-control', 'pause');
-        djWindow.webContents.send('youtube-control', 'seek', 0);
-      }
-    });
-  } catch (e) {}
+    // Marcar como inactiva y preparar en silencio (tras cargar)
+    try {
+      djWindow.webContents.once('did-finish-load', () => {
+        if (djWindow && !djWindow.isDestroyed()) {
+          djWindow.webContents.send('dj-set-mode', { inactive: true });
+          djWindow.webContents.send('youtube-control', 'volume', 0);
+          djWindow.webContents.send('youtube-control', 'pause');
+          djWindow.webContents.send('youtube-control', 'seek', 0);
+        }
+      });
+    } catch (e) { }
 
-  return { success: true };
-} catch (e) {
+    return { success: true };
+  } catch (e) {
     console.error('[DJ MIX] Error preload:', e);
     return { success: false, error: e.message };
   }
@@ -474,7 +473,7 @@ ipcMain.handle('dj-close', async () => {
       djWindow.close();
       djWindow = null;
     }
-  } catch (e) {}
+  } catch (e) { }
   return { success: true };
 });
 
@@ -503,7 +502,7 @@ ipcMain.handle('dj-swap-active', async () => {
         djWindow.webContents.send('youtube-control', 'pause');
         djWindow.webContents.send('youtube-control', 'volume', 0);
       }
-    } catch (e) {}
+    } catch (e) { }
 
     return { success: true };
   } catch (e) {
@@ -540,7 +539,7 @@ ipcMain.handle('set-always-on-top', (event, { enabled }) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     try {
       mainWindow.setAlwaysOnTop(!!enabled, 'screen-saver');
-    } catch (e) {}
+    } catch (e) { }
   }
   return { success: true, enabled: !!enabled };
 });
@@ -608,7 +607,7 @@ async function startVideoPreviewInternal() {
     if (active.setSkipTaskbar) active.setSkipTaskbar(true);
     if (active.setFocusable) active.setFocusable(false);
     active.showInactive();
-  } catch (e) {}
+  } catch (e) { }
 
   active.webContents.send('video-preview-start');
 
@@ -645,7 +644,7 @@ async function stopVideoPreviewInternal() {
           active.setBounds(videoPreviewPrev.bounds);
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   }
   if (videoPreviewTimer) {
     clearInterval(videoPreviewTimer);
@@ -676,6 +675,14 @@ ipcMain.on('backend-response', (event, { playerId, data }) => {
   if (!isEventFromActiveYouTube(event)) return;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('player-response', { playerId, data });
+  }
+});
+
+// Forward audio visualizer data
+ipcMain.on('audio-frequency-data', (event, data) => {
+  if (!isEventFromActiveYouTube(event)) return;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('audio-frequency-data', data);
   }
 });
 
@@ -809,7 +816,7 @@ ipcMain.handle('toggle-favorite', async (event, payload) => {
 
 ipcMain.on('audio-control', (event, action, value) => {
   console.log(`[CONTROL] Audio Control Command: ${action}`, value);
-  
+
   const active = getActiveYouTubeWindow();
   if (active && !active.isDestroyed()) {
     active.webContents.send('youtube-control', action, value);
@@ -820,7 +827,7 @@ ipcMain.on('audio-control', (event, action, value) => {
 });
 
 ipcMain.on('retry-youtube-control', (event, { action, value }) => {
-  console.log(`[RETRY] Retrying: ${action}`);
+  // console.log(`[RETRY] Retrying: ${action}`); // Silenciado para evitar spam
   if (event?.sender) {
     event.sender.send('youtube-control', action, value);
   }
@@ -837,10 +844,10 @@ ipcMain.on('play-audio', (event, { url, title, artist, playlistInfo }) => {
   } else {
     global.currentPlaylistInfo = null;
   }
-  
+
   // ⭐ Discord: Desbloquear cover para nueva canción
   discordRPC.unlockCover();
-  
+
   // ⭐ Si hay playlist, mostrar info de playlist en Discord
   if (effectivePlaylist) {
     const coverForDiscord = effectivePlaylist.discordCover || effectivePlaylist.cover || null;
@@ -848,7 +855,7 @@ ipcMain.on('play-audio', (event, { url, title, artist, playlistInfo }) => {
   } else {
     discordRPC.setPlayingActivity(title, artist, null, 0);
   }
-  
+
   const active = getActiveYouTubeWindow();
   if (active && !active.isDestroyed()) {
     // ⭐ Navegar directamente sin log extra
@@ -872,7 +879,7 @@ ipcMain.on('clear-current-playlist', (event) => {
 
 ipcMain.on('seek-audio', (event, time) => {
   console.log(`[SEEK] Seeking to: ${time}s`);
-  
+
   const active = getActiveYouTubeWindow();
   if (active && !active.isDestroyed()) {
     active.webContents.send('youtube-control', 'seek', time);
@@ -886,13 +893,13 @@ const VOLUME_LOG_INTERVAL = 500; // Log máximo cada 500ms
 ipcMain.on('update-volume', (event, volume) => {
   // ⭐ Guardar volumen actual para sincronizar al cambiar video
   currentAppVolume = volume;
-  
+
   const now = Date.now();
   if (now - lastVolumeLogTime >= VOLUME_LOG_INTERVAL) {
     console.log(`[VOLUME] Volume: ${Math.round(volume * 100)}%`);
     lastVolumeLogTime = now;
   }
-  
+
   const active = getActiveYouTubeWindow();
   if (active && !active.isDestroyed()) {
     active.webContents.send('youtube-control', 'volume', volume);
@@ -901,7 +908,7 @@ ipcMain.on('update-volume', (event, volume) => {
 
 ipcMain.on('force-play-current-video', () => {
   console.log('[FORCE] Force playing current video');
-  
+
   const active = getActiveYouTubeWindow();
   if (active && !active.isDestroyed()) {
     active.webContents.send('youtube-control', 'play');
@@ -917,7 +924,7 @@ let currentVideoUrl = '';
 ipcMain.on('set-repeat-mode', (event, mode) => {
   repeatMode = mode;
   console.log('[REPEAT] Modo de repetición:', mode);
-  
+
   // Enviar el modo a YouTube window
   const active = getActiveYouTubeWindow();
   if (active && !active.isDestroyed()) {
@@ -929,7 +936,7 @@ ipcMain.on('set-repeat-mode', (event, mode) => {
 ipcMain.on('set-shuffle-mode', (event, enabled) => {
   shuffleMode = enabled;
   console.log('[SHUFFLE] Modo aleatorio:', enabled);
-  
+
   // Enviar el modo a YouTube window
   const active = getActiveYouTubeWindow();
   if (active && !active.isDestroyed()) {
@@ -941,7 +948,7 @@ ipcMain.on('set-shuffle-mode', (event, enabled) => {
 ipcMain.on('video-ended', (event) => {
   if (!isEventFromActiveYouTube(event)) return;
   console.log('[VIDEO] Video terminado - Repeat mode:', repeatMode);
-  
+
   if (repeatMode === 'one' && currentVideoUrl) {
     // Repetir la misma canción
     console.log('[REPEAT] Repitiendo canción actual...');
@@ -954,7 +961,7 @@ ipcMain.on('video-ended', (event) => {
     }
   }
   // ⭐ NO manejar automáticamente 'all' o shuffle aquí - dejar que la cola del renderer lo maneje
-  
+
   // Siempre notificar al renderer (para la cola de reproducción)
   if (mainWindow && !mainWindow.isDestroyed()) {
     console.log('[VIDEO] Notificando video-ended al renderer para cola de reproducción');
@@ -964,7 +971,7 @@ ipcMain.on('video-ended', (event) => {
 
 ipcMain.on('autoplay-next', (event, { videoId, title, artist }) => {
   console.log(`[NEXT] Autoplay next: ${title}`);
-  
+
   const active = getActiveYouTubeWindow();
   if (active && !active.isDestroyed()) {
     const nextUrl = `https://www.youtube.com/watch?v=${videoId}`;
@@ -981,7 +988,7 @@ ipcMain.on('update-video-info', (event, videoInfo) => {
   if (pipWindow && !pipWindow.isDestroyed()) {
     pipWindow.webContents.send('update-video-info', videoInfo);
   }
-  
+
   // ⭐ Actualizar Discord Rich Presence con la canción
   if (videoInfo.title) {
     const artist = videoInfo.channel || videoInfo.artist || 'YouTube';
@@ -1004,7 +1011,7 @@ ipcMain.on('update-video-info', (event, videoInfo) => {
           durationSeconds = parts[0];
         }
       }
-      
+
       // ⭐ Si hay playlist activa, usar su cover y mostrar info de playlist
       const playlistInfo = global.currentPlaylistInfo;
       if (playlistInfo && playlistInfo.cover) {
@@ -1018,7 +1025,7 @@ ipcMain.on('update-video-info', (event, videoInfo) => {
         );
       } else {
         const thumbnail = getMaxResThumbnail(videoInfo.thumbnail, videoInfo.videoId);
-        
+
         discordRPC.setPlayingActivity(
           videoInfo.title,
           artist,
@@ -1028,7 +1035,7 @@ ipcMain.on('update-video-info', (event, videoInfo) => {
         );
       }
     } else {
-      console.log('[DISCORD] Mismo track detectado, no se actualiza la presencia');
+      // console.log('[DISCORD] Mismo track detectado, no se actualiza la presencia'); // Silenciado para evitar spam
     }
   }
 });
@@ -1051,10 +1058,10 @@ ipcMain.on('video-playing', (event) => {
   if (pipWindow && !pipWindow.isDestroyed()) {
     pipWindow.webContents.send('video-playing');
   }
-  
+
   // ⭐ Discord: Reanudar reproducción sin resetear el timestamp
   discordRPC.resumeActivity();
-  
+
   // Eliminado: No sincronizar volumen automáticamente al cambiar de video. El volumen solo debe cambiar por acción explícita del usuario.
 });
 
@@ -1066,7 +1073,7 @@ ipcMain.on('video-paused', (event) => {
   if (pipWindow && !pipWindow.isDestroyed()) {
     pipWindow.webContents.send('video-paused');
   }
-  
+
   // ⭐ Discord: Mostrar estado pausado
   discordRPC.setPausedActivity();
 });
@@ -1074,18 +1081,18 @@ ipcMain.on('video-paused', (event) => {
 ipcMain.on('video-url-changed', (event, url) => {
   if (!isEventFromActiveYouTube(event)) return;
   // ⭐ Ignorar URLs de login de Google
-  if (url && (url.includes('accounts.google.com') || 
-              url.includes('signin') || 
-              url.includes('ServiceLogin') ||
-              url.includes('Logout'))) {
+  if (url && (url.includes('accounts.google.com') ||
+    url.includes('signin') ||
+    url.includes('ServiceLogin') ||
+    url.includes('Logout'))) {
     console.log('[VIDEO] Ignorando URL de login (no es video)');
     return;
   }
   console.log('[VIDEO] Video URL changed:', url);
-  
+
   // ⭐ Desbloquear cover para la nueva canción
   discordRPC.unlockCover();
-  
+
   // ⭐ Actualizar Discord con la URL del video
   discordRPC.state.videoUrl = url;
 });
@@ -1093,19 +1100,19 @@ ipcMain.on('video-url-changed', (event, url) => {
 ipcMain.on('video-cover-updated', (event, coverUrl) => {
   if (!isEventFromActiveYouTube(event)) return;
   console.log('[COVER] Cover updated:', coverUrl);
-  
+
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('update-album-cover', coverUrl);
-    
+
     // ⭐ Actualizar historial cuando cambia de video
     // Esperar un poco para que YouTube registre la reproducción
     console.log('[HISTORY] Notificación para actualizar historial');
     mainWindow.webContents.send('refresh-history');
   }
-  
+
   // ⭐ Solo establecer imagen inicial para Discord (no actualizar con versiones 4K)
   discordRPC.setInitialTrackImage(coverUrl);
-  
+
   // ⭐ Sincronizar volumen cuando cambia de video
   // Esperar un poco para que el video nuevo esté listo
   setTimeout(() => {
@@ -1137,11 +1144,11 @@ let auxYoutubeWindow = null;
 // Función para crear ventana auxiliar
 function createAuxYoutubeWindow() {
   const isDevMode = process.argv.includes('--dev');
-  
+
   if (auxYoutubeWindow && !auxYoutubeWindow.isDestroyed()) {
     return auxYoutubeWindow;
   }
-  
+
   auxYoutubeWindow = new BrowserWindow({
     width: 900,
     height: 700,
@@ -1157,15 +1164,15 @@ function createAuxYoutubeWindow() {
       backgroundThrottling: false
     }
   });
-  
+
   if (isDevMode) {
     auxYoutubeWindow.webContents.openDevTools();
   }
-  
+
   auxYoutubeWindow.on('closed', () => {
     auxYoutubeWindow = null;
   });
-  
+
   return auxYoutubeWindow;
 }
 
@@ -1514,20 +1521,20 @@ const extractMixesScript = (maxCount) => `
 // Handler para solicitar videos destacados (mixes) de YouTube Music
 ipcMain.handle('get-featured-videos', async () => {
   console.log('[FEATURED] Solicitando videos destacados de YouTube...');
-  
+
   try {
     const auxWindow = createAuxYoutubeWindow();
-    
+
     return new Promise((resolve) => {
       // Ir a la página principal de YouTube
       auxWindow.loadURL('https://www.youtube.com');
-      
+
       auxWindow.webContents.once('did-finish-load', async () => {
         console.log('[FEATURED] YouTube cargado, esperando contenido...');
-        
+
         // ⭐ OPTIMIZADO: Esperar menos tiempo
         await new Promise(r => setTimeout(r, 2500));
-        
+
         // ⭐ OPTIMIZADO: Solo 2 scrolls rápidos
         await auxWindow.webContents.executeJavaScript(`
           (async function() {
@@ -1538,10 +1545,10 @@ ipcMain.handle('get-featured-videos', async () => {
             window.scrollTo(0, 0);
           })()
         `);
-        
+
         // Esperar a que termine de cargar
         await new Promise(r => setTimeout(r, 1000));
-        
+
         try {
           // Script simplificado y más robusto para extraer videos
           const videos = await auxWindow.webContents.executeJavaScript(`
@@ -1699,7 +1706,7 @@ ipcMain.handle('get-featured-videos', async () => {
               return videos;
             })()
           `);
-          
+
           console.log('[FEATURED] Videos encontrados:', videos.length);
           resolve({ success: true, videos });
         } catch (error) {
@@ -1707,7 +1714,7 @@ ipcMain.handle('get-featured-videos', async () => {
           resolve({ success: false, videos: [] });
         }
       });
-      
+
       // Timeout de seguridad
       setTimeout(() => {
         console.log('[FEATURED] Timeout alcanzado');
@@ -1723,16 +1730,16 @@ ipcMain.handle('get-featured-videos', async () => {
 // Handler para solicitar historial de YouTube
 ipcMain.handle('get-history-videos', async () => {
   console.log('[HISTORY] Solicitando historial de YouTube...');
-  
+
   try {
     const auxWindow = createAuxYoutubeWindow();
-    
+
     return new Promise((resolve) => {
       auxWindow.loadURL('https://www.youtube.com/feed/history');
-      
+
       auxWindow.webContents.once('did-finish-load', async () => {
         console.log('[HISTORY] Página de historial cargada, esperando contenido...');
-        
+
         try {
           // Verificar si la ventana sigue existiendo
           if (auxWindow.isDestroyed()) {
@@ -1740,16 +1747,16 @@ ipcMain.handle('get-history-videos', async () => {
             resolve([]);
             return;
           }
-          
+
           // ⭐ Esperar a que YouTube renderice el contenido inicial
           await new Promise(r => setTimeout(r, 3000));
-          
+
           // Verificar de nuevo
           if (auxWindow.isDestroyed()) {
             resolve([]);
             return;
           }
-          
+
           // ⭐ Hacer 4 scrolls para cargar suficiente contenido del historial
           for (let i = 0; i < 4; i++) {
             if (auxWindow.isDestroyed()) {
@@ -1759,18 +1766,18 @@ ipcMain.handle('get-history-videos', async () => {
             await auxWindow.webContents.executeJavaScript('window.scrollTo(0, document.body.scrollHeight)');
             await new Promise(r => setTimeout(r, 1200));
           }
-          
+
           // Verificar de nuevo
           if (auxWindow.isDestroyed()) {
             resolve([]);
             return;
           }
-          
+
           // Esperar a que se cargue el nuevo contenido
           await new Promise(r => setTimeout(r, 1500));
-        
-        // Script para extraer videos del historial usando DOM específico del historial
-        const extractHistoryScript = `
+
+          // Script para extraer videos del historial usando DOM específico del historial
+          const extractHistoryScript = `
           (function() {
             const maxVideos = 10;
             const videos = [];
@@ -2039,34 +2046,34 @@ ipcMain.handle('get-history-videos', async () => {
             return { videos: videos.slice(0, maxVideos) };
           })()
         `;
-        
-        try {
-          // Verificar si la ventana sigue existiendo antes de ejecutar
-          if (auxWindow.isDestroyed()) {
-            console.log('[HISTORY] Ventana cerrada antes de extraer');
-            resolve({ success: false, videos: [] });
-            return;
+
+          try {
+            // Verificar si la ventana sigue existiendo antes de ejecutar
+            if (auxWindow.isDestroyed()) {
+              console.log('[HISTORY] Ventana cerrada antes de extraer');
+              resolve({ success: false, videos: [] });
+              return;
+            }
+
+            const result = await auxWindow.webContents.executeJavaScript(extractHistoryScript);
+
+            if (result.error === 'not-logged-in') {
+              console.log('[HISTORY] Usuario no logueado');
+              resolve({ success: false, videos: [], error: 'not-logged-in' });
+            } else {
+              console.log('[HISTORY] Videos del historial:', result.videos.length);
+              resolve({ success: true, videos: result.videos });
+            }
+          } catch (error) {
+            // Ignorar error si es porque la ventana fue destruida
+            if (error.message && error.message.includes('destroyed')) {
+              console.log('[HISTORY] Ventana cerrada durante extracción');
+              resolve({ success: false, videos: [] });
+            } else {
+              console.error('[HISTORY] Error extrayendo:', error);
+              resolve({ success: false, videos: [] });
+            }
           }
-          
-          const result = await auxWindow.webContents.executeJavaScript(extractHistoryScript);
-          
-          if (result.error === 'not-logged-in') {
-            console.log('[HISTORY] Usuario no logueado');
-            resolve({ success: false, videos: [], error: 'not-logged-in' });
-          } else {
-            console.log('[HISTORY] Videos del historial:', result.videos.length);
-            resolve({ success: true, videos: result.videos });
-          }
-        } catch (error) {
-          // Ignorar error si es porque la ventana fue destruida
-          if (error.message && error.message.includes('destroyed')) {
-            console.log('[HISTORY] Ventana cerrada durante extracción');
-            resolve({ success: false, videos: [] });
-          } else {
-            console.error('[HISTORY] Error extrayendo:', error);
-            resolve({ success: false, videos: [] });
-          }
-        }
         } catch (error) {
           // Catch del try principal del did-finish-load
           if (error.message && error.message.includes('destroyed')) {
@@ -2077,7 +2084,7 @@ ipcMain.handle('get-history-videos', async () => {
           resolve({ success: false, videos: [] });
         }
       });
-      
+
       // Timeout de seguridad
       setTimeout(() => {
         console.log('[HISTORY] Timeout alcanzado');
@@ -2097,27 +2104,27 @@ let loginProcessed = false;
 // Handler para buscar videos en YouTube
 ipcMain.handle('search-youtube', async (event, query) => {
   console.log('[SEARCH] Buscando en YouTube:', query);
-  
+
   try {
     const auxWindow = createAuxYoutubeWindow();
     const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-    
+
     return new Promise((resolve) => {
       auxWindow.loadURL(searchUrl);
-      
+
       auxWindow.webContents.once('did-finish-load', async () => {
         console.log('[SEARCH] Página de búsqueda cargada, esperando contenido...');
-        
+
         // Esperar a que YouTube renderice los resultados
         await new Promise(r => setTimeout(r, 3000));
-        
+
         // Hacer scroll para cargar más resultados
         for (let i = 0; i < 5; i++) {
           await auxWindow.webContents.executeJavaScript('window.scrollTo(0, document.body.scrollHeight)');
           await new Promise(r => setTimeout(r, 800));
         }
         await new Promise(r => setTimeout(r, 1000));
-        
+
         // Script para extraer videos de los resultados de búsqueda
         const extractSearchScript = `
           (function() {
@@ -2234,7 +2241,7 @@ ipcMain.handle('search-youtube', async (event, query) => {
             return { videos: videos.slice(0, 50) };
           })()
         `;
-        
+
         try {
           const result = await auxWindow.webContents.executeJavaScript(extractSearchScript);
           console.log('[SEARCH] Resultados extraídos:', result.videos?.length || 0);
@@ -2244,7 +2251,7 @@ ipcMain.handle('search-youtube', async (event, query) => {
           resolve({ success: false, videos: [] });
         }
       });
-      
+
       // Timeout de seguridad
       setTimeout(() => {
         console.log('[SEARCH] Timeout alcanzado');
@@ -2261,27 +2268,27 @@ ipcMain.handle('search-youtube', async (event, query) => {
 // Handler para obtener el Top 100 de https://charts.youtube.com/charts/TopSongs/global/weekly
 ipcMain.handle('get-youtube-charts', async () => {
   console.log('[CHARTS] Obteniendo Top 100 Global de YouTube Charts...');
-  
+
   try {
     const auxWindow = createAuxYoutubeWindow();
     const chartsUrl = 'https://charts.youtube.com/charts/TopSongs/global/weekly';
-    
+
     return new Promise((resolve) => {
       auxWindow.loadURL(chartsUrl);
-      
+
       auxWindow.webContents.once('did-finish-load', async () => {
         console.log('[CHARTS] Página de YouTube Charts cargada, esperando renderizado...');
-        
+
         // Esperar más tiempo para que la SPA cargue completamente
         await new Promise(r => setTimeout(r, 8000));
-        
+
         // Hacer múltiples scrolls para asegurar que carga todo
         for (let i = 0; i < 25; i++) {
           await auxWindow.webContents.executeJavaScript('window.scrollTo(0, document.body.scrollHeight)');
           await new Promise(r => setTimeout(r, 400));
         }
         await new Promise(r => setTimeout(r, 3000));
-        
+
         // Script de extracción mejorado para charts.youtube.com
         const extractChartsScript = `
           (function() {
@@ -2483,28 +2490,28 @@ ipcMain.handle('get-youtube-charts', async () => {
             return { songs: songs.slice(0, maxSongs) };
           })()
         `;
-        
+
         try {
           const result = await auxWindow.webContents.executeJavaScript(extractChartsScript);
           console.log('[CHARTS] Top extraído:', result.songs?.length || 0, 'canciones');
-          
+
           // Si charts.youtube.com no funciona, usar fallback de búsqueda
           if (!result.songs || result.songs.length < 10) {
             console.log('[CHARTS] Pocos resultados de Charts, usando fallback de búsqueda...');
-            
+
             // Fallback: usar búsqueda de YouTube
             const searchUrl = 'https://www.youtube.com/results?search_query=top+100+global+songs+2025&sp=EgIQAQ%253D%253D';
-            
+
             await new Promise(r => {
               auxWindow.loadURL(searchUrl);
               auxWindow.webContents.once('did-finish-load', async () => {
                 await new Promise(wait => setTimeout(wait, 3000));
-                
+
                 for (let i = 0; i < 10; i++) {
                   await auxWindow.webContents.executeJavaScript('window.scrollTo(0, document.body.scrollHeight)');
                   await new Promise(wait => setTimeout(wait, 400));
                 }
-                
+
                 const fallbackScript = `
                   (function() {
                     const songs = [];
@@ -2548,12 +2555,12 @@ ipcMain.handle('get-youtube-charts', async () => {
                     return { songs };
                   })()
                 `;
-                
+
                 try {
                   const fbResult = await auxWindow.webContents.executeJavaScript(fallbackScript);
                   console.log('[CHARTS] Fallback extraído:', fbResult.songs?.length || 0);
                   resolve({ success: true, songs: fbResult.songs || [] });
-                } catch(e) {
+                } catch (e) {
                   resolve({ success: true, songs: result.songs || [] });
                 }
                 r();
@@ -2561,14 +2568,14 @@ ipcMain.handle('get-youtube-charts', async () => {
             });
             return;
           }
-          
+
           resolve({ success: true, songs: result.songs });
         } catch (error) {
           console.error('[CHARTS] Error extrayendo:', error);
           resolve({ success: false, songs: [] });
         }
       });
-      
+
       // Timeout de seguridad
       setTimeout(() => {
         console.log('[CHARTS] Timeout alcanzado');
@@ -2588,13 +2595,13 @@ ipcMain.on('youtube-login-success', (event, userInfo) => {
     console.log('[LOGIN] Login ya procesado, ignorando...');
     return;
   }
-  
+
   console.log('[LOGIN] YouTube login detectado:', userInfo);
   loginProcessed = true;
-  
+
   // Los datos ya vienen extraídos desde backend-preload.js
   // No necesitamos volver a extraer, solo enviar al renderer
-  
+
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('youtube-user-logged-in', {
       success: true,
@@ -2608,18 +2615,18 @@ ipcMain.on('youtube-login-success', (event, userInfo) => {
         loginDate: new Date().toISOString()
       }
     });
-    
+
     console.log('[NOTIFY] Notificación enviada a la app principal');
-    
+
     // ⭐ NO refrescar historial aquí - ya se carga automáticamente al inicio
     // Esto evita peticiones duplicadas que sobrescriben el historial con menos videos
   }
-  
+
   // ⭐ Cerrar loginWindow después del login exitoso (siempre, excepto en DEV)
   const isDevMode = process.argv.includes('--dev');
-  
+
   console.log('[LOGIN] Verificando cierre de ventana - isDevMode:', isDevMode, 'loginWindow existe:', !!loginWindow);
-  
+
   if (!isDevMode && loginWindow && !loginWindow.isDestroyed()) {
     console.log('[LOGIN] Programando cierre de ventana de login en 1 segundo...');
     setTimeout(() => {
@@ -2640,7 +2647,7 @@ ipcMain.on('youtube-login-success', (event, userInfo) => {
   } else {
     console.log('[LOGIN] No hay loginWindow para cerrar');
   }
-  
+
   // Reset flag después de un tiempo MUY largo para evitar loops
   setTimeout(() => {
     loginProcessed = false;
@@ -2649,17 +2656,17 @@ ipcMain.on('youtube-login-success', (event, userInfo) => {
 
 ipcMain.on('youtube-logout-success', (event) => {
   console.log('[LOGOUT] YouTube logout detectado');
-  
+
   // ⭐ Resetear flag de login para permitir nuevo login
   loginProcessed = false;
   console.log('[LOGOUT] Flag loginProcessed reseteado');
-  
+
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('youtube-user-logged-out', {
       success: true,
       timestamp: new Date().toISOString()
     });
-    
+
     console.log('[NOTIFY] Notificación de logout enviada a la app principal');
   }
 });
@@ -2690,7 +2697,7 @@ ipcMain.handle('open-youtube-window', async (event, { videoUrl, title, artist })
     // ⭐ CORRECCIÓN: Script de detección sin acceso a sessionStorage
     youtubeWindow.webContents.on('did-finish-load', () => {
       console.log('[WINDOW] YouTube cargado - Inyectando script de monitoreo');
-      
+
       const detectionScript = `
         (function() {
           console.log('[SCRIPT] YouTube monitoring script injected');
@@ -2789,7 +2796,7 @@ ipcMain.handle('open-youtube-window', async (event, { videoUrl, title, artist })
           console.log('[OK] YouTube monitoring completamente iniciado');
         })();
       `;
-      
+
       youtubeWindow.webContents.executeJavaScript(detectionScript)
         .then(() => console.log('[OK] Script de monitoreo inyectado'))
         .catch(err => console.error('Error inyectando script:', err));
@@ -2827,9 +2834,9 @@ ipcMain.handle('close-youtube-window', async () => {
 ipcMain.handle('logout-youtube', async () => {
   try {
     console.log('[LOGOUT] Iniciando logout de YouTube...');
-    
+
     const ytSession = getYouTubeSession();
-    
+
     try {
       await ytSession.clearStorageData({
         storages: ['cookies', 'localstorage', 'sessionstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage']
@@ -2838,25 +2845,25 @@ ipcMain.handle('logout-youtube', async () => {
     } catch (e) {
       console.error('[LOGOUT] Error limpiando storage:', e);
     }
-    
+
     if (youtubeWindow && !youtubeWindow.isDestroyed()) {
       console.log('[LOGOUT] Navegando a logout en ventana existente...');
-      
+
       youtubeWindow.loadURL('https://accounts.google.com/Logout');
-      
+
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       if (youtubeWindow && !youtubeWindow.isDestroyed()) {
         youtubeWindow.loadURL('https://www.youtube.com');
         console.log('[LOGOUT] YouTube recargado después del logout');
       }
     }
-    
+
     if (loginWindow && !loginWindow.isDestroyed()) {
       loginWindow.close();
       loginWindow = null;
     }
-    
+
     return { success: true };
   } catch (error) {
     console.error('[LOGOUT] Error en logout:', error);
@@ -2880,27 +2887,27 @@ ipcMain.handle('get-youtube-login-status', async () => {
           return !!(profileImage || (hasAvatarImg));
         })();
       `;
-      
+
       const isLoggedIn = await youtubeWindow.webContents.executeJavaScript(loginStatusScript);
-      
-      return { 
-        success: true, 
+
+      return {
+        success: true,
         isLoggedIn: isLoggedIn,
         timestamp: new Date().toISOString()
       };
     }
-    
-    return { 
-      success: false, 
+
+    return {
+      success: false,
       isLoggedIn: false,
-      error: 'YouTube window not available' 
+      error: 'YouTube window not available'
     };
   } catch (error) {
     console.error('[GET-STATUS] Error getting YouTube status:', error);
-    return { 
-      success: false, 
+    return {
+      success: false,
       isLoggedIn: false,
-      error: error.message 
+      error: error.message
     };
   }
 });
@@ -2914,11 +2921,11 @@ ipcMain.handle('force-check-youtube-login', async () => {
           checkYouTubeStatus();
         }
       `;
-      
+
       await youtubeWindow.webContents.executeJavaScript(checkScript);
       return { success: true };
     }
-    
+
     return { success: false, error: 'YouTube window not available' };
   } catch (error) {
     console.error('[FORCE-CHECK] Error forcing check:', error);
@@ -2930,10 +2937,10 @@ ipcMain.handle('force-check-youtube-login', async () => {
 ipcMain.handle('open-youtube-login-window', async () => {
   try {
     console.log('[LOGIN] Abriendo ventana de login de YouTube...');
-    
+
     // ⭐ Resetear flag para permitir nuevo login
     loginProcessed = false;
-    
+
     // No cerrar youtubeWindow, solo crear loginWindow
     if (loginWindow && !loginWindow.isDestroyed()) {
       console.log('[LOGIN] Cerrando ventana de login anterior');
@@ -2963,9 +2970,9 @@ ipcMain.handle('open-youtube-login-window', async () => {
       parent: mainWindow,
       modal: true
     });
-    
+
     console.log('[LOGIN] Ventana pequeña de login creada (compartiendo sesión)');
-    
+
     // URL directa de login de Google para YouTube
     loginWindow.loadURL('https://accounts.google.com/ServiceLogin?service=youtube&hl=es&continue=https://www.youtube.com/signin?action_handle_signin=true&next=%2F');
 
@@ -2982,7 +2989,7 @@ ipcMain.handle('open-youtube-login-window', async () => {
     // Inyectar script de detección de login
     loginWindow.webContents.on('did-finish-load', () => {
       console.log('[LOGIN] Página de login cargada, inyectando detector...');
-      
+
       const loginDetectionScript = `
         (function() {
           console.log('[LOGIN-DETECT] Script de detección iniciado');
@@ -3068,7 +3075,7 @@ ipcMain.handle('open-youtube-login-window', async () => {
           console.log('[LOGIN-DETECT] Detector configurado');
         })();
       `;
-      
+
       loginWindow.webContents.executeJavaScript(loginDetectionScript)
         .then(() => console.log('[LOGIN] Script de detección inyectado'))
         .catch(err => console.error('[LOGIN] Error inyectando script:', err));
@@ -3077,7 +3084,7 @@ ipcMain.handle('open-youtube-login-window', async () => {
     loginWindow.on('closed', () => {
       console.log('[LOGIN] Ventana de login cerrada');
       loginWindow = null;
-      
+
       // Recargar youtubeWindow para actualizar sesión
       if (youtubeWindow && !youtubeWindow.isDestroyed()) {
         console.log('[LOGIN] Recargando ventana de YouTube para actualizar sesión...');
@@ -3172,7 +3179,7 @@ app.whenReady().then(() => {
   // Forzar ventana de update SOLO en modo desarrollo explícito (--dev flag)
   const isDevMode = process.argv.includes('--dev');
   const isPackaged = app.isPackaged;
-  
+
   console.log('========================================');
   console.log('🔍 DIAGNÓSTICO DE ENTORNO:');
   console.log('   app.isPackaged:', isPackaged);
@@ -3180,10 +3187,10 @@ app.whenReady().then(() => {
   console.log('   process.argv:', process.argv);
   console.log('   Versión:', app.getVersion());
   console.log('========================================');
-  
+
   if (isDevMode) {
     console.log('🔧 Modo desarrollo detectado - forzando modal de update');
-    
+
     // Notificar INMEDIATAMENTE al renderer que se va a abrir el modal
     // para que bloquee el loader desde el inicio
     setTimeout(() => {
@@ -3191,7 +3198,7 @@ app.whenReady().then(() => {
         mainWindow.webContents.send('update-modal-opened');
       }
     }, 500);
-    
+
     // Función para mostrar el modal de update
     const showDevUpdateModal = () => {
       setTimeout(() => {
@@ -3208,7 +3215,7 @@ app.whenReady().then(() => {
         }
       }, 3500);
     };
-    
+
     // Esperar a que mainWindow esté visible
     if (mainWindow) {
       if (mainWindow.webContents.isLoading()) {
@@ -3220,32 +3227,32 @@ app.whenReady().then(() => {
   } else {
     // PRODUCCIÓN: Verificar actualizaciones pendientes o buscar nuevas
     console.log('🚀 MODO PRODUCCIÓN - Iniciando verificación de actualizaciones...');
-    
+
     // Enviar log al renderer
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('update-log', '🚀 MODO PRODUCCIÓN - Verificando actualizaciones...');
     }
-    
+
     setTimeout(async () => {
       if (appUpdater) {
         console.log('📦 appUpdater existe, verificando...');
-        
+
         // Enviar log al renderer
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('update-log', '📦 Verificando actualizaciones pendientes...');
         }
-        
+
         // Primero verificar si hay actualización pendiente guardada
         const hasPending = await appUpdater.checkAndShowPendingUpdate();
         console.log('📦 ¿Hay actualización pendiente?', hasPending);
-        
+
         // Si no hay pendiente, buscar nuevas actualizaciones
         if (!hasPending) {
           console.log('🔍 No hay pendiente, buscando nuevas actualizaciones...');
           if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('update-log', '🔍 Buscando nuevas actualizaciones en GitHub...');
           }
-          
+
           try {
             // Log versión actual
             const { app: electronApp } = require('electron');
@@ -3255,14 +3262,14 @@ app.whenReady().then(() => {
             if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send('update-log', '📌 Versión instalada: ' + currentVer);
             }
-            
+
             console.log('🔍 [MAIN] Llamando appUpdater.checkForUpdatesAndNotify()...');
             if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send('update-log', '🔍 Iniciando verificación con appUpdater...');
             }
 
             await appUpdater.checkForUpdatesAndNotify();
-            
+
           } catch (err) {
             console.error('❌ [MAIN] Error general:', err);
             if (mainWindow && !mainWindow.isDestroyed()) {
@@ -3288,10 +3295,10 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   const isDevMode = process.argv.includes('--dev');
-  
+
   // ⭐ Limpiar Discord Rich Presence
   discordRPC.destroy();
-  
+
   if (process.platform !== 'darwin') {
     if (isDevMode) {
       // DEV: Mantener app viva para debug

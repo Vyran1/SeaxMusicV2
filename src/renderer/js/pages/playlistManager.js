@@ -415,14 +415,20 @@ class PlaylistManager {
           updateLoaderStatus('Buscando canciones oficiales del artista...');
         }
       }
-      const created = await this.createDJMixPlaylist();
-      if (typeof hideLoader === 'function') {
-        hideLoader();
+      
+      let created = null;
+      try {
+        created = await this.createDJMixPlaylist();
+      } finally {
+        if (typeof hideLoader === 'function') {
+          hideLoader();
+        }
+        if (window.appState) {
+          window.appState.loaderAllowed = false;
+        }
+        this.isCreatingDJ = false;
       }
-      if (window.appState) {
-        window.appState.loaderAllowed = false;
-      }
-      this.isCreatingDJ = false;
+
       if (!created) return;
       this.playlists.unshift(created);
       this.savePlaylists();

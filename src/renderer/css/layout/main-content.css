@@ -1,0 +1,43 @@
+/* Main Content */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: linear-gradient(to bottom, var(--bg-secondary) 0%, var(--bg-primary) 300px);
+}
+
+/* Aura orb de fondo — cambia de color con cada canción.
+   pointer-events:none y position:absolute garantizan que
+   NO afecte al layout ni al scroll de los hijos. */
+.main-content::before {
+  content: '';
+  position: absolute;
+  top: -80px;
+  right: -100px;
+  width: 520px;
+  height: 380px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, var(--aura-glow) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  transition: background 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: aura-float 10s ease-in-out infinite alternate;
+}
+
+@keyframes aura-float {
+  0%   { transform: translate(0, 0)    scale(1); }
+  33%  { transform: translate(-15px, 20px) scale(1.08); }
+  66%  { transform: translate(10px, -15px) scale(0.96); }
+  100% { transform: translate(-5px, 8px)  scale(1.04); }
+}
+
+/* Content Area */
+.content-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px 100px 32px;
+  position: relative;
+  z-index: 1;
+}
+

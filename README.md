@@ -1,131 +1,104 @@
-# SeaxMusic
+# 🎵 SeaxMusic V2 — The Immersive Desktop Player
 
-Una aplicación de música de escritorio moderna con reproducción oculta en YouTube.
+![Version](https://img.shields.io/badge/version-2.1.0-E13838?style=for-the-badge)
+![Electron](https://img.shields.io/badge/Electron-121212?style=for-the-badge&logo=electron)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
 
-## ✨ Qué es SeaxMusic
+**SeaxMusic V2** es una experiencia musical de escritorio de alta fidelidad, diseñada para ofrecer una inmersión visual y sonora total. Utilizando un motor híbrido basado en YouTube y Electron, combina la vasta biblioteca de la web con una interfaz premium, fluida y totalmente reactiva al audio.
 
-SeaxMusic es un reproductor de música construido sobre Electron que utiliza una ventana backend de YouTube para reproducir audio sin la interfaz de YouTube visible al usuario.
+## 📸 Capturas de Pantalla
 
-## 🎵 Características principales
-
-- Interfaz oscura con acento rojo
-- Reproducción de música mediante backend de YouTube
-- Control completo de reproducción: play, pause, seek, volumen, shuffle, repeat
-- Soporte de playlists, favoritos e historial
-- IPC entre ventana principal y backend para sincronizar estado
-
-## 🚀 Rápido arranque
-
-```bash
-npm install
-npm start
-```
-
-Modo desarrollo con herramientas de depuración:
-
-```bash
-npm run dev
-```
-
-## 🧩 Estructura del proyecto
-
-```
-SeaxMusicV2/
-├── docs/                    # Documentación y notas del proyecto
-│   └── Comandosupdate.md
-├── src/
-│   ├── main/                 # Proceso principal de Electron
-│   │   ├── main.js           # Ventanas, IPC y lógica principal
-│   │   └── services/         # Servicios específicos del main process
-│   │       ├── autoUpdater.js
-│   │       └── discordRPC.js
-│   ├── preload/              # Scripts seguros para IPC
-│   │   ├── preload.js
-│   │   └── scripts/          # Preload scripts especializados
-│   │       ├── backend-preload.js
-│   │       ├── login-preload.js
-│   │       ├── pip-preload.js
-│   │       ├── aux-preload.js
-│   │       ├── updatePreload.js
-│   │       └── youtube-content.js
-│   └── renderer/             # Interfaz de usuario
-│       ├── index.html        # Pantalla principal
-│       ├── css/              # Estilos de la app
-│       │   └── styles.css
-│       ├── html/             # Plantillas y vistas secundarias
-│       │   ├── profile.html
-│       │   └── update.html
-│       └── js/               # Lógica de renderer segmentada
-│           ├── core/         # Núcleo de reproducción y UI
-│           │   ├── app.js
-│           │   ├── player.js
-│           │   └── ui.js
-│           └── pages/        # Scripts por página / sección
-│               ├── auth.js
-│               ├── profile.js
-│               └── update.js
-├── build/                    # Recursos de build y configuración de empaquetado
-├── package.json              # Configuración del proyecto
-└── README.md                 # Documentación del proyecto
-```
-
-## 🏗️ Arquitectura
-
-### Ventana principal
-
-- Contiene la UI de SeaxMusic
-- Controla la reproducción, el volumen y la navegación
-- Recibe eventos del backend y actualiza los componentes de la app
-
-### Backend de YouTube
-
-- Se usa una ventana oculta que carga YouTube
-- El backend aplica volumen, seek y controles de reproducción
-- Se comunica con la ventana principal por IPC
-
-### Preload
-
-- Expone APIs seguras a la UI
-- Filtra y envía comandos entre los procesos renderer y main
-
-## 📦 Comandos disponibles
-
-- `npm install`: instala dependencias
-- `npm start`: ejecuta la app en modo normal
-- `npm run dev`: ejecuta la app con modo de desarrollo
-- `npm run build`: empaqueta la app con `electron-builder`
-- `npm run build:win`: construye para Windows
-- `npm run build:mac`: construye para macOS
-- `npm run build:linux`: construye para Linux
-- `npm run build:all`: construye para Windows, macOS y Linux
-- `npm run publish`: publica usando Electron Builder
-
-## 🎨 Tema y estilo
-
-- Fondo primario: `#121212`
-- Fondo secundario: `#181818`
-- Acento rojo: `#E13838`
-- Texto principal: `#FFFFFF`
-- Texto secundaria: `#B3B3B3`
-
-## 🔧 Tecnologías usadas
-
-- Electron
-- HTML / CSS / JavaScript
-- electron-builder
-- electron-updater
-- discord-rpc
-
-## 📌 Notas importantes
-
-- La reproducción se gestiona principalmente en `src/main/main.js`
-- El volumen y los comandos se sincronizan con `src/preload/backend-preload.js`
-- La ventana principal usa `src/preload/preload.js` para conectar con el proceso main
-
-## 📝 Créditos
-
-Desarrollado por Vyran y el equipo de SeaxMusic.
+<p align="center">
+  <img src="docs/img/home_screen_v2.jpg" width="45%" alt="Home Screen">
+  <img src="docs/img/now_playing_v2.jpg" width="45%" alt="Now Playing">
+</p>
+<p align="center">
+  <img src="docs/img/lyrics_view_v2.jpg" width="45%" alt="Lyrics Mode">
+  <img src="docs/img/loading_screen_v2.jpg" width="45%" alt="Loading Screen">
+</p>
 
 ---
 
-Si quieres mejorar la app, abre una issue o crea un PR con tus ideas.
+## ✨ Características Premium (V2.0+)
+
+### 🌈 Aura Engine™ (Dynamic Color Extraction)
+Nuestro motor de color inteligente analiza la carátula de la canción actual en milisegundos para extraer su paleta de colores dominante. Esta paleta inunda la interfaz mediante:
+- **Aura Ambient:** Resplandores suaves que rodean las carátulas y controles.
+- **Wave Effect:** Una ola de color rítmica que emerge de la barra de reproducción.
+- **Unified Accents:** Los botones y visualizadores se adaptan automáticamente al color de la música.
+
+### 🌊 Visualización de Audio en Tiempo Real
+Siente la música con visualizadores analíticos de alta frecuencia:
+- **Main Visualizer:** 12 barras dinámicas en el modo pantalla completa.
+- **Mini-Viz:** Barras compactas en el carrusel de letras para una respuesta visual constante.
+- **Breathing Background:** El fondo difuminado "respira" y escala rítmicamente con los bajos.
+
+### 🎧 DJ Seax Engine
+Un sistema de mezcla inteligente que garantiza que la música nunca se detenga:
+- **Transiciones Fluidas:** Fundidos cruzados y transiciones animadas entre pistas.
+- **Auto-Playlists:** Generación automática de listas basadas en tus momentos y moods.
+- **DJ Pulse:** El botón de DJ late físicamente con el ritmo, indicando el estado del motor de mezcla.
+
+---
+
+## 🛠️ Stack Tecnológico
+- **Core:** [Electron](https://www.electronjs.org/) para una integración nativa potente.
+- **Audio:** Web Audio API & AnalyserNodes para visualización de espectro.
+- **Estilos:** CSS3 Modular con variables dinámicas y aceleración por GPU.
+- **Integración:** Discord Rich Presence nativo con visualización de carátulas.
+
+---
+
+## 📂 Estructura del Proyecto
+
+```text
+SeaxMusicV2/
+├── src/
+│   ├── main/             # Proceso Principal (Ventanas, IPC, Discord, AutoUpdater)
+│   ├── preload/          # Capas de seguridad y comunicación IPC
+│   └── renderer/         # Interfaz de Usuario Premium
+│       ├── css/          # Arquitectura CSS Modular (Base, Components, Pages)
+│       ├── html/         # Vistas de la aplicación
+│       └── js/
+│           ├── core/     # Motores: auraEngine.js, djEngine.js, app.js
+│           └── pages/    # Lógica específica por vista
+└── build/                # Recursos de empaquetado para distribución
+```
+
+---
+
+## 🚀 Instalación y Desarrollo
+
+Para ejecutar SeaxMusic en tu entorno local:
+
+1. **Instalar dependencias:**
+   ```bash
+   npm install
+   ```
+
+2. **Iniciar en modo producción:**
+   ```bash
+   npm start
+   ```
+
+3. **Modo Desarrollo (con DevTools):**
+   ```bash
+   npm run dev
+   ```
+
+---
+
+## 🎨 Guía de Diseño (Branding)
+SeaxMusic utiliza una estética **Glassmorphic Dark** con los siguientes pilares:
+- **Primary Background:** `#121212` (Minimalismo puro)
+- **Secondary Surface:** `#181818` (Profundidad visual)
+- **Signature Accent:** `#E13838` (Rojo Seax original)
+- **Dynamic Accent:** Variantes generadas por el **Aura Engine** según el álbum.
+
+---
+
+## 📝 Créditos
+Desarrollado con pasión por **Vyran** y el equipo de **SeaxMusic**.
+
+---
+*SeaxMusic no está afiliado a YouTube. Es un cliente de terceros diseñado para mejorar la experiencia de usuario en escritorio.*

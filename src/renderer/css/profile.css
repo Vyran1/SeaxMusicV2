@@ -1,16 +1,6 @@
 /* Profile Menu Styles */
 
-:root {
-  --bg-primary: #121212;
-  --bg-secondary: #181818;
-  --bg-tertiary: #282828;
-  --accent-primary: #E13838;
-  --accent-hover: #F04848;
-  --text-primary: #FFFFFF;
-  --text-secondary: #B3B3B3;
-  --text-muted: #6B6B6B;
-  --border-color: #333333;
-}
+/* Variables heredadas de variables.css / auraEngine.js — no redefinir aquí */
 
 * {
   margin: 0;
@@ -149,7 +139,7 @@ body {
 }
 
 .menu-item.logout-btn:hover {
-  background: linear-gradient(90deg, rgba(225, 56, 56, 0.15) 0%, transparent 100%);
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.15) 0%, transparent 100%);
   color: var(--accent-primary);
 }
 
@@ -205,13 +195,13 @@ body {
 .logout-modal-icon {
   width: 64px;
   height: 64px;
-  background: linear-gradient(135deg, var(--accent-primary) 0%, #c62828 100%);
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-dark) 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 20px;
-  box-shadow: 0 8px 24px rgba(225, 56, 56, 0.3);
+  box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.3);
 }
 
 .logout-modal-icon i {
@@ -259,14 +249,14 @@ body {
 }
 
 .logout-modal-btn.confirm {
-  background: linear-gradient(135deg, var(--accent-primary) 0%, #c62828 100%);
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-dark) 100%);
   color: white;
-  box-shadow: 0 4px 12px rgba(225, 56, 56, 0.3);
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.3);
 }
 
 .logout-modal-btn.confirm:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(225, 56, 56, 0.4);
+  box-shadow: 0 6px 16px rgba(var(--accent-rgb), 0.4);
 }
 
 .logout-modal-btn.confirm:active {

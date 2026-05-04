@@ -1,0 +1,58 @@
+/* ===== DJ Mix Button ===== */
+.control-btn.dj-mix-btn,
+.np-action-btn.np-djmix {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-btn.dj-mix-btn.dj-active,
+.np-action-btn.np-djmix.dj-active {
+  color: #fff;
+  background: var(--accent-primary);
+  box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.5);
+}
+
+/* El círculo de pulso ahora se controla por JS para ser reactivo */
+.dj-pulse-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--accent-primary);
+  opacity: 0;
+  transform: scale(1);
+  pointer-events: none;
+  z-index: -1;
+  /* El suavizado se maneja por JS pero dejamos una transición base */
+  transition: transform 0.15s cubic-bezier(0.2, 0, 0.2, 1), 
+              opacity 0.15s ease-out, 
+              border-width 0.15s ease;
+}
+
+/* Segundo círculo para efecto de estela */
+.dj-pulse-ring::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 1px solid var(--accent-primary);
+  opacity: 0.5;
+  filter: blur(2px);
+}
+
+.dj-active .dj-pulse-ring {
+  opacity: 0.8;
+  display: block;
+}
+
+.dj-icon {
+  position: relative;
+  z-index: 2;
+  transition: transform 0.2s ease;
+}
+
+.dj-active .dj-icon {
+  transform: scale(1.1);
+  color: white;
+}

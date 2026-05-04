@@ -1,0 +1,86 @@
+/* ===== SKELETON LOADING CARDS ===== */
+.loading-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 24px;
+}
+
+.skeleton-card {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.skeleton-card::before {
+  content: '';
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, rgba(255,255,255,0.05) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  margin-bottom: 12px;
+}
+
+.skeleton-card::after {
+  content: '';
+  display: block;
+  height: 16px;
+  width: 80%;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, rgba(255,255,255,0.05) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+/* Segunda línea del skeleton */
+.skeleton-card .skeleton-line {
+  height: 14px;
+  width: 60%;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, rgba(255,255,255,0.05) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+.skeleton-line.short {
+  width: 40%;
+}
+
+.skeleton-box {
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, rgba(255,255,255,0.05) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 10px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
+#playlistSidebarSlot {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-muted);
+}

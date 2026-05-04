@@ -1,0 +1,262 @@
+/* ===== DEV DASHBOARD ===== */
+.dev-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.dev-hero {
+  padding: 22px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(20, 20, 20, 0.95), rgba(35, 35, 35, 0.9));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dev-hero h1 {
+  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  font-size: 28px;
+  margin-bottom: 6px;
+}
+
+.dev-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.dev-card {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(20, 20, 20, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dev-card h3 {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.dev-card .value {
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.dev-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.dev-chart {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(20, 20, 20, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dev-bars {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  height: 120px;
+  margin-top: 12px;
+}
+
+.dev-bar {
+  flex: 1;
+  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.9), rgba(var(--accent-rgb), 0.2));
+  border-radius: 8px 8px 4px 4px;
+}
+
+.dev-section {
+  background: rgba(20, 20, 20, 0.85);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 16px;
+}
+
+.dev-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.dev-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+}
+
+.dev-list-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.dev-list-actions button {
+  border: none;
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 12px;
+}
+.playlist-collage {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  width: 100%;
+  height: 100%;
+}
+
+.playlist-collage.small {
+  gap: 1px;
+}
+
+.playlist-collage.medium,
+.playlist-collage.large {
+  gap: 2px;
+}
+
+.playlist-collage-cell {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.playlist-collage-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1) !important;
+}
+
+.account-switch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.account-switch-item {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.account-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.account-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.account-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.account-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.account-email {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.account-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.account-use-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-hover) 100%);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.account-use-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.account-remove-btn {
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  cursor: pointer;
+}
+
+.account-active {
+  font-size: 12px;
+  color: #8cffb1;
+  font-weight: 600;
+}
+
+.playlist-preview-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.playlist-preview-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.playlist-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.playlist-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.playlist-btn.primary {
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-hover) 100%);
+  color: white;
+}
+
+.playlist-btn.ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+}

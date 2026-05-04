@@ -1,12 +1,53 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SeaxMusic</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+
+  <!-- Base Styles -->
+  <link rel="stylesheet" href="css/base/variables.css">
+  <link rel="stylesheet" href="css/base/reset.css">
+
+  <!-- Components -->
+  <link rel="stylesheet" href="css/components/loading.css">
+
+  <!-- Layout -->
+  <link rel="stylesheet" href="css/layout/sidebar.css">
+  <link rel="stylesheet" href="css/layout/header.css">
+  <link rel="stylesheet" href="css/layout/main-content.css">
+
+  <!-- Base Utilities -->
+  <link rel="stylesheet" href="css/base/animations.css">
+  <link rel="stylesheet" href="css/base/utilities.css">
+
+  <!-- Components -->
+  <link rel="stylesheet" href="css/components/modals.css">
+  <link rel="stylesheet" href="css/components/cards.css">
+  <link rel="stylesheet" href="css/components/player.css">
+  <link rel="stylesheet" href="css/components/pip.css">
+  <link rel="stylesheet" href="css/components/badges.css">
+  <link rel="stylesheet" href="css/components/skeleton.css">
+  <link rel="stylesheet" href="css/components/dj.css">
+
+  <!-- Pages -->
+  <link rel="stylesheet" href="css/pages/home.css">
+  <link rel="stylesheet" href="css/pages/dev.css">
+  <link rel="stylesheet" href="css/pages/playlist.css">
+  <link rel="stylesheet" href="css/pages/library.css">
+  <link rel="stylesheet" href="css/pages/search.css">
+  <link rel="stylesheet" href="css/pages/now-playing.css">
+  <link rel="stylesheet" href="css/pages/config.css">
+
+  <!-- Responsive (Must be loaded last to override components) -->
+  <link rel="stylesheet" href="css/base/responsive.css">
+
 </head>
+
 <body>
   <!-- Loading Overlay -->
   <div id="loadingOverlay" class="loading-overlay" style="display: none;">
@@ -23,7 +64,8 @@
         <div class="spinner-ring"></div>
       </div>
       <div class="loading-copy">
-        <p class="loading-text">Cargando tu música<span class="loading-dots"><span></span><span></span><span></span></span></p>
+        <p class="loading-text">Cargando tu música<span
+            class="loading-dots"><span></span><span></span><span></span></span></p>
         <p class="loading-subtext" id="loadingStatus">Sintonizando tus beats y preparando tu playlist</p>
       </div>
     </div>
@@ -36,7 +78,7 @@
       <div class="nowplaying-bg-image" id="nowPlayingBgImage"></div>
       <div class="nowplaying-bg-overlay"></div>
     </div>
-    
+
     <!-- Contenido principal -->
     <div class="nowplaying-content" id="nowPlayingContent">
       <!-- ===== MODO NORMAL: CARRUSEL CENTRADO ===== -->
@@ -53,14 +95,21 @@
               <span class="carousel-item-artist" id="prevArtist">-</span>
             </div>
           </div>
-          
+
           <!-- Center (actual) -->
           <div class="carousel-item carousel-center" id="carouselCenter">
             <div class="carousel-cover-container nowplaying-cover-container">
               <img class="carousel-cover nowplaying-cover" id="nowPlayingCover" src="" alt="Cover">
-              
+
               <!-- Visualizador de audio -->
               <div class="nowplaying-visualizer" id="nowPlayingVisualizer">
+                <div class="visualizer-bar"></div>
+                <div class="visualizer-bar"></div>
+                <div class="visualizer-bar"></div>
+                <div class="visualizer-bar"></div>
+                <div class="visualizer-bar"></div>
+                <div class="visualizer-bar"></div>
+                <div class="visualizer-bar"></div>
                 <div class="visualizer-bar"></div>
                 <div class="visualizer-bar"></div>
                 <div class="visualizer-bar"></div>
@@ -69,7 +118,7 @@
               </div>
             </div>
           </div>
-          
+
           <!-- Next -->
           <div class="carousel-item carousel-next" id="carouselNext">
             <div class="carousel-cover-container">
@@ -82,7 +131,7 @@
           </div>
         </div>
       </div>
-      
+
       <!-- ===== MODO LETRAS: CARRUSEL IZQUIERDA + LETRAS DERECHA ===== -->
       <div class="nowplaying-lyrics-mode" id="nowPlayingLyricsMode">
         <!-- Mini carrusel a la izquierda -->
@@ -106,6 +155,9 @@
               <div class="mini-bar"></div>
               <div class="mini-bar"></div>
               <div class="mini-bar"></div>
+              <div class="mini-bar"></div>
+              <div class="mini-bar"></div>
+              <div class="mini-bar"></div>
             </div>
           </div>
           <div class="mini-carousel-item mini-next" id="miniNext">
@@ -116,7 +168,7 @@
             </div>
           </div>
         </div>
-        
+
         <!-- Panel de letras a la derecha -->
         <div class="lyrics-panel" id="lyricsPanel">
           <div class="lyrics-header">
@@ -142,7 +194,7 @@
         </div>
 
       </div>
-      
+
       <!-- Canción actual (centro) - Solo info y controles -->
       <div class="nowplaying-center">
         <!-- Info de la canción -->
@@ -153,7 +205,7 @@
             <span class="nowplaying-artist" id="nowPlayingArtist">Artista</span>
           </div>
         </div>
-        
+
         <!-- Controles de reproducción -->
         <div class="nowplaying-controls">
           <div class="nowplaying-progress">
@@ -164,7 +216,7 @@
             </div>
             <span class="np-time" id="npDuration">0:00</span>
           </div>
-          
+
           <div class="nowplaying-buttons">
             <button class="np-btn np-shuffle" id="npShuffle" title="Aleatorio">
               <i class="fas fa-random"></i>
@@ -202,7 +254,7 @@
               <i class="fas fa-redo"></i>
             </button>
           </div>
-          
+
           <div class="nowplaying-actions">
             <button class="np-action-btn" id="npLike" title="Me gusta">
               <i class="far fa-heart"></i>
@@ -237,161 +289,170 @@
     </div>
   </div>
 
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <div class="sidebar-top">
-      <div class="logo">
-        <img src="./assets/img/icon.png" alt="SeaxMusic Logo" width="45" height="45">
-        <span>SeaxMusic</span>
-      </div>
-    <line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" stroke-width="2"/>
-    <nav class="nav-menu">
-      <a href="#" class="nav-item active">
-        <i class="icon fas fa-home"></i>
-        <span>Inicio</span>
-      </a>
-      <a href="#" class="nav-item">
-        <i class="icon fas fa-search"></i>
-        <span>Buscar</span>
-      </a>
-      <a href="#" class="nav-item">
-        <i class="icon fas fa-book"></i>
-        <span>Tu Biblioteca</span>
-      </a>
-      <a href="#" class="nav-item">
-        <i class="icon fas fa-layer-group"></i>
-        <span>Playlists</span>
-      </a>
-    </nav>
+  <!-- App Body: sidebar + contenido principal -->
+  <div class="app-body">
 
-    </div>
-    <div id="playlistSidebarSlot"></div>
-  </aside>
-
-  <!-- Main Content -->
-  <div class="main-content">
-    <!-- Header -->
-    <header class="header">
-      <div class="header-left">
-        <button class="nav-btn" id="sidebarToggle" aria-label="Cerrar sidebar" title="Cerrar sidebar"><i class="fas fa-times"></i></button>
-        <button class="nav-btn" id="backBtn"><i class="fas fa-chevron-left"></i></button>
-        <button class="nav-btn" id="forwardBtn"><i class="fas fa-chevron-right"></i></button>
-      </div>
-      <div class="header-right">
-        <button class="user-profile" id="userBtn">
-          <img src="./assets/img/icon.png" alt="Avatar" class="user-avatar" id="userAvatar" style="display: none;">
-          <i class="fas fa-user-circle" id="userIcon"></i>
-          <span id="userName">Usuario</span>
-        </button>
-        <div class="profile-dropdown" id="profileDropdown" style="display: none;">
-          <!-- Profile menu will be loaded here -->
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div class="logo">
+          <img src="./assets/img/icon.png" alt="SeaxMusic Logo" width="45" height="45">
+          <span>SeaxMusic</span>
         </div>
-      </div>
-    </header>
+        <line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" stroke-width="2" />
+        <nav class="nav-menu">
+          <a href="#" class="nav-item active">
+            <i class="icon fas fa-home"></i>
+            <span>Inicio</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i class="icon fas fa-search"></i>
+            <span>Buscar</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i class="icon fas fa-book"></i>
+            <span>Tu Biblioteca</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i class="icon fas fa-layer-group"></i>
+            <span>Playlists</span>
+          </a>
+        </nav>
 
-    <!-- Content Area -->
-    <div class="content-area">      <div class="home-hero">
-        <div class="home-hero-bg"></div>
-        <div class="home-hero-content">
-          <div class="hero-mark">
-            <span class="hero-chip">Seax Vibes</span>
-            <div class="hero-icon"><i class="fas fa-wave-square"></i></div>
-          </div>
-          <div class="home-hero-text">
-            <span class="home-hero-greeting" id="homeGreeting">Bienvenido,</span>
-            <h1 class="home-hero-title" id="homeBannerName">Usuario</h1>
-            <p class="home-hero-subtitle">Tu mundo musical, curado para este momento.</p>
-          </div>
-          <div class="home-hero-actions">
-            <button class="hero-btn primary" id="heroPlayMix"><i class="fas fa-play"></i> Reproducir Seax Vibes</button>
-            <button class="hero-btn ghost" id="heroExplore"><i class="fas fa-compass"></i> Explorar</button>
-          </div>
+      </div>
+      <div id="playlistSidebarSlot"></div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Header -->
+      <header class="header">
+        <div class="header-left">
+          <button class="nav-btn" id="sidebarToggle" aria-label="Cerrar sidebar" title="Cerrar sidebar"><i
+              class="fas fa-times"></i></button>
+          <button class="nav-btn" id="backBtn"><i class="fas fa-chevron-left"></i></button>
+          <button class="nav-btn" id="forwardBtn"><i class="fas fa-chevron-right"></i></button>
         </div>
-        <div class="home-hero-panel" id="heroResumeCard">
-          <div class="hero-resume-cover">
-            <img id="heroResumeCover" src="./assets/img/icon.png" alt="">
-          </div>
-          <div class="hero-resume-info">
-            <span class="hero-resume-label">Reanudar</span>
-            <h3 id="heroResumeTitle">Sin reproducción</h3>
-            <p id="heroResumeArtist">Pon algo para empezar</p>
-          </div>
-          <button class="hero-resume-btn" id="heroResumeBtn">
-            <i class="fas fa-play"></i>
+        <div class="header-right">
+          <button class="user-profile" id="userBtn">
+            <img src="./assets/img/icon.png" alt="Avatar" class="user-avatar" id="userAvatar" style="display: none;">
+            <i class="fas fa-user-circle" id="userIcon"></i>
+            <span id="userName">Usuario</span>
           </button>
+          <div class="profile-dropdown" id="profileDropdown" style="display: none;">
+            <!-- Profile menu will be loaded here -->
+          </div>
         </div>
+      </header>
+
+      <!-- Content Area -->
+      <div class="content-area">
+        <div class="home-hero">
+          <div class="home-hero-bg"></div>
+          <div class="home-hero-content">
+            <div class="hero-mark">
+              <span class="hero-chip">Seax Vibes</span>
+              <div class="hero-icon"><i class="fas fa-wave-square"></i></div>
+            </div>
+            <div class="home-hero-text">
+              <span class="home-hero-greeting" id="homeGreeting">Bienvenido,</span>
+              <h1 class="home-hero-title" id="homeBannerName">Usuario</h1>
+              <p class="home-hero-subtitle">Tu mundo musical, curado para este momento.</p>
+            </div>
+            <div class="home-hero-actions">
+              <button class="hero-btn primary" id="heroPlayMix"><i class="fas fa-play"></i> Reproducir Seax
+                Vibes</button>
+              <button class="hero-btn ghost" id="heroExplore"><i class="fas fa-compass"></i> Explorar</button>
+            </div>
+          </div>
+          <div class="home-hero-panel" id="heroResumeCard">
+            <div class="hero-resume-cover">
+              <img id="heroResumeCover" src="./assets/img/icon.png" alt="">
+            </div>
+            <div class="hero-resume-info">
+              <span class="hero-resume-label">Reanudar</span>
+              <h3 id="heroResumeTitle">Sin reproducción</h3>
+              <p id="heroResumeArtist">Pon algo para empezar</p>
+            </div>
+            <button class="hero-resume-btn" id="heroResumeBtn">
+              <i class="fas fa-play"></i>
+            </button>
+          </div>
+        </div>
+
+        <section class="home-row">
+          <div class="home-row-header">
+            <div>
+              <h2>Para ti</h2>
+              <span>Accesos dinámicos</span>
+            </div>
+          </div>
+          <div class="home-action-cards" id="homeActionCards"></div>
+        </section>
+
+        <section class="home-row">
+          <div class="home-row-header">
+            <div>
+              <h2>Seax Vibes</h2>
+              <span>Mix automático según tu historial</span>
+            </div>
+          </div>
+          <div class="card-grid vibes-grid" id="seaxVibesGrid"></div>
+        </section>
+
+        <section class="home-row dj-section">
+          <div class="home-row-header">
+            <div>
+              <h2><i class="fas fa-headphones-alt"></i> DJ Seax</h2>
+              <span>Playlists creadas especialmente para ti</span>
+            </div>
+            <button class="dj-publish-btn" id="djPublishBtn" title="Publicar en Comunidad">
+              <i class="fas fa-share"></i> Publicar
+            </button>
+          </div>
+          <div class="dj-playlists-grid" id="djPlaylistsGrid"></div>
+        </section>
+
+        <section class="home-row home-moments">
+          <div class="home-row-header">
+            <div>
+              <h2>Momentos</h2>
+              <span id="momentsSubtitle">Elige un mood para esta hora</span>
+            </div>
+          </div>
+          <div class="moments-grid" id="momentsGrid"></div>
+        </section>
+
+        <section class="home-row">
+          <div class="home-row-header">
+            <div>
+              <h2>Tus Playlists</h2>
+              <span>Tus listas personalizadas</span>
+            </div>
+          </div>
+          <div class="card-grid" id="userPlaylistGrid"></div>
+        </section>
+
+        <section class="home-row recently-played">
+          <div class="home-row-header">
+            <div>
+              <h2>Reproducidos recientemente</h2>
+              <span>Tu rastro musical</span>
+            </div>
+          </div>
+          <div class="card-grid" id="recentGrid"></div>
+        </section>
       </div>
-
-      <section class="home-row">
-        <div class="home-row-header">
-          <div>
-            <h2>Para ti</h2>
-            <span>Accesos dinámicos</span>
-          </div>
-        </div>
-        <div class="home-action-cards" id="homeActionCards"></div>
-      </section>
-
-      <section class="home-row">
-        <div class="home-row-header">
-          <div>
-            <h2>Seax Vibes</h2>
-            <span>Mix automático según tu historial</span>
-          </div>
-        </div>
-        <div class="card-grid vibes-grid" id="seaxVibesGrid"></div>
-      </section>
-
-      <section class="home-row dj-section">
-        <div class="home-row-header">
-          <div>
-            <h2><i class="fas fa-headphones-alt"></i> DJ Seax</h2>
-            <span>Playlists creadas especialmente para ti</span>
-          </div>
-          <button class="dj-publish-btn" id="djPublishBtn" title="Publicar en Comunidad">
-            <i class="fas fa-share"></i> Publicar
-          </button>
-        </div>
-        <div class="dj-playlists-grid" id="djPlaylistsGrid"></div>
-      </section>
-
-      <section class="home-row home-moments">
-        <div class="home-row-header">
-          <div>
-            <h2>Momentos</h2>
-            <span id="momentsSubtitle">Elige un mood para esta hora</span>
-          </div>
-        </div>
-        <div class="moments-grid" id="momentsGrid"></div>
-      </section>
-
-      <section class="home-row">
-        <div class="home-row-header">
-          <div>
-            <h2>Tus Playlists</h2>
-            <span>Tus listas personalizadas</span>
-          </div>
-        </div>
-        <div class="card-grid" id="userPlaylistGrid"></div>
-      </section>
-
-      <section class="home-row recently-played">
-        <div class="home-row-header">
-          <div>
-            <h2>Reproducidos recientemente</h2>
-            <span>Tu rastro musical</span>
-          </div>
-        </div>
-        <div class="card-grid" id="recentGrid"></div>
-      </section>
     </div>
   </div>
+  <!-- /app-body -->
 
   <!-- Player Bar -->
   <div class="player-bar">
     <div class="player-left">
       <div class="track-info">
-        <img src="./assets/img/icon.png" alt="Album art" class="track-image" id="trackImage" title="Ver en pantalla completa">
+        <img src="./assets/img/icon.png" alt="Album art" class="track-image" id="trackImage"
+          title="Ver en pantalla completa">
         <div class="track-details">
           <div class="track-name" id="trackName">Selecciona una canción</div>
           <div class="track-artist" id="trackArtist">SeaxMusic</div>
@@ -429,7 +490,8 @@
         </div>
         <button class="control-btn" id="repeatBtn"><i class="fas fa-redo"></i></button>
         <button class="control-btn dj-mix-btn" id="djMixBtn" title="DJ Mix: Desactivado">
-          <i class="fas fa-headphones-alt"></i>
+          <div class="dj-pulse-ring" id="djPulseRing"></div>
+          <i class="fas fa-headphones-alt dj-icon"></i>
         </button>
       </div>
       <div class="progress-bar-container">
@@ -480,7 +542,7 @@
       <span class="pip-time" id="pipDuration">0:00</span>
     </div>
   </div>
-  
+
   <!-- Playlist Modal - PREMIUM REDESIGN -->
   <div class="playlist-modal" id="playlistModal">
     <div class="playlist-modal-card premium">
@@ -653,6 +715,8 @@
   <script src="js/core/app.js"></script>
   <script src="js/core/player.js"></script>
   <script src="js/core/ui.js"></script>
+  <script src="js/core/auraEngine.js"></script>
+  <script src="js/core/pageTransitions.js"></script>
   <script src="js/pages/configManager.js"></script>
   <script src="js/pages/userManager.js"></script>
   <script src="js/pages/playlistManager.js"></script>
@@ -663,7 +727,5 @@
   <script src="js/core/djEngine.js"></script>
   <script src="js/pages/devManager.js"></script>
 </body>
+
 </html>
-
-
-
