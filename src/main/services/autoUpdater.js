@@ -662,7 +662,24 @@ class AppUpdater {
         };
         this.mainWindow.on('focus', this._focusMainHandler);
 
-        this.updateWindow.loadFile(require('path').join(__dirname, '../../renderer/html/update.html'));
+        const isDev = !app.isPackaged;
+        const path = require('path');
+        
+        // Determinar la ruta base según el entorno
+        // En Dev: src/main/services -> ../../renderer/html/update.html
+        // En Prod: suele ser la misma estructura dentro de app.asar
+        let updatePath = path.join(__dirname, '../../renderer/html/update.html');
+        
+        // Fallback para producción si la estructura cambia
+        if (!isDev && !require('fs').existsSync(updatePath)) {
+            // Intentar ruta alternativa sin 'src' si el build lo aplana
+            updatePath = path.join(__dirname, '../renderer/html/update.html');
+        }
+
+        console.log(`[UPDATE] Entorno: ${isDev ? 'DEV' : 'PROD'}`);
+        console.log(`[UPDATE] Cargando modal desde: ${updatePath}`);
+
+        this.updateWindow.loadFile(updatePath);
 
         this.updateWindow.once('ready-to-show', () => {
             this.updateWindow.show();

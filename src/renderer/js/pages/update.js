@@ -1,5 +1,6 @@
-
 // update.js: UI moderna de modal de actualizaciones
+console.log('🚀 [UPDATE-UI] Script cargado correctamente');
+
 let versions = [];
 let selectedIdx = 0;
 
@@ -13,17 +14,20 @@ const themeMap = {
 };
 
 function applyStoredTheme() {
-  const themeName = localStorage.getItem('seaxmusic_theme') || 'rojo';
-  const theme = themeMap[themeName] || themeMap.rojo;
-  document.documentElement.style.setProperty('--accent-primary', theme.primary);
-  document.documentElement.style.setProperty('--accent-hover', theme.hover);
-  document.documentElement.style.setProperty('--accent-dark', theme.dark);
-  document.documentElement.style.setProperty('--accent-rgb', theme.rgb);
-  document.documentElement.style.setProperty('--accent-soft', `rgba(${theme.rgb}, 0.14)`);
-  document.documentElement.style.setProperty('--accent-border', `rgba(${theme.rgb}, 0.28)`);
+  try {
+    const themeName = localStorage.getItem('seaxmusic_theme') || 'rojo';
+    const theme = themeMap[themeName] || themeMap.rojo;
+    document.documentElement.style.setProperty('--accent-primary', theme.primary);
+    document.documentElement.style.setProperty('--accent-hover', theme.hover);
+    document.documentElement.style.setProperty('--accent-dark', theme.dark);
+    document.documentElement.style.setProperty('--accent-rgb', theme.rgb);
+  } catch (e) {
+    console.error('❌ [UPDATE-UI] Error aplicando tema:', e);
+  }
 }
 
 function escapeHtml(text) {
+  if (!text) return '';
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -71,45 +75,33 @@ function normalizeReleaseNotes(releaseNotes, version) {
     return [{ version, notes: formatMarkdownToHTML(releaseNotes), date: '', commits: [], releaseUrl: '' }];
   }
 
-  if (typeof releaseNotes === 'object') {
-    return [{
-      version: releaseNotes.version || version,
-      notes: formatMarkdownToHTML(releaseNotes.notes || releaseNotes.note || ''),
-      date: releaseNotes.date || '',
-      commits: Array.isArray(releaseNotes.commits) ? releaseNotes.commits : [],
-      releaseUrl: releaseNotes.releaseUrl || ''
-    }];
-  }
-
   return fallback;
 }
 
 function renderCommitList(commits) {
   const commitList = document.getElementById('commit-list');
-  const badge = document.getElementById('commit-badge');
   const countLabel = document.getElementById('commit-count');
+
+  if (!commitList) return;
 
   commitList.innerHTML = '';
   if (!commits || commits.length === 0) {
-    badge.textContent = 'Sin commits disponibles';
-    countLabel.textContent = '0 commits';
-    commitList.innerHTML = '<div class="no-changelog">No se encontraron commits para esta versión.</div>';
+    if (countLabel) countLabel.textContent = '0 commits';
+    commitList.innerHTML = '<div class="no-changelog">No se encontraron commits.</div>';
     return;
   }
 
-  badge.textContent = `${commits.length} commits`;
-  countLabel.textContent = `${commits.length} commits`;
+  if (countLabel) countLabel.textContent = `${commits.length} commits`;
 
-  commits.slice(0, 8).forEach((commit) => {
+  commits.slice(0, 10).forEach((commit) => {
     const item = document.createElement('div');
     item.className = 'commit-item';
     item.innerHTML = `
       <div class="commit-message">${escapeHtml(commit.message)}</div>
       <div class="commit-meta">
-        <span class="commit-author">${escapeHtml(commit.author || 'Desconocido')}</span>
-        <span class="commit-sha">${escapeHtml(commit.sha ? commit.sha.slice(0, 8) : '------')}</span>
+        <span class="commit-author">${escapeHtml(commit.author || 'Vyran')}</span>
+        <span class="commit-sha">${escapeHtml(commit.sha ? commit.sha.slice(0, 7) : '------')}</span>
       </div>
-      ${commit.url ? `<a class="commit-link" href="${escapeHtml(commit.url)}" target="_blank" rel="noopener">Ver commit</a>` : ''}
     `;
     commitList.appendChild(item);
   });
@@ -117,38 +109,35 @@ function renderCommitList(commits) {
 
 function renderSidebar(versions, selectedIdx) {
   const list = document.getElementById('version-list');
+  if (!list) return;
   list.innerHTML = '';
 
   versions.forEach((v, i) => {
     const item = document.createElement('div');
     item.className = 'version-item' + (i === selectedIdx ? ' selected' : '');
-    item.tabIndex = 0;
-
+    
     const badge = i === 0 ? '<span class="badge-new">NUEVO</span>' : '';
     item.innerHTML = `
       <div class="ver-main">v${escapeHtml(v.version)} ${badge}</div>
-      <div class="ver-date">${escapeHtml(v.date || 'Fecha desconocida')}</div>
+      <div class="ver-date">${escapeHtml(v.date || 'Hoy')}</div>
     `;
 
     item.onclick = () => selectVersion(i);
-    item.onkeydown = (e) => {
-      if (e.key === 'Enter' || e.key === ' ') selectVersion(i);
-    };
     list.appendChild(item);
   });
 }
 
 function renderMainPanel(v) {
-  document.getElementById('main-version-title').textContent = `Versión v${v.version}`;
-  document.getElementById('main-version-date').textContent = v.date || 'Fecha desconocida';
-  document.getElementById('main-changelog').innerHTML = v.notes && v.notes.trim() ? v.notes : '<div class="no-changelog">No hay notas de versión para esta actualización.</div>';
-  const releaseLink = document.getElementById('release-link');
-  if (v.releaseUrl) {
-    releaseLink.href = v.releaseUrl;
-    releaseLink.hidden = false;
-  } else {
-    releaseLink.hidden = true;
+  const title = document.getElementById('main-version-title');
+  const date = document.getElementById('main-version-date');
+  const changelog = document.getElementById('main-changelog');
+
+  if (title) title.textContent = `Versión v${v.version}`;
+  if (date) date.textContent = v.date || 'Publicado recientemente';
+  if (changelog) {
+    changelog.innerHTML = v.notes && v.notes.trim() ? v.notes : '<p>Mejoras de rendimiento y correcciones de errores.</p>';
   }
+  
   renderCommitList(v.commits || []);
 }
 
@@ -158,66 +147,39 @@ function selectVersion(idx) {
   renderMainPanel(versions[selectedIdx]);
 }
 
-window.updateAPI.onInfo((info) => {
-  applyStoredTheme();
-  console.log('[UPDATE-UI] Recibida info:', info);
+// Escuchar evento de info
+if (window.updateAPI) {
+  window.updateAPI.onInfo((info) => {
+    console.log('📦 [UPDATE-UI] Datos recibidos:', info);
+    applyStoredTheme();
 
-  versions = normalizeReleaseNotes(info.releaseNotes, info.version);
+    versions = normalizeReleaseNotes(info.releaseNotes, info.version);
+    
+    // Asegurar que info.version esté en la lista
+    if (!versions.find(v => v.version === info.version)) {
+        versions.unshift({
+            version: info.version,
+            notes: '<p>Actualización de sistema disponible.</p>',
+            date: info.releaseDate ? info.releaseDate.split('T')[0] : '',
+            commits: info.commitList || []
+        });
+    }
 
-  if (versions.length === 0) {
-    versions = [{
-      version: info.version,
-      notes: '<p>Una nueva versión está disponible.</p>',
-      date: info.releaseDate ? info.releaseDate.split('T')[0] : '',
-      commits: Array.isArray(info.commitList) ? info.commitList : [],
-      releaseUrl: info.releaseUrl || ''
-    }];
-  }
-
-  versions = versions.map((v) => ({
-    ...v,
-    date: v.date ? v.date.split('T')[0] : (info.releaseDate ? info.releaseDate.split('T')[0] : ''),
-    commits: Array.isArray(v.commits) ? v.commits : (Array.isArray(info.commitList) ? info.commitList : []),
-    releaseUrl: v.releaseUrl || info.releaseUrl || ''
-  }));
-
-  if (info.commitList && Array.isArray(info.commitList) && versions.length > 0) {
-    versions[0].commits = info.commitList;
-  }
-
-  versions.sort((a, b) => (b.version || '').localeCompare(a.version || ''));
-  selectedIdx = 0;
-  renderSidebar(versions, selectedIdx);
-  renderMainPanel(versions[selectedIdx]);
-});
-
-document.getElementById('install-btn').addEventListener('click', () => {
-  window.updateAPI.install();
-});
-
-document.getElementById('later-btn').addEventListener('click', () => {
-  window.updateAPI.later();
-});
-
-window.updateAPI.onDevMode((data) => {
-  const installBtn = document.getElementById('install-btn');
-  const laterBtn = document.getElementById('later-btn');
-  const changelog = document.getElementById('main-changelog');
-
-  changelog.innerHTML = `
-    <div class="dev-mode-notice">
-      <strong>Modo Desarrollo</strong>
-      <p>${escapeHtml(data.message)}</p>
-    </div>
-  ` + changelog.innerHTML;
-
-  installBtn.textContent = 'Entendido';
-  installBtn.style.background = 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)';
-  laterBtn.style.display = 'none';
-
-  const newBtn = installBtn.cloneNode(true);
-  installBtn.parentNode.replaceChild(newBtn, installBtn);
-  newBtn.addEventListener('click', () => {
-    window.updateAPI.later();
+    renderSidebar(versions, 0);
+    renderMainPanel(versions[0]);
   });
+}
+
+document.getElementById('install-btn')?.addEventListener('click', () => {
+  window.updateAPI?.install();
+});
+
+document.getElementById('later-btn')?.addEventListener('click', () => {
+  window.updateAPI?.later();
+});
+
+// Fallback inicial por si tarda la info
+document.addEventListener('DOMContentLoaded', () => {
+    applyStoredTheme();
+    console.log('✅ [UPDATE-UI] DOM cargado');
 });
