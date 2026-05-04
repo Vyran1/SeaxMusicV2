@@ -1,16 +1,18 @@
 /* update.css: Versión Ultra-Compatible y Premium */
 
 :root {
-  --accent-primary: #E13838;
-  --accent-hover: #F04848;
-  --accent-dark: #C12828;
-  --accent-rgb: 225, 56, 56;
-  --bg-modal: #121216; /* Color sólido de respaldo */
-  --bg-sidebar: #18181e;
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --text-main: #ffffff;
-  --text-dim: #b3b3b3;
-  --panel-bg: rgba(255, 255, 255, 0.05);
+--accent-primary: #FF1E1E;
+--accent-hover: #FF4B4B;
+--accent-dark: #D70000;
+--accent-rgb: 255, 30, 30;
+--accent-soft: rgba(255, 30, 30, 0.14);
+--accent-border: rgba(255, 30, 30, 0.28);
+--bg-modal: #121216;
+--bg-sidebar: #18181e;
+--glass-border: rgba(255, 255, 255, 0.1);
+--text-main: #ffffff;
+--text-dim: #b3b3b3;
+--panel-bg: rgba(255, 255, 255, 0.05);
 }
 
 * {
@@ -178,6 +180,109 @@ body {
 .main-changelog {
   font-size: 0.95rem;
   line-height: 1.6;
+  color: #e0e0e0;
+  word-wrap: break-word;
+}
+
+.main-changelog h1, .main-changelog h2, .main-changelog h3 {
+  color: var(--accent-primary);
+  font-weight: 700;
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.main-changelog h1 { font-size: 1.2rem; }
+.main-changelog h2 { font-size: 1.1rem; }
+.main-changelog h3 { font-size: 1rem; }
+
+.main-changelog ul {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.main-changelog li {
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.main-changelog li::marker {
+  color: var(--accent-primary);
+}
+
+.main-changelog code {
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent-primary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.main-changelog a {
+  color: var(--accent-primary);
+  text-decoration: underline;
+}
+
+.main-changelog blockquote {
+  border-left: 3px solid var(--accent-primary);
+  padding-left: 12px;
+  margin: 8px 0;
+  color: var(--text-dim);
+}
+
+.main-changelog strong {
+  color: #fff;
+}
+
+.commit-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 12px 15px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+
+.commit-item:hover {
+  background: rgba(var(--accent-rgb), 0.06);
+  border-color: rgba(var(--accent-rgb), 0.2);
+}
+
+.commit-message {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #e0e0e0;
+}
+
+.commit-meta {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  display: flex;
+  justify-content: space-between;
+}
+
+.commit-sha {
+  font-family: monospace;
+  color: rgba(var(--accent-rgb), 0.6);
+}
+
+.badge-new {
+  display: inline-block;
+  background: var(--accent-primary);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
+.no-changelog {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-dim);
+  font-size: 0.9rem;
 }
 
 /* Barra de acciones */

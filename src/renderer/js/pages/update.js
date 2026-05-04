@@ -1,70 +1,100 @@
-// update.js: UI moderna de modal de actualizaciones
 console.log('🚀 [UPDATE-UI] Script cargado correctamente');
 
 let versions = [];
 let selectedIdx = 0;
 
 const themeMap = {
-  rojo: { primary: '#E13838', hover: '#F04848', dark: '#C12828', rgb: '225, 56, 56' },
-  naranja: { primary: '#F08C38', hover: '#FF9B37', dark: '#C26E24', rgb: '240, 140, 56' },
-  magenta: { primary: '#A82DDC', hover: '#C74EE8', dark: '#8B23B1', rgb: '168, 45, 220' },
-  rosado: { primary: '#FF5CAD', hover: '#FF7ED6', dark: '#C84382', rgb: '255, 92, 173' },
-  verde: { primary: '#2BB33F', hover: '#4CD65C', dark: '#1F8A2D', rgb: '43, 179, 63' },
-  amarillo: { primary: '#F5C82E', hover: '#F5D74F', dark: '#C7A423', rgb: '245, 200, 46' }
+  rojo: { primary: '#FF1E1E', hover: '#FF4B4B', dark: '#D70000', rgb: '255, 30, 30' },
+  naranja: { primary: '#FF8C00', hover: '#FFA500', dark: '#D2691E', rgb: '255, 140, 0' },
+  magenta: { primary: '#E600FF', hover: '#F046FF', dark: '#B300C7', rgb: '230, 0, 255' },
+  rosado: { primary: '#FF0080', hover: '#FF409F', dark: '#C70064', rgb: '255, 0, 128' },
+  verde: { primary: '#48FF00', hover: '#73FF3A', dark: '#39CC00', rgb: '72, 255, 0' },
+  amarillo: { primary: '#FAFF00', hover: '#FBFF40', dark: '#C4C700', rgb: '250, 255, 0' },
+  azul: { primary: '#0066FF', hover: '#3385FF', dark: '#0047B3', rgb: '0, 102, 255' },
+  cian: { primary: '#00FFF2', hover: '#33FFF7', dark: '#00B3AA', rgb: '0, 255, 242' }
 };
 
-function applyStoredTheme() {
+function applyTheme(themeName) {
   try {
-    const themeName = localStorage.getItem('seaxmusic_theme') || 'rojo';
-    const theme = themeMap[themeName] || themeMap.rojo;
+    const name = themeName || localStorage.getItem('seaxmusic_theme') || 'rojo';
+    const theme = themeMap[name] || themeMap.rojo;
+    const root = document.documentElement;
+    root.style.setProperty('--accent-primary', theme.primary);
+    root.style.setProperty('--accent-hover', theme.hover);
+    root.style.setProperty('--accent-dark', theme.dark);
+    root.style.setProperty('--accent-rgb', theme.rgb);
+    root.style.setProperty('--accent-soft', `rgba(${theme.rgb}, 0.14)`);
+    root.style.setProperty('--accent-border', `rgba(${theme.rgb}, 0.28)`);
+    const [r, g, b] = theme.rgb.split(',').map(s => s.trim());
+    root.style.setProperty('--aura-glow', `rgba(${r}, ${g}, ${b}, 0.14)`);
+    root.style.setProperty('--aura-color', `rgba(${r}, ${g}, ${b}, 0.07)`);
+  } catch (e) {
+    const theme = themeMap.rojo;
     document.documentElement.style.setProperty('--accent-primary', theme.primary);
     document.documentElement.style.setProperty('--accent-hover', theme.hover);
     document.documentElement.style.setProperty('--accent-dark', theme.dark);
     document.documentElement.style.setProperty('--accent-rgb', theme.rgb);
-  } catch (e) {
-    console.error('❌ [UPDATE-UI] Error aplicando tema:', e);
   }
 }
 
-function escapeHtml(text) {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+function sanitizeHtml(html) {
+  if (!html) return '';
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+    .replace(/on\w+\s*=\s*[^\s>]*/gi, '');
 }
 
-function formatMarkdownToHTML(text) {
+function markdownToHtml(text) {
   if (!text) return '';
+  if (/<[a-z][\s\S]*>/i.test(text)) {
+    return sanitizeHtml(text);
+  }
 
-  let html = escapeHtml(text)
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code>$1</code>')
-    .replace(/^[\-\*] (.+)$/gm, '<li>$1</li>')
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/\n/g, '<br>');
+  let html = text;
 
-  html = html.replace(/(<li>.*?<\/li>)/gs, '<ul>$1</ul>');
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+
+  html = html.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
+
+  html = html.replace(/((?:<li>.*?<\/li>\n?)+)/g, '<ul>$1</ul>');
+
   html = html.replace(/<\/ul>\s*<ul>/g, '');
 
-  return `<p>${html}</p>`;
+  html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+  html = html.replace(/<\/blockquote>\s*<blockquote>/g, '<br>');
+
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+  html = html.replace(/\n{2,}/g, '</p><p>');
+  html = html.replace(/\n/g, '<br>');
+
+  html = `<p>${html}</p>`;
+
+  html = html.replace(/<p>\s*<(h[123]|ul|blockquote)/g, '<$1');
+  html = html.replace(/<\/(h[123]|ul|blockquote)>\s*<\/p>/g, '</$1>');
+  html = html.replace(/<p>\s*<\/p>/g, '');
+
+  return html;
 }
 
 function normalizeReleaseNotes(releaseNotes, version) {
   const fallback = [{ version, notes: '<p>Sin notas de versión disponibles.</p>', date: '', commits: [] }];
 
   if (!releaseNotes) return fallback;
+
   if (Array.isArray(releaseNotes)) {
     if (releaseNotes.length === 0) return fallback;
     return releaseNotes.map((release) => ({
       version: release.version || version,
-      notes: typeof release.notes === 'string' ? formatMarkdownToHTML(release.notes) : formatMarkdownToHTML(release.note || ''),
+      notes: typeof release.notes === 'string' ? markdownToHtml(release.notes) : markdownToHtml(release.note || ''),
       date: release.date || '',
       commits: Array.isArray(release.commits) ? release.commits : [],
       releaseUrl: release.releaseUrl || ''
@@ -72,7 +102,7 @@ function normalizeReleaseNotes(releaseNotes, version) {
   }
 
   if (typeof releaseNotes === 'string') {
-    return [{ version, notes: formatMarkdownToHTML(releaseNotes), date: '', commits: [], releaseUrl: '' }];
+    return [{ version, notes: markdownToHtml(releaseNotes), date: '', commits: [], releaseUrl: '' }];
   }
 
   return fallback;
@@ -94,13 +124,16 @@ function renderCommitList(commits) {
   if (countLabel) countLabel.textContent = `${commits.length} commits`;
 
   commits.slice(0, 10).forEach((commit) => {
+    const msg = commit.message || '';
+    const author = commit.author || 'Vyran';
+    const sha = commit.sha ? commit.sha.slice(0, 7) : '------';
     const item = document.createElement('div');
     item.className = 'commit-item';
     item.innerHTML = `
-      <div class="commit-message">${escapeHtml(commit.message)}</div>
+      <div class="commit-message">${markdownToHtml(msg.replace(/<\/?p>/g, '').trim())}</div>
       <div class="commit-meta">
-        <span class="commit-author">${escapeHtml(commit.author || 'Vyran')}</span>
-        <span class="commit-sha">${escapeHtml(commit.sha ? commit.sha.slice(0, 7) : '------')}</span>
+        <span class="commit-author">${author}</span>
+        <span class="commit-sha">${sha}</span>
       </div>
     `;
     commitList.appendChild(item);
@@ -115,11 +148,11 @@ function renderSidebar(versions, selectedIdx) {
   versions.forEach((v, i) => {
     const item = document.createElement('div');
     item.className = 'version-item' + (i === selectedIdx ? ' selected' : '');
-    
+
     const badge = i === 0 ? '<span class="badge-new">NUEVO</span>' : '';
     item.innerHTML = `
-      <div class="ver-main">v${escapeHtml(v.version)} ${badge}</div>
-      <div class="ver-date">${escapeHtml(v.date || 'Hoy')}</div>
+      <div class="ver-main">v${v.version} ${badge}</div>
+      <div class="ver-date">${v.date || 'Hoy'}</div>
     `;
 
     item.onclick = () => selectVersion(i);
@@ -137,7 +170,7 @@ function renderMainPanel(v) {
   if (changelog) {
     changelog.innerHTML = v.notes && v.notes.trim() ? v.notes : '<p>Mejoras de rendimiento y correcciones de errores.</p>';
   }
-  
+
   renderCommitList(v.commits || []);
 }
 
@@ -147,26 +180,32 @@ function selectVersion(idx) {
   renderMainPanel(versions[selectedIdx]);
 }
 
-// Escuchar evento de info
+function handleUpdateInfo(info) {
+  console.log('📦 [UPDATE-UI] Datos recibidos:', info);
+
+  versions = normalizeReleaseNotes(info.releaseNotes, info.version);
+
+  if (!versions.find(v => v.version === info.version)) {
+    versions.unshift({
+      version: info.version,
+      notes: '<p>Actualización de sistema disponible.</p>',
+      date: info.releaseDate ? info.releaseDate.split('T')[0] : '',
+      commits: info.commitList || []
+    });
+  }
+
+  renderSidebar(versions, 0);
+  renderMainPanel(versions[0]);
+}
+
 if (window.updateAPI) {
-  window.updateAPI.onInfo((info) => {
-    console.log('📦 [UPDATE-UI] Datos recibidos:', info);
-    applyStoredTheme();
+  window.updateAPI.onInfo(handleUpdateInfo);
 
-    versions = normalizeReleaseNotes(info.releaseNotes, info.version);
-    
-    // Asegurar que info.version esté en la lista
-    if (!versions.find(v => v.version === info.version)) {
-        versions.unshift({
-            version: info.version,
-            notes: '<p>Actualización de sistema disponible.</p>',
-            date: info.releaseDate ? info.releaseDate.split('T')[0] : '',
-            commits: info.commitList || []
-        });
+  window.updateAPI.onTheme((themeData) => {
+    console.log('🎨 [UPDATE-UI] Tema recibido:', themeData);
+    if (themeData && themeData.themeName) {
+      applyTheme(themeData.themeName);
     }
-
-    renderSidebar(versions, 0);
-    renderMainPanel(versions[0]);
   });
 }
 
@@ -178,8 +217,4 @@ document.getElementById('later-btn')?.addEventListener('click', () => {
   window.updateAPI?.later();
 });
 
-// Fallback inicial por si tarda la info
-document.addEventListener('DOMContentLoaded', () => {
-    applyStoredTheme();
-    console.log('✅ [UPDATE-UI] DOM cargado');
-});
+applyTheme();

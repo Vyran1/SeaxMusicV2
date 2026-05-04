@@ -246,13 +246,13 @@ class AppUpdater {
         });
     }
 
-    async fetchReleaseCommits(currentVersion, latestTag) {
-        const current = this.getCleanTag(currentVersion);
-        const latest = this.getCleanTag(latestTag);
-        if (!latest) return [];
+async fetchReleaseCommits(currentVersion, latestTag) {
+  const current = this.getCleanTag(currentVersion);
+  const latest = this.getCleanTag(latestTag);
+  if (!latest) return [];
 
-        const compareFrom = current || 'main';
-        const compareTo = latest;
+  const compareFrom = `v${current}`;
+  const compareTo = `v${latest}`;
         const comparePath = `/repos/${this.githubOwner}/${this.githubRepo}/compare/${compareFrom}...${compareTo}`;
         const options = {
             hostname: 'api.github.com',
@@ -582,11 +582,12 @@ class AppUpdater {
     
     // Preguntar si quiere instalar la actualización
     promptInstallUpdate(info) {
-        // En modo dev, no mostrar modal de actualización
-        if (!app.isPackaged) {
-            console.log('🔧 Modo desarrollo: Modal de actualización omitido');
-            return;
-        }
+  // Permitir modal en dev mode para testing (--dev flag lo fuerza)
+  if (!app.isPackaged && !process.argv.includes('--dev')) {
+    console.log('🔧 Modo desarrollo (sin --dev): Modal de actualización omitido');
+    return;
+  }
+  console.log('🔧 Mostrando modal de actualización (isPackaged:', app.isPackaged, ')');
         
         this.mainWindow = BrowserWindow.getAllWindows()[0];
         if (!this.mainWindow) return;
@@ -679,32 +680,51 @@ class AppUpdater {
         console.log(`[UPDATE] Entorno: ${isDev ? 'DEV' : 'PROD'}`);
         console.log(`[UPDATE] Cargando modal desde: ${updatePath}`);
 
-        this.updateWindow.loadFile(updatePath);
+  this.updateWindow.loadFile(updatePath);
 
-        this.updateWindow.once('ready-to-show', () => {
-            this.updateWindow.show();
-            this.updateWindow.focus();
-            
-            // Notificar al main renderer que el modal se abrió
-            if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-                if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-                    this.mainWindow.webContents.send('update-modal-opened');
-                }
-            }
-            
-            // Enviar info de actualización
-            const updateData = {
-                currentVersion: app.getVersion(),
-                version: info.version,
-                releaseNotes: info.releaseNotes,
-                releaseDate: info.releaseDate || new Date().toISOString(),
-                releaseUrl: info.releaseUrl || `https://github.com/${this.githubOwner}/${this.githubRepo}/releases/tag/v${info.version}`,
-                commitList: info.commitList || []
-            };
-            if (this.updateWindow && !this.updateWindow.isDestroyed()) {
-                this.updateWindow.webContents.send('update-info', updateData);
-            }
-        });
+  this.updateWindow.webContents.once('did-finish-load', async () => {
+    if (this.updateWindow && !this.updateWindow.isDestroyed()) {
+      let themeData = null;
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        try {
+          themeData = await this.mainWindow.webContents.executeJavaScript(
+            `(() => { try { const n = localStorage.getItem('seaxmusic_theme') || 'rojo'; return { themeName: n }; } catch(e) { return null; } })()`
+          );
+        } catch (e) {
+          console.log('⚠️ No se pudo leer tema del mainWindow:', e.message);
+        }
+      }
+
+      if (themeData) {
+        this.updateWindow.webContents.send('update-theme', themeData);
+      }
+
+      const updateData = {
+        currentVersion: app.getVersion(),
+        version: info.version,
+        releaseNotes: info.releaseNotes,
+        releaseDate: info.releaseDate || new Date().toISOString(),
+        releaseUrl: info.releaseUrl || `https://github.com/${this.githubOwner}/${this.githubRepo}/releases/tag/v${info.version}`,
+        commitList: info.commitList || []
+      };
+      this.updateWindow.webContents.send('update-info', updateData);
+    }
+  });
+
+    this.updateWindow.once('ready-to-show', () => {
+      this.updateWindow.show();
+      this.updateWindow.focus();
+
+      // DevTools para debug en modo dev
+      if (process.argv.includes('--dev')) {
+        this.updateWindow.webContents.openDevTools({ mode: 'detach' });
+      }
+
+      // Notificar al main renderer que el modal se abrió
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send('update-modal-opened');
+      }
+    });
 
         // Prevenir cierre accidental
         this.updateWindow.on('close', (e) => {
@@ -715,10 +735,9 @@ class AppUpdater {
             }
         });
 
-        // IPC: Actualizar ahora
-        const { ipcMain } = require('electron');
-        ipcMain.removeAllListeners('update-install');
-        ipcMain.on('update-install', () => {
+  // IPC: Actualizar ahora
+  ipcMain.removeAllListeners('update-install');
+  ipcMain.on('update-install', () => {
             console.log('🚀 Usuario eligió instalar actualización');
             
             if (!app.isPackaged) {
