@@ -1,6 +1,6 @@
 # 🎵 SeaxMusic V2 — The Immersive Desktop Player
 
-![Version](https://img.shields.io/badge/version-2.1.0-E13838?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-2.4.0-E13838?style=for-the-badge)
 ![Electron](https://img.shields.io/badge/Electron-121212?style=for-the-badge&logo=electron)
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
 
