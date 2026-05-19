@@ -159,6 +159,16 @@
     const startR = curR, startG = curG, startB = curB;
     const start = performance.now();
 
+    // Sincronizar color de acento con la ventana de PiP mediante el proceso principal
+    try {
+      const [vR, vG, vB] = makeVibrant(r, g, b);
+      if (window.electronAPI && typeof window.electronAPI.send === 'function') {
+        window.electronAPI.send('aura-color-update', { r: vR, g: vG, b: vB });
+      }
+    } catch (err) {
+      console.error('[AURA] Error al enviar color al PiP:', err);
+    }
+
     if (rafId) cancelAnimationFrame(rafId);
 
     function step(now) {

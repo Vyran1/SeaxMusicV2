@@ -318,27 +318,57 @@ class MusicPlayer {
   async previous() {
     console.log('⏮️ Previous track');
     
-    // ⭐ Verificar si estamos al inicio del video (menos de 3 segundos)
-    const isAtStart = this.currentTime < 3;
-    
-    // ⭐ Intentar usar cola si hay canciones anteriores
+    // Si hay una cola de reproducción activa con tracks
     if (window.appState && window.appState.playQueue && window.appState.playQueue.length > 0) {
-      // Si estamos al inicio Y hay canción anterior en la cola, ir a ella
-      if (isAtStart && window.appState.playQueueIndex > 0) {
-        console.log('⏮️ Ir a canción anterior en cola');
-        if (window.playPrevInQueue && window.playPrevInQueue()) {
-          return;
+      // Si el audio ha transcurrido más de 3 segundos o es la primera canción (índice 0): Reiniciar canción.
+      if (this.currentTime >= 3 || window.appState.playQueueIndex === 0) {
+        console.log('⏮️ Reiniciando canción actual (tiempo transcurrido >= 3s o es la primera canción)');
+        this.seekTo(0);
+        if (!this.isPlaying) {
+          this.togglePlay();
+        }
+      } else {
+        // De lo contrario (tiempo < 3s y índice > 0): Ir a la anterior en cola.
+        console.log('⏮️ Yendo a la canción anterior en la cola');
+        if (window.playPrevInQueue) {
+          window.playPrevInQueue();
         }
       }
-    }
-    
-    // Si no hay cola o estamos a más de 3s, enviar a YouTube (reiniciará el video)
-    if (window.electronAPI && window.electronAPI.send) {
-      const playFn = () => window.electronAPI.send('audio-control', 'previous');
-      if (window.runDjMixTransition) {
-        window.runDjMixTransition(playFn);
+    } else {
+      // Si NO hay cola activa pero el tiempo es < 3s, intentar reproducir el anterior del historial
+      if (this.currentTime < 3 && window.appState && window.appState.recentHistory && window.appState.recentHistory.length > 1) {
+        // El elemento 0 es la actual (o muy reciente). El elemento 1 es la anterior real.
+        const prevTrack = window.appState.recentHistory[1];
+        console.log('⏮️ No hay cola, buscando anterior en historial:', prevTrack.title);
+        
+        // Remover el primer elemento (el actual) para que al volver a unshift no hagamos bucles redundantes directos
+        window.appState.recentHistory.shift();
+        
+        // Reproducir
+        const playFn = () => {
+          if (window.electronAPI?.playAudio) {
+            window.electronAPI.playAudio(
+              `https://www.youtube.com/watch?v=${prevTrack.videoId}`,
+              prevTrack.title || 'Sin título',
+              prevTrack.artist || prevTrack.channel || 'Artista desconocido'
+            );
+            
+            // También actualizar UI
+            if (window.updateTrackInfo) {
+              window.updateTrackInfo(prevTrack, 'prev');
+            }
+          }
+        };
+
+        if (window.runDjMixTransition) {
+          window.runDjMixTransition(playFn);
+        } else {
+          playFn();
+        }
       } else {
-        playFn();
+        // Si no hay historial anterior o va >= 3s, reiniciar video actual a 0
+        console.log('⏮️ Reiniciando video actual a 0');
+        this.seekTo(0);
       }
     }
   }
@@ -381,15 +411,60 @@ class MusicPlayer {
     this.isShuffle = !this.isShuffle;
     const shuffleBtn = document.getElementById('shuffleBtn');
     
-    shuffleBtn.style.color = this.isShuffle ? 'var(--accent-primary)' : 'var(--text-secondary)';
-    shuffleBtn.title = this.isShuffle ? 'Aleatorio: Activado' : 'Aleatorio: Desactivado';
-    
-    if (this.isShuffle) {
-      shuffleBtn.classList.add('active');
-    } else {
-      shuffleBtn.classList.remove('active');
+    // Cambiar estilos del botón
+    if (shuffleBtn) {
+      shuffleBtn.style.color = this.isShuffle ? 'var(--accent-primary)' : 'var(--text-secondary)';
+      shuffleBtn.title = this.isShuffle ? 'Aleatorio: Activado' : 'Aleatorio: Desactivado';
+      shuffleBtn.classList.toggle('active', this.isShuffle);
     }
     
+    // Aplicar lógica inteligente de Shuffle a la cola en tiempo real
+    if (window.appState) {
+      if (this.isShuffle) {
+        if (window.appState.playQueue && window.appState.playQueue.length > 0) {
+          console.log('[SHUFFLE] Activando Shuffle. Guardando cola original y mezclando cola restante...');
+          window.appState.originalPlayQueue = [...window.appState.playQueue];
+          
+          const startIndex = window.appState.playQueueIndex;
+          if (window.appState.playQueue.length > startIndex + 1) {
+            const played = window.appState.playQueue.slice(0, startIndex + 1);
+            const unplayed = window.appState.playQueue.slice(startIndex + 1);
+            
+            // Mezclar canciones restantes
+            for (let i = unplayed.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [unplayed[i], unplayed[j]] = [unplayed[j], unplayed[i]];
+            }
+            window.appState.playQueue = [...played, ...unplayed];
+          }
+        }
+      } else {
+        if (window.appState.originalPlayQueue && window.appState.originalPlayQueue.length > 0) {
+          console.log('[SHUFFLE] Desactivando Shuffle. Restaurando cola original...');
+          const currentTrack = window.appState.playQueue[window.appState.playQueueIndex];
+          window.appState.playQueue = [...window.appState.originalPlayQueue];
+          
+          if (currentTrack) {
+            const foundIdx = window.appState.playQueue.findIndex(t => t.videoId === currentTrack.videoId);
+            if (foundIdx >= 0) {
+              window.appState.playQueueIndex = foundIdx;
+            }
+          }
+          window.appState.originalPlayQueue = null;
+        }
+      }
+      
+      // Sincronizar UI de skip previews
+      if (this.updateSkipPreviews) {
+        this.updateSkipPreviews();
+      }
+      
+      // Re-renderizar panel de cola si está abierto
+      if (window.nowPlayingManager && typeof window.nowPlayingManager.renderQueue === 'function') {
+        window.nowPlayingManager.renderQueue();
+      }
+    }
+
     // ⭐ Sincronizar con Now Playing
     if (window.nowPlayingManager) {
       window.nowPlayingManager.syncShuffleButton();
@@ -409,41 +484,39 @@ class MusicPlayer {
     this.repeatMode = modes[(currentIndex + 1) % modes.length];
     
     const repeatBtn = document.getElementById('repeatBtn');
-    const icon = repeatBtn.querySelector('i');
-    
-    // ⭐ Sincronizar con Now Playing
-    if (window.nowPlayingManager) {
-      window.nowPlayingManager.syncRepeatButton();
-    }
     
     // Enviar modo de repetición a YouTube
     if (window.electronAPI && window.electronAPI.send) {
       window.electronAPI.send('set-repeat-mode', this.repeatMode);
     }
     
-    if (this.repeatMode === 'off') {
-      repeatBtn.style.color = 'var(--text-secondary)';
-      icon.className = 'fas fa-redo';
-      repeatBtn.classList.remove('active');
-      repeatBtn.title = 'Repetir: Desactivado';
-    } else if (this.repeatMode === 'all') {
-      repeatBtn.style.color = 'var(--accent-primary)';
-      icon.className = 'fas fa-redo';
-      repeatBtn.classList.add('active');
-      repeatBtn.title = 'Repetir: Todas';
-    } else {
-      // Modo 'one' - repetir una canción
-      repeatBtn.style.color = 'var(--accent-primary)';
-      icon.className = 'fas fa-redo';
-      repeatBtn.classList.add('active');
-      repeatBtn.innerHTML = '<i class="fas fa-redo"></i><span style="font-size: 8px; position: absolute; bottom: 2px; right: 2px;">1</span>';
-      repeatBtn.style.position = 'relative';
-      repeatBtn.title = 'Repetir: Una canción';
+    if (repeatBtn) {
+      const icon = repeatBtn.querySelector('i');
+      if (this.repeatMode === 'off') {
+        repeatBtn.style.color = 'var(--text-secondary)';
+        if (icon) icon.className = 'fas fa-redo';
+        repeatBtn.classList.remove('active');
+        repeatBtn.title = 'Repetir: Desactivado';
+        repeatBtn.innerHTML = '<i class="fas fa-redo"></i>';
+      } else if (this.repeatMode === 'all') {
+        repeatBtn.style.color = 'var(--accent-primary)';
+        if (icon) icon.className = 'fas fa-redo';
+        repeatBtn.classList.add('active');
+        repeatBtn.title = 'Repetir: Todas';
+        repeatBtn.innerHTML = '<i class="fas fa-redo"></i>';
+      } else {
+        // Modo 'one' - repetir una canción
+        repeatBtn.style.color = 'var(--accent-primary)';
+        repeatBtn.classList.add('active');
+        repeatBtn.title = 'Repetir: Una canción';
+        repeatBtn.innerHTML = '<i class="fas fa-redo"></i><span style="font-size: 8px; position: absolute; bottom: 2px; right: 2px;">1</span>';
+        repeatBtn.style.position = 'relative';
+      }
     }
     
-    // Restaurar icono normal si no es 'one'
-    if (this.repeatMode !== 'one') {
-      repeatBtn.innerHTML = '<i class="fas fa-redo"></i>';
+    // ⭐ Sincronizar con Now Playing
+    if (window.nowPlayingManager) {
+      window.nowPlayingManager.syncRepeatButton();
     }
     
     console.log('Repeat mode:', this.repeatMode);
@@ -579,6 +652,24 @@ class MusicPlayer {
     }
   }
 
+  async togglePipMode() {
+    if (this.pipEnabled) {
+      if (window.electronAPI?.closePipWindow) {
+        await window.electronAPI.closePipWindow();
+      }
+    } else {
+      if (window.electronAPI?.openPipWindow) {
+        await window.electronAPI.openPipWindow();
+        this.pipEnabled = true;
+        const pipBtn = document.getElementById('pipBtn');
+        if (pipBtn) {
+          pipBtn.classList.add('active');
+          pipBtn.title = 'Cerrar pantalla sobre pantalla';
+        }
+      }
+    }
+  }
+
   handlePipControl(data) {
     const action = data?.action;
     const value = data?.value;
@@ -676,6 +767,32 @@ class MusicPlayer {
   updateTrackInfo(track, direction = null) {
     if (!track) return;
     
+    // ⭐ Actualizar historial en appState en tiempo real para Now Playing e historial dinámico
+    if (window.appState) {
+      if (!window.appState.recentHistory) {
+        window.appState.recentHistory = [];
+      }
+      // Evitar meter duplicados idénticos consecutivos en la primera posición del historial
+      const firstInHistory = window.appState.recentHistory[0];
+      if (!firstInHistory || firstInHistory.videoId !== track.videoId) {
+        window.appState.recentHistory.unshift({
+          videoId: track.videoId,
+          title: track.title,
+          artist: track.artist || track.channel || 'Artista desconocido',
+          channel: track.channel || track.artist || 'Artista desconocido',
+          thumbnail: track.thumbnail,
+          duration: track.duration || 0
+        });
+        
+        // Limitar tamaño del historial dinámico en memoria
+        if (window.appState.recentHistory.length > 50) {
+          window.appState.recentHistory.pop();
+        }
+        
+        console.log('[HISTORY] Track agregado al historial dinámico:', track.title);
+      }
+    }
+    
     // ⭐ Guardar track actual
     this.currentTrack = track;
     
@@ -718,7 +835,9 @@ class MusicPlayer {
 
     const prev = (queue.length && idx > 0)
       ? queue[idx - 1]
-      : (window.appState?.prevVideoInfo || null);
+      : ((window.appState?.recentHistory && window.appState.recentHistory.length > 1) 
+          ? window.appState.recentHistory[1] 
+          : (window.appState?.prevVideoInfo || null));
 
     const apply = (prefix, data) => {
       const coverEl = document.getElementById(`${prefix}PreviewCover`);
@@ -821,6 +940,42 @@ if (window.electronAPI && window.electronAPI.onUpdateVideoInfo) {
     
     // ⭐ Actualizar like button
     player.updateLikeButton();
+    
+    // ⭐ Actualizar historial en appState en tiempo real para Now Playing e historial dinámico
+    if (window.appState && player.currentTrack && player.currentTrack.videoId) {
+      if (!window.appState.recentHistory) {
+        window.appState.recentHistory = [];
+      }
+      
+      const track = player.currentTrack;
+      const firstInHistory = window.appState.recentHistory[0];
+      
+      if (!firstInHistory || firstInHistory.videoId !== track.videoId) {
+        // Nueva canción detectada, agregar al inicio del historial dinámico
+        window.appState.recentHistory.unshift({
+          videoId: track.videoId,
+          title: track.title || 'Cargando...',
+          artist: track.artist || track.channel || 'YouTube',
+          channel: track.channel || track.artist || 'YouTube',
+          thumbnail: track.thumbnail || './assets/img/icon.png',
+          duration: track.duration || player.duration || 0
+        });
+        
+        if (window.appState.recentHistory.length > 50) {
+          window.appState.recentHistory.pop();
+        }
+        console.log('[HISTORY] Nueva canción agregada al historial dinámico desde IPC:', track.title || track.videoId);
+      } else {
+        // Misma canción, actualizar metadatos conforme vayan llegando
+        if (track.title) firstInHistory.title = track.title;
+        if (track.artist || track.channel) {
+          firstInHistory.artist = track.artist || track.channel;
+          firstInHistory.channel = track.channel || track.artist;
+        }
+        if (track.thumbnail) firstInHistory.thumbnail = track.thumbnail;
+        if (track.duration || player.duration) firstInHistory.duration = track.duration || player.duration;
+      }
+    }
     
     // ⭐ Actualizar Now Playing si está activo
     if (window.nowPlayingManager && window.nowPlayingManager.isActive) {

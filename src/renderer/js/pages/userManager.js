@@ -939,7 +939,7 @@ class UserManager {
             <i class="fas fa-sign-out-alt"></i>
           </div>
           <h3 class="logout-confirm-title">¿Cerrar sesión?</h3>
-          <p class="logout-confirm-text">Tendrás que volver a iniciar sesión con tu cuenta de YouTube para acceder a tu música.</p>
+          <p class="logout-confirm-text">Tendrás que volver a iniciar sesión con tu cuenta de SeaxMusic para acceder a tu música.</p>
           <div class="logout-confirm-actions">
             <button class="logout-confirm-btn cancel" id="logoutCancelBtn">Cancelar</button>
             <button class="logout-confirm-btn confirm" id="logoutConfirmBtn">Cerrar Sesión</button>

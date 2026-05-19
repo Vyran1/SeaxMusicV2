@@ -55,6 +55,7 @@ class NowPlayingManager {
 
     // Background
     this.bgImage = document.getElementById('nowPlayingBgImage');
+    this.bgPulseWrapper = document.getElementById('nowPlayingBgPulseWrapper');
 
     // Carrusel
     this.carouselTrack = document.getElementById('carouselTrack');
@@ -96,6 +97,13 @@ class NowPlayingManager {
     this.queueBtn = document.getElementById('npQueue');
     this.lyricsBtn = document.getElementById('npLyrics');
 
+    // Panel de Cola
+    this.queuePanel = document.getElementById('npQueuePanel');
+    this.queueList = document.getElementById('npQueueList');
+    this.queueCloseBtn = document.getElementById('npQueueCloseBtn');
+    this.queueClearBtn = document.getElementById('npQueueClearBtn');
+    this.queueCount = document.getElementById('npQueueCount');
+
     // Volumen
     this.volumeBtn = document.getElementById('npVolumeBtn');
     this.volumePopup = document.getElementById('npVolumePopup');
@@ -107,6 +115,7 @@ class NowPlayingManager {
 
     // Visualizer
     this.visualizer = document.getElementById('nowPlayingVisualizer');
+    this.visualizerBars = this.visualizer ? this.visualizer.querySelectorAll('.visualizer-bar') : [];
 
     // Info container para animaciones
     this.infoContainer = this.page?.querySelector('.nowplaying-info');
@@ -118,8 +127,16 @@ class NowPlayingManager {
     // Cerrar
     this.closeBtn?.addEventListener('click', () => this.hide());
 
-    // ⭐ Cerrar al hacer click fuera del contenido central
+    // ⭐ Cerrar al hacer click fuera del contenido central o del panel de cola
     this.page?.addEventListener('click', (e) => {
+      // Si el click es en el fondo de nowPlayingPage, cerrar panel de cola si está abierto
+      if (this.queuePanel?.classList.contains('active')) {
+        if (!this.queuePanel.contains(e.target) && e.target !== this.queueBtn && !this.queueBtn?.contains(e.target)) {
+          this.hideQueuePanel();
+          return;
+        }
+      }
+
       // Si el click es directamente en la página (fondo) o en nowplaying-bg
       if (e.target === this.page ||
         e.target.classList.contains('nowplaying-bg') ||
@@ -214,9 +231,22 @@ class NowPlayingManager {
     });
 
     // Queue - abrir panel de cola
-    this.queueBtn?.addEventListener('click', () => {
+    this.queueBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
       console.log('[NOW PLAYING] Queue button clicked');
-      // TODO: Implementar panel de cola
+      this.toggleQueuePanel();
+    });
+
+    // Cerrar panel de cola
+    this.queueCloseBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.hideQueuePanel();
+    });
+
+    // Limpiar cola
+    this.queueClearBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.clearQueue();
     });
 
     // Lyrics - toggle panel de letras
@@ -246,6 +276,7 @@ class NowPlayingManager {
     if (window.electronAPI?.onAudioFrequencyData) {
       window.electronAPI.onAudioFrequencyData((data) => {
         this.updateRealVisualizer(data);
+        this.updateAmbientPulse(data);
       });
     }
   }
@@ -264,8 +295,8 @@ class NowPlayingManager {
       this.visualizer.classList.add('real-visualizer-active');
     }
     
-    const bars = this.visualizer.querySelectorAll('.visualizer-bar');
-    if (!bars || bars.length === 0) return;
+    const bars = this.visualizerBars || [];
+    if (bars.length === 0) return;
     
     // Mapear los datos (0-255) a una escala de Y (0.1 - 1.5)
     for (let i = 0; i < bars.length && i < data.length; i++) {
@@ -278,6 +309,42 @@ class NowPlayingManager {
       // Opcional: ajustar el color ligeramente basado en la intensidad
       // bars[i].style.opacity = 0.5 + (value / 255) * 0.5;
     }
+  }
+
+  // ⭐ Actualizar la respiración reactiva del fondo (Aura Reactiva)
+  updateAmbientPulse(data) {
+    if (!this.isActive || !this.bgImage || !data || data.length === 0) return;
+
+    // Si la canción está pausada, atenuar suavemente a valores por defecto
+    const isPlaying = window.musicPlayer && window.musicPlayer.isPlaying;
+
+    // Extraer la intensidad de las frecuencias bajas (bajo/bass).
+    // Usamos los primeros 4 bins del ecualizador (frecuencias graves)
+    const lowFreqs = data.slice(0, 4);
+    const averageBass = lowFreqs.reduce((sum, val) => sum + val, 0) / lowFreqs.length;
+
+    // Normalizar la intensidad (0 a 1)
+    const intensity = isPlaying ? averageBass / 255 : 0;
+
+    // Suavizado tipo LERP (Linear Interpolation) para una respiración orgánica
+    if (this.lastAmbientPulse === undefined) this.lastAmbientPulse = 1.0;
+    if (this.lastAmbientBrightness === undefined) this.lastAmbientBrightness = 0.3;
+
+    // Destinos:
+    // Escala: de 1.0 (sin bajo) a 1.05 (bajo al máximo)
+    const targetPulse = 1.0 + intensity * 0.05;
+    // Brillo: de 0.3 (sin bajo) a 0.40 (bajo al máximo)
+    const targetBrightness = 0.3 + intensity * 0.10;
+
+    // LERP factor (0.12 para una respiración orgánica y fluida)
+    this.lastAmbientPulse = this.lastAmbientPulse + (targetPulse - this.lastAmbientPulse) * 0.12;
+    this.lastAmbientBrightness = this.lastAmbientBrightness + (targetBrightness - this.lastAmbientBrightness) * 0.12;
+
+    // Aplicar las variables CSS
+    if (this.bgPulseWrapper) {
+      this.bgPulseWrapper.style.setProperty('--ambient-scale', this.lastAmbientPulse.toFixed(4));
+    }
+    this.bgImage.style.setProperty('--ambient-brightness', this.lastAmbientBrightness.toFixed(4));
   }
 
   // ⭐ Configurar control de volumen
@@ -529,12 +596,34 @@ class NowPlayingManager {
 
   syncShuffleButton() {
     if (!this.shuffleBtn || !window.musicPlayer) return;
-    this.shuffleBtn.classList.toggle('active', window.musicPlayer.isShuffle);
+    const isShuffle = window.musicPlayer.isShuffle;
+    this.shuffleBtn.classList.toggle('active', isShuffle);
+    this.shuffleBtn.style.color = isShuffle ? 'var(--accent-primary)' : 'var(--text-secondary)';
+    this.shuffleBtn.title = isShuffle ? 'Aleatorio: Activado' : 'Aleatorio: Desactivado';
   }
 
   syncRepeatButton() {
     if (!this.repeatBtn || !window.musicPlayer) return;
-    this.repeatBtn.classList.toggle('active', window.musicPlayer.repeatMode !== 'off');
+    
+    const mode = window.musicPlayer.repeatMode || 'off';
+    
+    if (mode === 'off') {
+      this.repeatBtn.classList.remove('active');
+      this.repeatBtn.style.color = 'var(--text-secondary)';
+      this.repeatBtn.title = 'Repetir: Desactivado';
+      this.repeatBtn.innerHTML = '<i class="fas fa-redo"></i>';
+    } else if (mode === 'all') {
+      this.repeatBtn.classList.add('active');
+      this.repeatBtn.style.color = 'var(--accent-primary)';
+      this.repeatBtn.title = 'Repetir: Todas';
+      this.repeatBtn.innerHTML = '<i class="fas fa-redo"></i>';
+    } else if (mode === 'one') {
+      this.repeatBtn.classList.add('active');
+      this.repeatBtn.style.color = 'var(--accent-primary)';
+      this.repeatBtn.title = 'Repetir: Una canción';
+      this.repeatBtn.innerHTML = '<i class="fas fa-redo"></i><span style="font-size: 8px; position: absolute; bottom: 2px; right: 2px;">1</span>';
+      this.repeatBtn.style.position = 'relative';
+    }
   }
 
   show(song = null) {
@@ -587,13 +676,10 @@ class NowPlayingManager {
     // ========== ANTERIOR ==========
     let prevSong = null;
 
-    // ⭐ Si hay cola activa (biblioteca), PRIORIZAR la cola sobre YouTube
+    // ⭐ Si hay cola activa (biblioteca), PRIORIZAR la cola
     if (hasQueue && currentIndex > 0 && queue[currentIndex - 1]) {
-      const prev = queue[currentIndex - 1];
-      if (prev.videoId !== currentVideoId) {
-        prevSong = prev;
-        console.log('[NOW PLAYING] Anterior de cola:', prevSong.title);
-      }
+      prevSong = queue[currentIndex - 1];
+      console.log('[NOW PLAYING] Anterior de cola:', prevSong.title);
     }
 
     // Si no hay cola, usar YouTube
@@ -721,14 +807,10 @@ class NowPlayingManager {
     // Animar también el info
     this.infoContainer?.classList.add(animClass);
 
-    // Animar el fondo
-    this.bgImage?.classList.add('changing');
-
     // Remover clases después de la animación (500ms como en CSS)
     setTimeout(() => {
       this.carouselTrack.classList.remove(animClass);
       this.infoContainer?.classList.remove(animClass);
-      this.bgImage?.classList.remove('changing');
       this.isAnimating = false;
     }, 500);
   }
@@ -856,6 +938,11 @@ class NowPlayingManager {
     if (content?.classList.contains('lyrics-active')) {
       this.updateMiniCarousel();
       this.loadLyrics();
+    }
+
+    // ⭐ Re-renderizar cola si el panel está activo
+    if (this.queuePanel?.classList.contains('active')) {
+      this.renderQueue();
     }
   }
 
@@ -1247,6 +1334,233 @@ class NowPlayingManager {
         window.musicPlayer.next();
       }
     });
+  }
+
+  // ===== COLA DE REPRODUCCIÓN - SLIDING QUEUE PANEL =====
+
+  toggleQueuePanel() {
+    if (this.queuePanel?.classList.contains('active')) {
+      this.hideQueuePanel();
+    } else {
+      this.showQueuePanel();
+    }
+  }
+
+  showQueuePanel() {
+    if (!this.queuePanel) return;
+    this.queuePanel.classList.add('active');
+    this.queueBtn?.classList.add('active');
+    this.renderQueue();
+  }
+
+  hideQueuePanel() {
+    if (!this.queuePanel) return;
+    this.queuePanel.classList.remove('active');
+    this.queueBtn?.classList.remove('active');
+  }
+
+  renderQueue() {
+    if (!this.queueList) return;
+
+    const queue = window.appState?.playQueue || [];
+    const currentIndex = window.appState?.playQueueIndex ?? -1;
+
+    // Actualizar contador
+    if (this.queueCount) {
+      this.queueCount.textContent = `${queue.length} ${queue.length === 1 ? 'canción' : 'canciones'}`;
+    }
+
+    // Vaciar lista
+    this.queueList.innerHTML = '';
+
+    if (queue.length === 0) {
+      // Estado vacío
+      this.queueList.innerHTML = `
+        <div class="np-queue-empty">
+          <div class="np-queue-empty-icon">
+            <i class="fas fa-list-ul"></i>
+          </div>
+          <p>La cola está vacía</p>
+          <span>Añade canciones desde la biblioteca para comenzar a escuchar.</span>
+        </div>
+      `;
+      return;
+    }
+
+    const defaultImg = './assets/img/icon.png';
+
+    // Renderizar cada track
+    queue.forEach((track, index) => {
+      const isActive = index === currentIndex;
+      const itemEl = document.createElement('div');
+      itemEl.className = `np-queue-item ${isActive ? 'active' : ''}`;
+      itemEl.dataset.index = index;
+
+      // Intentar obtener una imagen bonita
+      let videoId = track.videoId;
+      let imgUrl = defaultImg;
+      if (videoId) {
+        imgUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+      } else if (track.thumbnail) {
+        imgUrl = track.thumbnail;
+      }
+
+      itemEl.innerHTML = `
+        <div class="np-queue-cover-wrapper">
+          <img class="np-queue-cover" src="${imgUrl}" alt="Cover" onerror="this.src='${defaultImg}'">
+        </div>
+        <div class="np-queue-item-info">
+          <div class="np-queue-item-title">${track.title || 'Sin título'}</div>
+          <div class="np-queue-item-artist">${track.artist || track.channel || 'Artista desconocido'}</div>
+        </div>
+        <button class="np-queue-item-remove" title="Eliminar de la cola">
+          <i class="fas fa-times"></i>
+        </button>
+      `;
+
+      // Click en el item para reproducir
+      itemEl.addEventListener('click', (e) => {
+        // Ignorar click si fue en el botón de eliminar
+        if (e.target.closest('.np-queue-item-remove')) return;
+        this.playQueueItem(index);
+      });
+
+      // Click en el botón de eliminar
+      const removeBtn = itemEl.querySelector('.np-queue-item-remove');
+      removeBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.removeQueueItem(index);
+      });
+
+      this.queueList.appendChild(itemEl);
+    });
+  }
+
+  playQueueItem(index) {
+    const queue = window.appState?.playQueue || [];
+    if (index < 0 || index >= queue.length) return;
+
+    const oldIndex = window.appState?.playQueueIndex ?? -1;
+    window.appState.playQueueIndex = index;
+    const track = queue[index];
+
+    console.log('[NOW PLAYING] Reproduciendo item de cola de índice:', index, track.title);
+
+    // Calcular dirección de animación
+    const direction = index >= oldIndex ? 'next' : 'prev';
+
+    // Actualizar UI
+    if (window.updateTrackInfo) {
+      window.updateTrackInfo(track, direction);
+    }
+    if (window.musicPlayer?.updateSkipPreviews) {
+      window.musicPlayer.updateSkipPreviews();
+    }
+
+    // Reproducir audio con soporte de playlist y transiciones
+    const playlistManager = window.playlistManager;
+    const playFn = () => {
+      if (playlistManager?.currentPlayingPlaylist) {
+        const playlistInfo = {
+          name: playlistManager.currentPlayingPlaylist.name,
+          cover: playlistManager.getPlaylistCover(playlistManager.currentPlayingPlaylist),
+          discordCover: playlistManager.getPlaylistDiscordCover(playlistManager.currentPlayingPlaylist),
+          id: playlistManager.currentPlayingPlaylist.id || playlistManager.currentPlayingPlaylist.globalId
+        };
+        playlistManager.updatePlayerUIForPlaylist(track, playlistInfo);
+
+        if (window.electronAPI?.playAudioWithPlaylist) {
+          window.electronAPI.playAudioWithPlaylist(
+            `https://www.youtube.com/watch?v=${track.videoId}`,
+            track.title || 'Sin título',
+            track.artist || track.channel || 'Artista desconocido',
+            playlistInfo
+          );
+        }
+      } else {
+        if (window.electronAPI?.playAudio) {
+          window.electronAPI.playAudio(
+            `https://www.youtube.com/watch?v=${track.videoId}`,
+            track.title || 'Sin título',
+            track.artist || track.channel || 'Artista desconocido'
+          );
+        }
+      }
+    };
+
+    if (window.runDjMixTransition) {
+      window.runDjMixTransition(playFn);
+    } else {
+      playFn();
+    }
+
+    // Re-renderizar la cola para actualizar el active state
+    this.renderQueue();
+  }
+
+  removeQueueItem(index) {
+    const queue = window.appState?.playQueue || [];
+    if (index < 0 || index >= queue.length) return;
+
+    console.log('[NOW PLAYING] Eliminando item de cola de índice:', index);
+
+    const currentIndex = window.appState?.playQueueIndex ?? -1;
+
+    if (index === currentIndex) {
+      // Es el item actual
+      queue.splice(index, 1);
+      
+      if (queue.length === 0) {
+        // Si quedó vacía
+        window.clearPlayQueue();
+        if (window.musicPlayer) {
+          window.musicPlayer.pause?.();
+        }
+      } else {
+        // Si el índice quedó fuera de rango tras borrar, volver al inicio
+        if (window.appState.playQueueIndex >= queue.length) {
+          window.appState.playQueueIndex = 0;
+        }
+        this.playQueueItem(window.appState.playQueueIndex);
+      }
+    } else {
+      queue.splice(index, 1);
+      if (index < currentIndex) {
+        window.appState.playQueueIndex--;
+      }
+      
+      // Actualizar skip previews
+      if (window.musicPlayer?.updateSkipPreviews) {
+        window.musicPlayer.updateSkipPreviews();
+      }
+      
+      // Actualizar imágenes del carrusel lateral
+      this.updateSideImages();
+    }
+
+    // Re-renderizar cola
+    this.renderQueue();
+  }
+
+  clearQueue() {
+    console.log('[NOW PLAYING] Limpiando toda la cola');
+    window.clearPlayQueue?.();
+    
+    // Si musicPlayer existe, pausar
+    if (window.musicPlayer) {
+      window.musicPlayer.pause?.();
+    }
+
+    // Re-renderizar
+    this.renderQueue();
+
+    // Actualizar imágenes laterales
+    this.updateSideImages();
+
+    // Opcional: ocultar el panel después de vaciar
+    setTimeout(() => {
+      this.hideQueuePanel();
+    }, 300);
   }
 }
 

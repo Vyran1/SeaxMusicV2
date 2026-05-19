@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeaxMusic Widget</title>
+  <!-- Sleek premium typography and icon sets -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+  
+  <style>
+    :root {
+      --accent-gradient: linear-gradient(135deg, #8b5cf6, #d946ef);
+      --accent-glow: rgba(139, 92, 246, 0.4);
+      --bg-blur: 35px;
+      --glass-bg: rgba(10, 10, 16, 0.65);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --text-main: #ffffff;
+      --text-sub: rgba(255, 255, 255, 0.55);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Manrope', sans-serif;
+      background: transparent; /* Permite bordes redondeados y vidrio sin fondo gris del SO */
+      color: var(--text-main);
+    }
+
+    /* Draggable window frame */
+    .pip-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      -webkit-app-region: drag;
+      overflow: hidden;
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      background: #0b0b0e;
+      transition: border-radius 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.8s ease, box-shadow 0.8s ease;
+    }
+
+    /* Collapsed state adjustments */
+    .pip-wrapper.collapsed {
+      border-color: var(--accent-glow);
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+    .pip-wrapper.collapsed.dock-left {
+      border-radius: 0 24px 24px 0;
+      border-left: none;
+    }
+    .pip-wrapper.collapsed.dock-right {
+      border-radius: 24px 0 0 24px;
+      border-right: none;
+    }
+
+    /* Dynamic cover background blur */
+    .pip-bg-blur {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      filter: blur(var(--bg-blur)) brightness(0.28) saturate(1.8);
+      transform: scale(1.18);
+      transition: background-image 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+      z-index: 1;
+    }
+
+    /* Radial premium glass overlay */
+    .pip-glass-overlay {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 30%, rgba(12, 12, 18, 0.3) 0%, rgba(6, 6, 8, 0.82) 100%);
+      z-index: 2;
+    }
+
+    /* Main layout container */
+    .pip-content {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      height: 100%;
+      padding: 20px 24px 24px;
+      transition: opacity 0.3s ease;
+    }
+
+    /* Top control header */
+    .pip-header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 24px;
+    }
+
+    .pip-brand {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      opacity: 0.85;
+      text-shadow: 0 0 10px rgba(139, 92, 246, 0.2);
+    }
+
+    .pip-header-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      -webkit-app-region: no-drag;
+    }
+
+    .pip-action-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.65);
+      font-size: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .pip-action-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      border-color: var(--accent-glow);
+      box-shadow: 0 0 8px var(--accent-glow);
+      transform: scale(1.08);
+    }
+
+    .pip-close-btn:hover {
+      background: rgba(239, 68, 68, 0.25);
+      color: #ff8888;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    /* Floating album cover visualizer */
+    .pip-cover-outer {
+      position: relative;
+      width: 180px;
+      height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 8px;
+    }
+
+    .pip-cover-glow {
+      position: absolute;
+      width: 155px;
+      height: 155px;
+      border-radius: 50%;
+      background-size: cover;
+      background-position: center;
+      filter: blur(25px) opacity(0.55);
+      z-index: 1;
+      transform: translateY(8px);
+      transition: background-image 0.6s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.4s ease;
+    }
+
+    .pip-cover-card {
+      position: relative;
+      width: 165px;
+      height: 165px;
+      border-radius: 20px;
+      overflow: hidden;
+      z-index: 2;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .pip-cover-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .pip-cover-outer:hover .pip-cover-card {
+      transform: translateY(-4px) scale(1.03);
+    }
+    .pip-cover-outer:hover .pip-cover-glow {
+      transform: translateY(12px) scale(1.08);
+    }
+
+    /* Typography meta panel */
+    .pip-meta {
+      width: 100%;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    .pip-title-container {
+      width: 100%;
+      overflow: hidden;
+      position: relative;
+      height: 25px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .pip-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+      white-space: nowrap;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      padding: 0 4px;
+    }
+
+    /* CSS Marquee Animation if script adds marquee class */
+    .marquee {
+      animation: marqueeText 12s linear infinite;
+      padding-left: 100%;
+      display: inline-block;
+    }
+
+    @keyframes marqueeText {
+      0% { transform: translate3d(0, 0, 0); }
+      100% { transform: translate3d(-100%, 0, 0); }
+    }
+
+    .pip-artist {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-sub);
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 90%;
+    }
+
+    /* Smart slider timeline scrubber */
+    .pip-timeline-container {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 14px;
+      -webkit-app-region: no-drag;
+    }
+
+    .pip-scrubber-bar {
+      position: relative;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 99px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      transition: height 0.2s ease, background 0.2s ease;
+    }
+
+    .pip-scrubber-bar:hover {
+      height: 6px;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .pip-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent-gradient);
+      border-radius: 99px;
+      box-shadow: 0 0 8px var(--accent-glow);
+      position: relative;
+    }
+
+    .pip-progress-handle {
+      position: absolute;
+      right: -6px;
+      top: 50%;
+      transform: translateY(-50%) scale(0);
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 0 10px rgba(139, 92, 246, 0.8), 0 2px 4px rgba(0, 0, 0, 0.4);
+      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .pip-scrubber-bar:hover .pip-progress-handle {
+      transform: translateY(-50%) scale(1);
+    }
+
+    .pip-time-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.45);
+      padding: 0 2px;
+    }
+
+    /* Floating control bar panel */
+    .pip-controls {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-top: 14px;
+      -webkit-app-region: no-drag;
+    }
+
+    .pip-btn {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      outline: none;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .pip-btn-nav {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      font-size: 13px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .pip-btn-nav:hover {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--accent-glow);
+      box-shadow: 0 0 10px var(--accent-glow);
+      transform: scale(1.06);
+    }
+
+    .pip-btn-nav:active {
+      transform: scale(0.95);
+    }
+
+    .pip-btn-play {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      font-size: 16px;
+      color: #ffffff;
+      background: var(--accent-gradient);
+      box-shadow: 0 4px 15px var(--accent-glow), 0 0 10px var(--accent-glow);
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .pip-btn-play:hover {
+      transform: scale(1.08);
+      background: var(--accent-gradient);
+      color: #ffffff;
+      box-shadow: 0 6px 20px var(--accent-glow), 0 0 15px var(--accent-glow);
+      filter: brightness(1.1);
+    }
+
+    .pip-btn-play:active {
+      transform: scale(0.94);
+    }
+
+    /* Ambient pulse respiration when low/bass is playing */
+    .pip-respirate {
+      animation: ambientBreathing 4s ease-in-out infinite alternate;
+    }
+
+    @keyframes ambientBreathing {
+      0% {
+        transform: scale(1.18);
+        filter: blur(var(--bg-blur)) brightness(0.28) saturate(1.8);
+      }
+      100% {
+        transform: scale(1.22);
+        filter: blur(var(--bg-blur)) brightness(0.33) saturate(2.0);
+      }
+    }
+
+    /* Collapsed docking pegatinas tab layout */
+    .pip-collapsed-handle {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+      transition: background 0.3s ease;
+    }
+
+    .pip-wrapper.collapsed.dock-left .pip-collapsed-handle {
+      align-items: flex-end;
+      padding-right: 0px;
+    }
+
+    .pip-wrapper.collapsed.dock-right .pip-collapsed-handle {
+      align-items: flex-start;
+      padding-left: 0px;
+    }
+
+    .pip-collapsed-handle:active {
+      cursor: grabbing;
+    }
+
+    .pip-wrapper.collapsed .pip-content {
+      opacity: 0;
+      pointer-events: none;
+      display: none;
+    }
+
+    .pip-wrapper.collapsed .pip-collapsed-handle {
+      display: flex;
+    }
+
+    /* Mini disk pegatinas design */
+    .pip-mini-disk-wrapper {
+      position: relative;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-app-region: no-drag;
+      cursor: pointer;
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .pip-mini-disk {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1.5px solid rgba(255, 255, 255, 0.8);
+      box-shadow: 0 0 10px var(--accent-glow), 0 2px 5px rgba(0,0,0,0.5);
+      transition: border-color 0.3s ease, box-shadow 0.8s ease;
+    }
+
+    .pip-mini-disk.playing {
+      animation: rotateDisk 8s linear infinite;
+    }
+
+    @keyframes rotateDisk {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Glowing indicator dot */
+    .pip-mini-pulse {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-gradient);
+      box-shadow: 0 0 8px var(--accent-glow), 0 0 16px var(--accent-glow);
+      bottom: -3px;
+      right: -3px;
+      z-index: 3;
+      border: 1.5px solid #0b0b0e;
+      transition: background 0.3s ease, box-shadow 0.8s ease;
+    }
+
+    .pip-mini-pulse.paused {
+      background: #ffcc00;
+      box-shadow: 0 0 6px #ffcc00;
+    }
+
+    /* Hover expand indicator */
+    .pip-mini-chevron {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: rgba(12, 12, 18, 0.82);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-size: 11px;
+      opacity: 0;
+      z-index: 2;
+      transition: opacity 0.2s ease, border-color 0.8s ease, box-shadow 0.8s ease;
+      border: 1.5px solid var(--accent-glow);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    .pip-mini-disk-wrapper:hover {
+      transform: scale(1.12);
+    }
+
+    .pip-mini-disk-wrapper:hover .pip-mini-chevron {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="pip-wrapper" id="pipWrapper">
+    <!-- Dynamic high fidelity cover backgrounds -->
+    <div class="pip-bg-blur pip-respirate" id="pipBgBlur" style="background-image: url('../assets/img/icon.png');"></div>
+    <div class="pip-glass-overlay"></div>
+
+    <!-- Collapsed edge-indicator pegatinas state layout -->
+    <div class="pip-collapsed-handle" id="pipCollapsedHandle" title="Arrastra para mover en los bordes. Haz click en el disco para expandir.">
+      <div class="pip-mini-disk-wrapper" id="pipMiniDiskWrapper">
+        <img id="pipMiniCover" src="../assets/img/icon.png" class="pip-mini-disk">
+        <div class="pip-mini-pulse" id="pipMiniPulse"></div>
+        <div class="pip-mini-chevron" id="pipMiniChevron">
+          <i class="fas fa-chevron-right" id="pipMiniChevronIcon"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main premium content card layout -->
+    <div class="pip-content" id="pipContent">
+      <div class="pip-header">
+        <span class="pip-brand">SeaxMusic Widget</span>
+        <div class="pip-header-actions">
+          <button class="pip-action-btn pip-collapse-btn" id="pipCollapseBtn" title="Acoplar pegatina al borde">
+            <i class="fas fa-compress-alt"></i>
+          </button>
+          <button class="pip-action-btn pip-close-btn" id="pipCloseBtn" title="Cerrar widget">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Rotating or beautiful cover container -->
+      <div class="pip-cover-outer">
+        <div class="pip-cover-glow" id="pipCoverGlow" style="background-image: url('../assets/img/icon.png');"></div>
+        <div class="pip-cover-card">
+          <img id="pipCover" src="../assets/img/icon.png" alt="Cover Art">
+        </div>
+      </div>
+
+      <!-- Dynamic metadata context -->
+      <div class="pip-meta">
+        <div class="pip-title-container" id="pipTitleContainer">
+          <span class="pip-title" id="pipTitle">Cargando...</span>
+        </div>
+        <span class="pip-artist" id="pipArtist">SeaxMusic Player</span>
+      </div>
+
+      <!-- Sleek scrubber panel -->
+      <div class="pip-timeline-container">
+        <div class="pip-scrubber-bar" id="pipScrubberBar">
+          <div class="pip-progress-fill" id="pipProgressFill">
+            <div class="pip-progress-handle"></div>
+          </div>
+        </div>
+        <div class="pip-time-row">
+          <span id="pipCurrentTime">0:00</span>
+          <span id="pipDuration">0:00</span>
+        </div>
+      </div>
+
+      <!-- Core bi-directional command center -->
+      <div class="pip-controls">
+        <button class="pip-btn pip-btn-nav" id="pipPrevBtn" title="Anterior">
+          <i class="fas fa-backward"></i>
+        </button>
+        <button class="pip-btn pip-btn-play" id="pipPlayPauseBtn" title="Reproducir / Pausar">
+          <i class="fas fa-play" id="pipPlayIcon"></i>
+        </button>
+        <button class="pip-btn pip-btn-nav" id="pipNextBtn" title="Siguiente">
+          <i class="fas fa-forward"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State indicators
+    let isPlaying = false;
+    let duration = 0;
+    let currentTime = 0;
+    let isDraggingScrubber = false;
+    let dockEdge = 'right'; // 'left' o 'right'
+
+    // Elements Cache
+    const el = {
+      wrapper: document.getElementById('pipWrapper'),
+      bgBlur: document.getElementById('pipBgBlur'),
+      cover: document.getElementById('pipCover'),
+      coverGlow: document.getElementById('pipCoverGlow'),
+      miniCover: document.getElementById('pipMiniCover'),
+      miniPulse: document.getElementById('pipMiniPulse'),
+      miniChevronIcon: document.getElementById('pipMiniChevronIcon'),
+      miniDiskWrapper: document.getElementById('pipMiniDiskWrapper'),
+      title: document.getElementById('pipTitle'),
+      titleContainer: document.getElementById('pipTitleContainer'),
+      artist: document.getElementById('pipArtist'),
+      currentTimeText: document.getElementById('pipCurrentTime'),
+      durationText: document.getElementById('pipDuration'),
+      progressFill: document.getElementById('pipProgressFill'),
+      scrubberBar: document.getElementById('pipScrubberBar'),
+      playPauseBtn: document.getElementById('pipPlayPauseBtn'),
+      playIcon: document.getElementById('pipPlayIcon'),
+      prevBtn: document.getElementById('pipPrevBtn'),
+      nextBtn: document.getElementById('pipNextBtn'),
+      closeBtn: document.getElementById('pipCloseBtn'),
+      collapseBtn: document.getElementById('pipCollapseBtn')
+    };
+
+    // Initialize API bindings if available
+    if (window.pipAPI) {
+      console.log('[WIDGET] pipAPI cargada con éxito en el preload');
+
+      // 1. Sincronizar info de la canción
+      window.pipAPI.onVideoInfo((info) => {
+        console.log('[WIDGET] Info de vídeo recibida:', info);
+        if (!info) return;
+
+        // Metadatos
+        el.title.textContent = info.title || 'Cargando...';
+        el.artist.textContent = info.artist || info.channel || 'SeaxMusic';
+
+        // Check if text overflow happens to trigger sliding marquee animation
+        setTimeout(checkMarquee, 100);
+
+        // Portada
+        const coverUrl = info.thumbnail || '../assets/img/icon.png';
+        el.cover.src = coverUrl;
+        el.miniCover.src = coverUrl;
+        el.bgBlur.style.backgroundImage = `url("${coverUrl}")`;
+        el.coverGlow.style.backgroundImage = `url("${coverUrl}")`;
+      });
+
+      // 2. Sincronizar tiempo de audio
+      window.pipAPI.onAudioTimeUpdate((timeInfo) => {
+        if (isDraggingScrubber) return; // Ignore updates while dragging
+        if (timeInfo.currentTime !== undefined) {
+          currentTime = timeInfo.currentTime;
+          el.currentTimeText.textContent = formatTime(currentTime);
+        }
+        if (timeInfo.duration !== undefined && timeInfo.duration > 0) {
+          duration = timeInfo.duration;
+          el.durationText.textContent = formatTime(duration);
+        }
+
+        if (duration > 0) {
+          const percent = (currentTime / duration) * 100;
+          el.progressFill.style.width = percent + '%';
+        }
+      });
+
+      // 3. Sincronizar estado de reproducción
+      window.pipAPI.onPlaybackState((state) => {
+        console.log('[WIDGET] Playback state:', state);
+        isPlaying = state;
+        updatePlayPauseUI();
+      });
+
+      // 4. Sincronizar estado de colapsado (Pegatina)
+      window.pipAPI.onDockState((dockInfo) => {
+        console.log('[WIDGET] Dock state updated:', dockInfo);
+        if (dockInfo.collapsed) {
+          dockEdge = dockInfo.edge || 'right';
+          el.wrapper.classList.add('collapsed');
+          el.wrapper.classList.remove('dock-left', 'dock-right');
+          el.wrapper.classList.add(`dock-${dockEdge}`);
+          
+          // Cambiar dirección del chevron de expansión según el borde acoplado
+          if (dockEdge === 'left') {
+            el.miniChevronIcon.className = 'fas fa-chevron-right';
+          } else {
+            el.miniChevronIcon.className = 'fas fa-chevron-left';
+          }
+        } else {
+          el.wrapper.classList.remove('collapsed', 'dock-left', 'dock-right');
+          setTimeout(checkMarquee, 200); // Recalcular marquesina
+        }
+      });
+
+      // 5. Sincronizar colores dinámicos (Aura Engine de SeaxMusic)
+      window.pipAPI.onAccentColor((rgb) => {
+        if (!rgb) return;
+        const { r, g, b } = rgb;
+        
+        // Generar colores variantes para el degradado y brillos
+        const brightR = Math.min(255, r + 25);
+        const brightG = Math.min(255, g + 25);
+        const brightB = Math.min(255, b + 25);
+        
+        const root = document.documentElement;
+        
+        // Actualizar variables de CSS
+        root.style.setProperty('--accent-gradient', `linear-gradient(135deg, rgb(${r}, ${g}, ${b}), rgb(${brightR}, ${brightG}, ${brightB}))`);
+        root.style.setProperty('--accent-glow', `rgba(${r}, ${g}, ${b}, 0.4)`);
+        root.style.setProperty('--glass-border', `rgba(${r}, ${g}, ${b}, 0.16)`);
+        
+        console.log(`[WIDGET] 🎨 Color de acento actualizado a: rgb(${r}, ${g}, ${b})`);
+      });
+
+      // Action Handlers for controls
+      el.playPauseBtn.addEventListener('click', () => {
+        isPlaying = !isPlaying;
+        updatePlayPauseUI();
+        window.pipAPI.sendControl(isPlaying ? 'play' : 'pause');
+      });
+
+      el.prevBtn.addEventListener('click', () => {
+        window.pipAPI.sendControl('previous');
+      });
+
+      el.nextBtn.addEventListener('click', () => {
+        window.pipAPI.sendControl('next');
+      });
+
+      el.closeBtn.addEventListener('click', () => {
+        window.pipAPI.close();
+      });
+
+      // Collapse trigger
+      el.collapseBtn.addEventListener('click', () => {
+        window.pipAPI.sendControl('collapse');
+      });
+
+      // Expand trigger from mini disk
+      el.miniDiskWrapper.addEventListener('click', () => {
+        window.pipAPI.sendControl('expand');
+      });
+
+      // Hover events for collapsed sticker tab slide out drawer behavior
+      el.wrapper.addEventListener('mouseenter', () => {
+        if (el.wrapper.classList.contains('collapsed') && window.pipAPI && window.pipAPI.sendHover) {
+          window.pipAPI.sendHover(true);
+        }
+      });
+
+      el.wrapper.addEventListener('mouseleave', () => {
+        if (el.wrapper.classList.contains('collapsed') && window.pipAPI && window.pipAPI.sendHover) {
+          window.pipAPI.sendHover(false);
+        }
+      });
+
+      // Scrubber Interaction Setup
+      el.scrubberBar.addEventListener('mousedown', (e) => {
+        isDraggingScrubber = true;
+        handleScrubberSeek(e);
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (isDraggingScrubber) {
+          handleScrubberSeek(e);
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        isDraggingScrubber = false;
+      });
+
+    } else {
+      console.warn('[WIDGET] pipAPI no disponible. Corriendo en modo mock para testing.');
+      // Mock setups for manual testing / loading checks
+      el.title.textContent = 'Demo Track - Premium Glassmorphism Widget';
+      el.artist.textContent = 'Antigravity Visuals';
+      duration = 240;
+      el.durationText.textContent = formatTime(duration);
+      setInterval(() => {
+        if (isPlaying && !isDraggingScrubber) {
+          currentTime = (currentTime + 1) % duration;
+          el.currentTimeText.textContent = formatTime(currentTime);
+          el.progressFill.style.width = (currentTime / duration * 100) + '%';
+        }
+      }, 1000);
+      
+      el.playPauseBtn.addEventListener('click', () => {
+        isPlaying = !isPlaying;
+        updatePlayPauseUI();
+      });
+      el.closeBtn.addEventListener('click', () => {
+        alert('Cerrar widget interactivo');
+      });
+      el.collapseBtn.addEventListener('click', () => {
+        // Mock collapse
+        dockEdge = 'left';
+        el.wrapper.classList.toggle('collapsed');
+        el.wrapper.classList.toggle('dock-left');
+        el.miniChevronIcon.className = 'fas fa-chevron-right';
+      });
+      el.miniDiskWrapper.addEventListener('click', () => {
+        // Mock expand
+        el.wrapper.classList.remove('collapsed', 'dock-left', 'dock-right');
+      });
+    }
+
+    // Helper functions
+    function formatTime(seconds) {
+      if (isNaN(seconds) || seconds === null) return '0:00';
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function updatePlayPauseUI() {
+      if (isPlaying) {
+        el.playIcon.className = 'fas fa-pause';
+        el.playPauseBtn.title = 'Pausar';
+        el.miniCover.classList.add('playing');
+        el.miniPulse.classList.remove('paused');
+      } else {
+        el.playIcon.className = 'fas fa-play';
+        el.playPauseBtn.title = 'Reproducir';
+        el.miniCover.classList.remove('playing');
+        el.miniPulse.classList.add('paused');
+      }
+    }
+
+    function checkMarquee() {
+      // Clear marquee first
+      el.title.classList.remove('marquee');
+      
+      const titleWidth = el.title.offsetWidth;
+      const containerWidth = el.titleContainer.offsetWidth;
+
+      if (titleWidth > containerWidth - 10) {
+        el.title.classList.add('marquee');
+      }
+    }
+
+    function handleScrubberSeek(e) {
+      if (!duration) return;
+      const rect = el.scrubberBar.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+      const pct = Math.max(0, Math.min(1, offsetX / rect.width));
+      const targetTime = pct * duration;
+
+      // Update UI instantly for hyper-tactility
+      el.progressFill.style.width = (pct * 100) + '%';
+      el.currentTimeText.textContent = formatTime(targetTime);
+
+      if (window.pipAPI) {
+        window.pipAPI.sendControl('seek', targetTime);
+      }
+    }
+
+    // Recalcular el texto en rotación o cambio de tamaño de ventana
+    window.addEventListener('resize', checkMarquee);
+  </script>
+</body>
+</html>

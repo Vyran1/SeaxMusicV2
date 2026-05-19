@@ -1,5 +1,5 @@
 /**
- * Search Manager - Gestiona la página de búsqueda y resultados de YouTube
+ * Search Manager - Gestiona la página de búsqueda y resultados de SeaxMusic
  */
 
 class SearchManager {
@@ -69,7 +69,7 @@ class SearchManager {
             </div>
             <div class="search-banner-info">
               <h1 class="search-banner-title">Buscar</h1>
-              <p class="search-banner-subtitle">Encuentra tu música favorita en YouTube</p>
+              <p class="search-banner-subtitle">Encuentra tu música favorita en SeaxMusic</p>
             </div>
           </div>
           <div class="search-box-container">
@@ -95,7 +95,7 @@ class SearchManager {
             <div class="search-loading-spinner">
               <div class="spinner-ring"></div>
             </div>
-            <p>Buscando en YouTube...</p>
+            <p>Buscando en SeaxMusic...</p>
           </div>
           <div class="search-results-grid" id="searchResultsGrid"></div>
           <div class="search-no-results" id="searchNoResults" style="display: none;">
@@ -175,7 +175,7 @@ class SearchManager {
       return;
     }
 
-    console.log('🔍 Buscando en YouTube:', query);
+    console.log('🔍 Buscando en SeaxMusic:', query);
     this.currentQuery = query;
     
     // Mostrar sección de resultados y ocultar categorías
@@ -238,7 +238,7 @@ class SearchManager {
       card.className = 'music-card search-result-card';
       card.setAttribute('data-video-id', video.videoId);
       
-      const artistName = video.channel || video.artist || 'YouTube';
+      const artistName = video.channel || video.artist || 'SeaxMusic';
       const videoTitle = video.title || 'Sin título';
       const videoId = video.videoId || '';
       
@@ -254,6 +254,7 @@ class SearchManager {
                alt="${videoTitle}" loading="lazy">
           <div class="card-overlay">
             <button class="play-card-btn"><i class="fas fa-play"></i></button>
+            <button class="add-queue-card-btn" title="Añadir a la cola"><i class="fas fa-plus"></i></button>
           </div>
           ${video.duration ? `<span class="card-duration">${video.duration}</span>` : ''}
         </div>
@@ -265,6 +266,21 @@ class SearchManager {
       `;
       card.style.setProperty('--card-bg', `url('${thumbnailSrc}')`);
       
+      // Click en botón de añadir a la cola
+      const addQueueBtn = card.querySelector('.add-queue-card-btn');
+      if (addQueueBtn) {
+        addQueueBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.addToQueue({
+            videoId: video.videoId,
+            title: videoTitle,
+            artist: artistName,
+            channel: artistName,
+            thumbnail: video.thumbnail || thumbnailSrc
+          });
+        });
+      }
+
       // Click para reproducir
       card.addEventListener('click', () => {
         this.playVideo(video);
@@ -276,7 +292,7 @@ class SearchManager {
   
   playVideo(video) {
     const videoTitle = video.title || 'Sin título';
-    const artistName = video.channel || video.artist || 'YouTube';
+    const artistName = video.channel || video.artist || 'SeaxMusic';
     
     console.log('🎵 Reproduciendo desde búsqueda:', videoTitle);
     

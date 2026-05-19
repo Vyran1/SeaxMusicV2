@@ -1,6 +1,6 @@
 {
   "name": "seaxmusic",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "SeaxMusic",
   "author": "Vyran",
   "main": "src/main/main.js",
@@ -96,6 +96,7 @@
   },
   "dependencies": {
     "discord-rpc": "^4.0.1",
+    "electron-store": "^8.2.0",
     "electron-updater": "^6.7.3"
   }
 }

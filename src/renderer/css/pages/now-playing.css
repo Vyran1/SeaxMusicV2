@@ -26,6 +26,17 @@
   overflow: hidden;
 }
 
+/* Wrapper reactivo al ritmo de la música (escala) */
+.nowplaying-bg-pulse-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: scale(var(--ambient-scale, 1));
+  will-change: transform;
+}
+
 .nowplaying-bg-image {
   position: absolute;
   top: -10%;
@@ -34,9 +45,29 @@
   height: 120%;
   background-size: cover;
   background-position: center;
-  filter: blur(80px) brightness(0.3) saturate(1.5);
+  filter: blur(80px) brightness(var(--ambient-brightness, 0.3)) saturate(1.5);
   transform: scale(1.1);
   transition: background-image 0.5s ease;
+  animation: nowPlayingAmbientDrift 45s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes nowPlayingAmbientDrift {
+  0% {
+    transform: scale(1.1) translate(0, 0) rotate(0deg);
+  }
+  25% {
+    transform: scale(1.16) translate(2%, -2%) rotate(0.8deg);
+  }
+  50% {
+    transform: scale(1.22) translate(-1.5%, 1.5%) rotate(-0.8deg);
+  }
+  75% {
+    transform: scale(1.16) translate(-2%, -1.5%) rotate(0.6deg);
+  }
+  100% {
+    transform: scale(1.1) translate(0, 0) rotate(0deg);
+  }
 }
 
 .nowplaying-bg-overlay {
@@ -1428,25 +1459,321 @@
     opacity: 1;
   }
 }
-
-/* Animación del fondo - más suave */
-.nowplaying-bg-image.changing {
-  animation: bgFadeSmooth 0.6s ease;
+/* No interrumpir la animación Ken Burns al cambiar de canción */
+/* ===== PANEL DE COLA DESLIZANTE (SLIDING QUEUE PANEL) ===== */
+.np-queue-panel {
+  position: absolute;
+  top: 0;
+  right: -420px;
+  width: 400px;
+  height: 100%;
+  background: rgba(15, 15, 20, 0.7);
+  backdrop-filter: blur(30px) saturate(1.8);
+  -webkit-backdrop-filter: blur(30px) saturate(1.8);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: -15px 0 45px rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  transition: right 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-@keyframes bgFadeSmooth {
+.np-queue-panel.active {
+  right: 0;
+}
+
+.np-queue-header {
+  padding: 24px 20px 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.np-queue-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.np-queue-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.np-queue-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.np-queue-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.np-queue-clear {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.np-queue-clear:hover {
+  background: rgba(255, 68, 68, 0.12);
+  border-color: rgba(255, 68, 68, 0.3);
+  color: #ff6b6b;
+}
+
+.np-queue-clear i {
+  font-size: 11px;
+}
+
+.np-queue-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  transition: all 0.2s ease;
+}
+
+.np-queue-close:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
+}
+
+.np-queue-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Custom Scrollbar for Queue Panel */
+.np-queue-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.np-queue-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.np-queue-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.np-queue-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* Queue Items */
+.np-queue-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.np-queue-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.np-queue-item.active {
+  background: rgba(var(--accent-rgb), 0.08);
+  border-color: rgba(var(--accent-rgb), 0.25);
+  box-shadow: 0 4px 20px rgba(var(--accent-rgb), 0.1), inset 0 0 12px rgba(var(--accent-rgb), 0.05);
+}
+
+.np-queue-cover-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+  background: #0d0d11;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.np-queue-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.np-queue-item:hover .np-queue-cover {
+  transform: scale(1.06);
+}
+
+.np-queue-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.np-queue-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.2s ease;
+}
+
+.np-queue-item:hover .np-queue-item-title {
+  color: #ffffff;
+}
+
+.np-queue-item.active .np-queue-item-title {
+  color: var(--accent-primary, #eb5757);
+  font-weight: 700;
+  text-shadow: 0 0 10px rgba(var(--accent-rgb), 0.2);
+}
+
+.np-queue-item-artist {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.np-queue-item.active .np-queue-item-artist {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.np-queue-item-remove {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.np-queue-item:hover .np-queue-item-remove {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.np-queue-item-remove:hover {
+  color: #ff6b6b;
+  background: rgba(255, 68, 68, 0.15);
+  transform: scale(1.08);
+}
+
+.np-queue-item-remove i {
+  font-size: 11px;
+}
+
+/* Empty Queue State */
+.np-queue-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  text-align: center;
+  color: var(--text-secondary);
+  gap: 16px;
+  height: 50%;
+}
+
+.np-queue-empty-icon {
+  font-size: 44px;
+  color: rgba(255, 255, 255, 0.12);
+  margin-bottom: 8px;
+  animation: pulseQueueEmpty 2.5s infinite alternate ease-in-out;
+}
+
+@keyframes pulseQueueEmpty {
   0% {
-    opacity: 1;
-    filter: blur(80px) brightness(0.3) saturate(1.5);
+    transform: scale(1) rotate(0deg);
+    opacity: 0.5;
   }
-
-  35% {
-    opacity: 0.3;
-    filter: blur(100px) brightness(0.2) saturate(1);
-  }
-
   100% {
-    opacity: 1;
-    filter: blur(80px) brightness(0.3) saturate(1.5);
+    transform: scale(1.08) rotate(5deg);
+    opacity: 0.9;
+  }
+}
+
+.np-queue-empty p {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+}
+
+.np-queue-empty span {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  max-width: 200px;
+}
+
+/* Button Active State for Queue Action Button */
+#npQueue.active {
+  color: var(--accent-primary);
+  background: rgba(var(--accent-rgb), 0.2);
+  box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.3);
+}
+
+#npQueue.active i {
+  color: var(--accent-primary);
+  text-shadow: 0 0 10px var(--accent-primary);
+}
+
+/* Responsive adjustment for Queue Panel */
+@media (max-width: 600px) {
+  .np-queue-panel {
+    width: 100%;
+    right: -100%;
+    border-left: none;
+  }
+  .np-queue-panel.active {
+    right: 0;
   }
 }

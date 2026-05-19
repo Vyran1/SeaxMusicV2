@@ -14,5 +14,14 @@ contextBridge.exposeInMainWorld('pipAPI', {
   sendControl: (action, value) => {
     ipcRenderer.send('pip-control', { action, value });
   },
+  onDockState: (callback) => {
+    ipcRenderer.on('pip-dock-state', (event, dockInfo) => callback(dockInfo));
+  },
+  onAccentColor: (callback) => {
+    ipcRenderer.on('pip-accent-color', (event, rgb) => callback(rgb));
+  },
+  sendHover: (isHovering) => {
+    ipcRenderer.send('pip-hover-update', isHovering);
+  },
   close: () => ipcRenderer.invoke('pip-close')
 });

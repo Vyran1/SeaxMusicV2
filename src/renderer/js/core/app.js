@@ -112,8 +112,8 @@ function getNextTrackForDjMix() {
     return {
       videoId: nextInfo.videoId,
       title: nextInfo.title || 'Siguiente',
-      artist: nextInfo.channel || nextInfo.artist || 'YouTube',
-      channel: nextInfo.channel || nextInfo.artist || 'YouTube',
+      artist: nextInfo.channel || nextInfo.artist || 'SeaxMusic',
+      channel: nextInfo.channel || nextInfo.artist || 'SeaxMusic',
       thumbnail: nextInfo.thumbnail || `https://i.ytimg.com/vi/${nextInfo.videoId}/hqdefault.jpg`
     };
   }
@@ -337,13 +337,41 @@ function initDjMixWrappers() {
 // ===== SISTEMA DE COLA DE REPRODUCCIÓN =====
 
 function setPlayQueue(tracks, startIndex = 0) {
-  appState.playQueue = tracks;
+  // Guardar una copia real del array
+  appState.playQueue = [...tracks];
   appState.playQueueIndex = startIndex;
-  console.log('[QUEUE] ✅ Cola establecida:', tracks.length, 'canciones, iniciando en índice', startIndex);
-  console.log('[QUEUE] Tracks:', tracks.map(t => t.title).join(', '));
+  
+  // Si Shuffle está activo en el reproductor, guardar original y mezclar las restantes
+  if (window.musicPlayer?.isShuffle) {
+    console.log('[QUEUE] Shuffle activo al establecer cola. Guardando copia original...');
+    appState.originalPlayQueue = [...tracks];
+    
+    // Mezclar las canciones que están después del índice inicial para no interrumpir el tema seleccionado
+    if (tracks.length > startIndex + 1) {
+      const played = appState.playQueue.slice(0, startIndex + 1);
+      const unplayed = appState.playQueue.slice(startIndex + 1);
+      
+      // Mezcla aleatoria de los temas no reproducidos
+      for (let i = unplayed.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [unplayed[i], unplayed[j]] = [unplayed[j], unplayed[i]];
+      }
+      appState.playQueue = [...played, ...unplayed];
+    }
+  } else {
+    appState.originalPlayQueue = null;
+  }
+  
+  console.log('[QUEUE] ✅ Cola establecida:', appState.playQueue.length, 'canciones, iniciando en índice', startIndex);
+  console.log('[QUEUE] Tracks:', appState.playQueue.map(t => t.title).join(', '));
 
   if (window.musicPlayer?.updateSkipPreviews) {
     window.musicPlayer.updateSkipPreviews();
+  }
+
+  // Sincronizar cola en panel de Now Playing si está abierto
+  if (window.nowPlayingManager && typeof window.nowPlayingManager.renderQueue === 'function') {
+    window.nowPlayingManager.renderQueue();
   }
 }
 
@@ -358,11 +386,17 @@ function playNextInQueue() {
   appState.playQueueIndex++;
   console.log('[QUEUE] Nuevo índice:', appState.playQueueIndex, '/', appState.playQueue.length);
 
+  const repeatMode = window.musicPlayer?.repeatMode || 'off';
+
   if (appState.playQueueIndex >= appState.playQueue.length) {
-    console.log('[QUEUE] Fin de la cola');
-    appState.playQueueIndex = -1;
-    appState.playQueue = [];
-    return false;
+    if (repeatMode === 'all') {
+      console.log('[QUEUE] Fin de la cola - Repetición completa activa. Volviendo a empezar...');
+      appState.playQueueIndex = 0;
+    } else {
+      console.log('[QUEUE] Fin de la cola - Deteniendo reproducción');
+      appState.playQueueIndex = appState.playQueue.length; // Posición al final
+      return false;
+    }
   }
 
   const track = appState.playQueue[appState.playQueueIndex];
@@ -374,6 +408,11 @@ function playNextInQueue() {
   }
   if (window.musicPlayer?.updateSkipPreviews) {
     window.musicPlayer.updateSkipPreviews();
+  }
+
+  // Sincronizar cola en panel de Now Playing si está abierto
+  if (window.nowPlayingManager && typeof window.nowPlayingManager.renderQueue === 'function') {
+    window.nowPlayingManager.renderQueue();
   }
 
   // ⭐ Si hay playlist activa, actualizar UI y Discord con cover de playlist
@@ -419,17 +458,23 @@ function playNextInQueue() {
 }
 
 function playPrevInQueue() {
-  if (appState.playQueue.length === 0) {
+  if (!appState.playQueue || appState.playQueue.length === 0) {
     console.log('[QUEUE] Cola vacía');
     return false;
   }
 
   appState.playQueueIndex--;
+  const repeatMode = window.musicPlayer?.repeatMode || 'off';
 
   if (appState.playQueueIndex < 0) {
-    console.log('[QUEUE] Inicio de la cola');
-    appState.playQueueIndex = 0;
-    return false;
+    if (repeatMode === 'all') {
+      console.log('[QUEUE] Inicio de la cola - Repetición completa activa. Saltando al final...');
+      appState.playQueueIndex = appState.playQueue.length - 1;
+    } else {
+      console.log('[QUEUE] Inicio de la cola - Deteniendo retroceso');
+      appState.playQueueIndex = 0;
+      return false;
+    }
   }
 
   const track = appState.playQueue[appState.playQueueIndex];
@@ -441,6 +486,11 @@ function playPrevInQueue() {
   }
   if (window.musicPlayer?.updateSkipPreviews) {
     window.musicPlayer.updateSkipPreviews();
+  }
+
+  // Sincronizar cola en panel de Now Playing si está abierto
+  if (window.nowPlayingManager && typeof window.nowPlayingManager.renderQueue === 'function') {
+    window.nowPlayingManager.renderQueue();
   }
 
   // ⭐ Si hay playlist activa, actualizar UI y Discord con cover de playlist
@@ -495,11 +545,52 @@ function clearPlayQueue() {
   console.log('[QUEUE] Cola limpiada');
 }
 
+function addToQueue(track) {
+  if (!track || !track.videoId) return;
+
+  if (!appState.playQueue) {
+    appState.playQueue = [];
+  }
+
+  appState.playQueue.push(track);
+  
+  // Si originalPlayQueue está activo, añadir también ahí para preservar la cola original
+  if (appState.originalPlayQueue) {
+    appState.originalPlayQueue.push(track);
+  }
+
+  console.log('[QUEUE] ➕ Canción añadida a la cola:', track.title, 'Total en cola:', appState.playQueue.length);
+
+  // Sincronizar UI de skip previews si existe
+  if (window.musicPlayer?.updateSkipPreviews) {
+    window.musicPlayer.updateSkipPreviews();
+  }
+
+  // Si Now Playing está abierto, actualizar las imágenes laterales y la cola
+  if (window.nowPlayingManager) {
+    if (typeof window.nowPlayingManager.updateSideImages === 'function') {
+      window.nowPlayingManager.updateSideImages();
+    }
+    if (typeof window.nowPlayingManager.renderQueue === 'function' && 
+        window.nowPlayingManager.queuePanel?.classList.contains('active')) {
+      window.nowPlayingManager.renderQueue();
+    }
+  }
+
+  // Mostrar notificación visual premium Toast
+  if (window.uiUtils?.showNotification) {
+    window.uiUtils.showNotification(`Añadida a la cola: ${track.title}`, 'info');
+  } else {
+    console.log(`[QUEUE] Añadida a la cola: ${track.title}`);
+  }
+}
+
 // Exponer funciones de cola globalmente
 window.setPlayQueue = setPlayQueue;
 window.playNextInQueue = playNextInQueue;
 window.playPrevInQueue = playPrevInQueue;
 window.clearPlayQueue = clearPlayQueue;
+window.addToQueue = addToQueue;
 
 // ===== SISTEMA DE FAVORITOS (usa IPC para persistencia real) =====
 
@@ -842,81 +933,190 @@ async function initApp() {
     });
   }
 
+  // Cache de elementos del DOM para evitar búsquedas repetitivas de alta frecuencia (30-60fps)
+  const domCache = {
+    nowPlayingPage: null,
+    djPulseRing: null,
+    trackImage: null,
+    miniVisualizers: null,
+    nowPlayingVisualizers: null,
+    nowPlayingCovers: null,
+
+    get(id) {
+      if (!this[id]) {
+        this[id] = document.getElementById(id);
+      }
+      return this[id];
+    },
+
+    getMiniVisualizers() {
+      if (!this.miniVisualizers) {
+        this.miniVisualizers = document.querySelectorAll('.mini-visualizer');
+      }
+      return this.miniVisualizers;
+    },
+
+    getNowPlayingVisualizers() {
+      if (!this.nowPlayingVisualizers) {
+        this.nowPlayingVisualizers = document.querySelectorAll('.nowplaying-visualizer');
+      }
+      return this.nowPlayingVisualizers;
+    },
+
+    getNowPlayingCovers() {
+      if (!this.nowPlayingCovers) {
+        this.nowPlayingCovers = document.querySelectorAll('.nowplaying-cover');
+      }
+      return this.nowPlayingCovers;
+    }
+  };
+
   // ⭐ Escuchar datos de audio en tiempo real para todos los visualizadores
   if (window.electronAPI && window.electronAPI.onAudioFrequencyData) {
     window.electronAPI.onAudioFrequencyData((data) => {
       const isPlaying = window.musicPlayer && window.musicPlayer.isPlaying;
 
-      // 1. DJ Pulse Ring (El "circulito" que late con el bajo)
-      const djPulseRing = document.getElementById('djPulseRing');
-      if (djPulseRing) {
-        if (!appState.djMixEnabled || !isPlaying) {
+      // Si no está reproduciendo, resetear estilos suavemente a sus valores por defecto y salir
+      if (!isPlaying) {
+        // Resetear minivisualizadores
+        const miniVizs = domCache.getMiniVisualizers();
+        miniVizs.forEach(container => {
+          const bars = container.querySelectorAll('.mini-bar');
+          bars.forEach(bar => bar.style.transform = 'scaleY(0.2)');
+        });
+
+        // Resetear visualizadores grandes
+        const npVizs = domCache.getNowPlayingVisualizers();
+        npVizs.forEach(container => {
+          const bars = container.querySelectorAll('.visualizer-bar');
+          bars.forEach(bar => bar.style.transform = 'scaleY(0.2)');
+        });
+
+        // Resetear carátula de barra inferior
+        const trackImage = domCache.get('trackImage');
+        if (trackImage) {
+          trackImage.style.boxShadow = 'none';
+          trackImage.style.transform = 'scale(1)';
+        }
+
+        // Resetear carátulas grandes de Now Playing
+        const npCovers = domCache.getNowPlayingCovers();
+        npCovers.forEach(img => {
+          img.style.boxShadow = 'none';
+          img.style.transform = 'scale(1.15)';
+        });
+
+        // Resetear DJ Pulse Ring
+        const djPulseRing = domCache.get('djPulseRing');
+        if (djPulseRing) {
           djPulseRing.style.opacity = '0';
           djPulseRing.style.transform = 'scale(1)';
-        } else {
-          const bassIntensity = (data[0] + data[1]) / 2;
-          const normalizedBass = Math.pow(bassIntensity / 255, 1.2);
-          const scale = 1.0 + (normalizedBass * 0.7);
-          const opacity = 0.3 + (normalizedBass * 0.6);
-          const borderWidth = 2 + (normalizedBass * 3);
-
-          djPulseRing.style.transform = `scale(${scale})`;
-          djPulseRing.style.opacity = opacity.toString();
-          djPulseRing.style.borderWidth = `${borderWidth}px`;
         }
+
+        document.documentElement.style.setProperty('--audio-pulse-intensity', '0');
+        return;
       }
 
-      // 2. All Visualizer Containers (Main y Mini)
-      const vizContainers = document.querySelectorAll('.nowplaying-visualizer, .mini-visualizer');
-      vizContainers.forEach(container => {
+      // --- CANCIÓN EN REPRODUCCIÓN (onAudioFrequencyData ACTIVO) ---
+
+      // Comprobar visibilidad: ¿está activa la pantalla completa de Now Playing?
+      const nowPlayingPage = domCache.get('nowPlayingPage');
+      const isNowPlayingActive = nowPlayingPage && nowPlayingPage.classList.contains('active');
+
+      const bassIntensity = (data[0] + data[1] + data[2]) / 3;
+      const normalizedPulse = Math.pow(bassIntensity / 255, 1.1);
+
+      // A. Elementos de la Barra Inferior (Siempre visibles y actualizados)
+      // 1. Minivisualizadores
+      const miniVizs = domCache.getMiniVisualizers();
+      miniVizs.forEach(container => {
         if (!container.classList.contains('real-visualizer-active')) {
           container.classList.add('real-visualizer-active');
         }
         
-        const bars = container.querySelectorAll('.visualizer-bar, .mini-bar');
+        const bars = container.querySelectorAll('.mini-bar');
         bars.forEach((bar, i) => {
-          if (!isPlaying) {
-            bar.style.transform = 'scaleY(0.2)';
-          } else if (data[i] !== undefined) {
-            // Usamos un factor de escala ligeramente distinto para mini-bars si queremos
-            const isMini = bar.classList.contains('mini-bar');
-            const scale = 0.2 + (data[i] / 255) * (isMini ? 1.2 : 1.5);
+          if (data[i] !== undefined) {
+            const scale = 0.2 + (data[i] / 255) * 1.2;
             bar.style.transform = `scaleY(${scale})`;
           }
         });
       });
 
-      // 3. All Covers Glow (Pulsación rítmica en carátulas grande y pequeña)
-      const allCovers = document.querySelectorAll('.nowplaying-cover, #trackImage');
-      const bassIntensity = (data[0] + data[1] + data[2]) / 3;
-      const normalizedPulse = isPlaying ? Math.pow(bassIntensity / 255, 1.1) : 0;
+      // 2. Carátula de barra inferior (pulsación)
+      const trackImage = domCache.get('trackImage');
+      if (trackImage) {
+        const intensity = 0.35 + (normalizedPulse * 0.45);
+        const blur = 12 + (normalizedPulse * 30);
+        const spread = 4 + (normalizedPulse * 15);
 
-      allCovers.forEach(img => {
-        if (!isPlaying) {
-          img.style.boxShadow = 'none';
-          img.style.transform = img.id === 'trackImage' ? 'scale(1)' : 'scale(1.15)';
-          return;
+        trackImage.style.boxShadow = `
+          0 0 0 2px rgba(var(--accent-rgb), 0.25),
+          0 0 ${blur}px ${spread}px rgba(var(--accent-rgb), ${intensity}),
+          0 8px 30px rgba(0, 0, 0, 0.5)
+        `;
+        const bounce = normalizedPulse * 0.04;
+        trackImage.style.transform = `scale(${1.0 + bounce})`;
+      }
+
+
+      // B. Elementos de la pantalla completa Now Playing (SOLO procesar si está activa)
+      if (isNowPlayingActive) {
+        // 1. DJ Pulse Ring
+        const djPulseRing = domCache.get('djPulseRing');
+        if (djPulseRing) {
+          if (!appState.djMixEnabled) {
+            djPulseRing.style.opacity = '0';
+            djPulseRing.style.transform = 'scale(1)';
+          } else {
+            const pulseBass = (data[0] + data[1]) / 2;
+            const normalizedPulseBass = Math.pow(pulseBass / 255, 1.2);
+            const scale = 1.0 + (normalizedPulseBass * 0.7);
+            const opacity = 0.3 + (normalizedPulseBass * 0.6);
+            const borderWidth = 2 + (normalizedPulseBass * 3);
+
+            djPulseRing.style.transform = `scale(${scale})`;
+            djPulseRing.style.opacity = opacity.toString();
+            djPulseRing.style.borderWidth = `${borderWidth}px`;
+          }
         }
 
-        if (img.classList.contains('aura-active') || img.id === 'trackImage') {
-          // Estado base elegante (siempre visible si suena) + pulso de audio
-          const intensity = 0.35 + (normalizedPulse * 0.45);
-          const blur = 12 + (normalizedPulse * 30);
-          const spread = 4 + (normalizedPulse * 15);
+        // 2. Visualizadores grandes
+        const npVizs = domCache.getNowPlayingVisualizers();
+        npVizs.forEach(container => {
+          if (!container.classList.contains('real-visualizer-active')) {
+            container.classList.add('real-visualizer-active');
+          }
+          
+          const bars = container.querySelectorAll('.visualizer-bar');
+          bars.forEach((bar, i) => {
+            if (data[i] !== undefined) {
+              const scale = 0.2 + (data[i] / 255) * 1.5;
+              bar.style.transform = `scaleY(${scale})`;
+            }
+          });
+        });
 
-          img.style.boxShadow = `
-            0 0 0 2px rgba(var(--accent-rgb), 0.25),
-            0 0 ${blur}px ${spread}px rgba(var(--accent-rgb), ${intensity}),
-            0 8px 30px rgba(0, 0, 0, 0.5)
-          `;
+        // 3. Covers grandes (pulsación de carátulas)
+        const npCovers = domCache.getNowPlayingCovers();
+        npCovers.forEach(img => {
+          if (img.classList.contains('aura-active')) {
+            const intensity = 0.35 + (normalizedPulse * 0.45);
+            const blur = 12 + (normalizedPulse * 30);
+            const spread = 4 + (normalizedPulse * 15);
 
-          const baseScale = img.id === 'trackImage' ? 1.0 : 1.15;
-          const bounce = normalizedPulse * 0.04; // Rebote más sutil y premium
-          img.style.transform = `scale(${baseScale + bounce})`;
-        }
-      });
+            img.style.boxShadow = `
+              0 0 0 2px rgba(var(--accent-rgb), 0.25),
+              0 0 ${blur}px ${spread}px rgba(var(--accent-rgb), ${intensity}),
+              0 8px 30px rgba(0, 0, 0, 0.5)
+            `;
+            const bounce = normalizedPulse * 0.04;
+            img.style.transform = `scale(${1.15 + bounce})`;
+          }
+        });
+      }
 
-      // 4. Aplicar a la barra inferior (Aura ambiental y Ola)
+      // 4. Inyectar variables globales
       document.documentElement.style.setProperty('--audio-pulse-intensity', normalizedPulse.toString());
     });
   }
@@ -963,7 +1163,7 @@ async function initApp() {
       if (videoInfo.channel || videoInfo.artist) {
         document.getElementById('trackArtist').textContent = videoInfo.channel || videoInfo.artist;
       } else if (videoInfo.videoId && videoInfo.videoId !== prevId) {
-        document.getElementById('trackArtist').textContent = 'YouTube';
+        document.getElementById('trackArtist').textContent = 'SeaxMusic';
       }
 
       if (appState.djMixEnabled) {
@@ -1056,7 +1256,7 @@ async function checkInitialSession() {
     window.appState.loaderAllowed = true;
   }
   showLoader('Cargando tu música...');
-  updateLoaderStatus('Conectando con YouTube...');
+  updateLoaderStatus('Conectando con SeaxMusic...');
 
   try {
     const userData = await window.electronAPI.loadUserData();
@@ -1095,7 +1295,7 @@ function displayFavoritesInGrid(gridElement, videos) {
     card.className = 'music-card favorite-card';
     card.setAttribute('data-video-id', video.videoId);
 
-    const artistName = video.channel || video.artist || 'YouTube';
+    const artistName = video.channel || video.artist || 'SeaxMusic';
     const videoTitle = video.title || 'Sin título';
 
     card.innerHTML = `
@@ -1103,6 +1303,7 @@ function displayFavoritesInGrid(gridElement, videos) {
         ${createImageWithFallback(video)}
         <div class="card-overlay">
           <button class="play-card-btn"><i class="fas fa-play"></i></button>
+          <button class="add-queue-card-btn" title="Añadir a la cola"><i class="fas fa-plus"></i></button>
         </div>
         <button class="remove-favorite-btn" title="Quitar de favoritos">
           <i class="fas fa-heart-broken"></i>
@@ -1123,6 +1324,13 @@ function displayFavoritesInGrid(gridElement, videos) {
       e.stopPropagation();
       removeFromFavorites(video.videoId);
       console.log('💔 Quitado de favoritos:', videoTitle);
+    });
+
+    // Click en botón de añadir a la cola
+    const addQueueBtn = card.querySelector('.add-queue-card-btn');
+    addQueueBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.addToQueue(video);
     });
 
     // Click para reproducir
@@ -1289,7 +1497,7 @@ function displayVideosInGrid(gridElement, videos) {
     card.setAttribute('data-video-id', video.videoId);
 
     // ⭐ Asegurar que siempre haya un canal/artista
-    const artistName = video.channel || video.artist || 'YouTube';
+    const artistName = video.channel || video.artist || 'SeaxMusic';
     const videoTitle = video.title || 'Sin título';
 
     card.innerHTML = `
@@ -1297,6 +1505,7 @@ function displayVideosInGrid(gridElement, videos) {
         ${createImageWithFallback(video)}
         <div class="card-overlay">
           <button class="play-card-btn"><i class="fas fa-play"></i></button>
+          <button class="add-queue-card-btn" title="Añadir a la cola"><i class="fas fa-plus"></i></button>
         </div>
         ${video.duration ? `<span class="card-duration">${video.duration}</span>` : ''}
       </div>
@@ -1307,6 +1516,13 @@ function displayVideosInGrid(gridElement, videos) {
     `;
     const fallbackBg = video.thumbnail || (video.videoId ? `https://i.ytimg.com/vi/${video.videoId}/maxresdefault.jpg` : './assets/img/icon.png');
     card.style.setProperty('--card-bg', `url('${fallbackBg}')`);
+
+    // Click en botón de añadir a la cola
+    const addQueueBtn = card.querySelector('.add-queue-card-btn');
+    addQueueBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.addToQueue(video);
+    });
 
     // Click para reproducir
     card.addEventListener('click', () => {
@@ -1472,7 +1688,7 @@ function renderHomeMusicGrid(gridEl, videos, emptyLabel) {
     const card = document.createElement('div');
     card.className = 'music-card';
 
-    const artistName = video.channel || video.artist || 'YouTube';
+    const artistName = video.channel || video.artist || 'SeaxMusic';
     const videoTitle = video.title || 'Sin título';
 
     card.innerHTML = `
@@ -1480,6 +1696,7 @@ function renderHomeMusicGrid(gridEl, videos, emptyLabel) {
         ${createImageWithFallback(video)}
         <div class="card-overlay">
           <button class="play-card-btn"><i class="fas fa-play"></i></button>
+          <button class="add-queue-card-btn" title="Añadir a la cola"><i class="fas fa-plus"></i></button>
         </div>
         ${video.duration ? `<span class="card-duration">${video.duration}</span>` : ''}
       </div>
@@ -1490,6 +1707,13 @@ function renderHomeMusicGrid(gridEl, videos, emptyLabel) {
     `;
     const fallbackBg = video.thumbnail || (video.videoId ? `https://i.ytimg.com/vi/${video.videoId}/maxresdefault.jpg` : './assets/img/icon.png');
     card.style.setProperty('--card-bg', `url('${fallbackBg}')`);
+
+    // Click en botón de añadir a la cola
+    const addQueueBtn = card.querySelector('.add-queue-card-btn');
+    addQueueBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.addToQueue(video);
+    });
 
     card.addEventListener('click', () => {
       playTrack(video);
@@ -1674,7 +1898,7 @@ function renderDynamicCards() {
       id: 'resume',
       title: 'Reanudar',
       subtitle: resume ? resume.title : 'Sin reproducción reciente',
-      hint: resume ? (resume.artist || resume.channel || 'YouTube') : 'Pon una canción',
+      hint: resume ? (resume.artist || resume.channel || 'SeaxMusic') : 'Pon una canción',
       icon: 'fa-play',
       accent: 'accent',
       track: resume
@@ -1683,7 +1907,7 @@ function renderDynamicCards() {
       id: 'top',
       title: 'Top del día',
       subtitle: topPick ? topPick.title : 'Tu ranking personal',
-      hint: topPick ? (topPick.artist || topPick.channel || 'YouTube') : 'Historial vacío',
+      hint: topPick ? (topPick.artist || topPick.channel || 'SeaxMusic') : 'Historial vacío',
       icon: 'fa-bolt',
       accent: 'sun',
       track: topPick
@@ -1692,7 +1916,7 @@ function renderDynamicCards() {
       id: 'discover',
       title: 'Descubre',
       subtitle: discover ? discover.title : 'Busca algo nuevo',
-      hint: discover ? (discover.artist || discover.channel || 'YouTube') : 'Recomendaciones listas',
+      hint: discover ? (discover.artist || discover.channel || 'SeaxMusic') : 'Recomendaciones listas',
       icon: 'fa-compass',
       accent: 'night',
       track: discover
@@ -1778,7 +2002,7 @@ function renderHeroResume() {
   if (track) {
     if (cover) cover.src = track.thumbnail || `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`;
     if (titleEl) titleEl.textContent = track.title || 'Sin título';
-    if (artistEl) artistEl.textContent = track.artist || track.channel || 'YouTube';
+    if (artistEl) artistEl.textContent = track.artist || track.channel || 'SeaxMusic';
     if (resumeBtn) resumeBtn.disabled = false;
     card.dataset.videoId = track.videoId;
   } else {

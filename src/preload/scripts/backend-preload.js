@@ -30,173 +30,6 @@ try {
   });
 } catch (e) { }
 
-// ===== BLOQUEADOR DE ANUNCIOS DE YOUTUBE (basado en kananinirav/Youtube-AdBlocker) =====
-(function () {
-  const debugMessages = false;
-  let isAdFound = false;
-  let adLoop = 0;
-  let videoPlayback = 1;
-
-  function log(message, level = 'l') {
-    if (!debugMessages) return;
-    const prefix = '[AdBlocker]';
-    switch (level) {
-      case 'e': console.error(prefix, message); break;
-      case 'w': console.warn(prefix, message); break;
-      default: console.log(prefix, message);
-    }
-  }
-
-  // Función principal para remover anuncios
-  function removeAds() {
-    log('Iniciando bloqueador de anuncios...');
-
-    setInterval(() => {
-      const video = document.querySelector('video');
-      const ad = document.querySelector('.ad-showing');
-
-      if (ad) {
-        isAdFound = true;
-        adLoop++;
-
-        // Método 1: Click en skip button
-        if (adLoop < 10) {
-          const openAdCenterButton = document.querySelector('.ytp-ad-button-icon');
-          openAdCenterButton?.click();
-
-          const blockAdButton = document.querySelector('[label="Block ad"]');
-          blockAdButton?.click();
-
-          const blockAdButtonConfirm = document.querySelector('.Eddif [label="CONTINUE"] button');
-          blockAdButtonConfirm?.click();
-
-          const closeAdCenterButton = document.querySelector('.zBmRhe-Bz112c');
-          closeAdCenterButton?.click();
-        }
-
-        // Método 2: Speed skip - acelerar y saltar al final
-        const skipButtons = [
-          'ytp-ad-skip-button-container',
-          'ytp-ad-skip-button-modern',
-          '.videoAdUiSkipButton',
-          '.ytp-ad-skip-button',
-          '.ytp-ad-skip-button-slot',
-          '.ytp-skip-ad-button'
-        ];
-
-        if (video) {
-          video.playbackRate = 16; // Acelerar
-          video.volume = 0; // Silenciar
-
-          skipButtons.forEach(selector => {
-            const elements = document.querySelectorAll(selector);
-            elements.forEach(el => el?.click());
-          });
-
-          // Saltar al final del anuncio
-          if (video.duration) {
-            video.currentTime = video.duration + 0.1;
-          }
-
-          video.play();
-          log('Anuncio saltado ✔️');
-        }
-      } else {
-        // Sin anuncio - restaurar velocidad normal
-        if (video && video.playbackRate === 16) {
-          video.playbackRate = videoPlayback;
-        }
-
-        if (isAdFound) {
-          isAdFound = false;
-          if (videoPlayback === 16) videoPlayback = 1;
-          if (video && isFinite(videoPlayback)) video.playbackRate = videoPlayback;
-          adLoop = 0;
-        } else {
-          if (video) videoPlayback = video.playbackRate;
-        }
-      }
-    }, 100);
-
-    removePageAds();
-  }
-
-  // Remover anuncios de la página (banners, etc)
-  function removePageAds() {
-    const style = document.createElement('style');
-    style.textContent = `
-      ytd-action-companion-ad-renderer,
-      ytd-display-ad-renderer,
-      ytd-video-masthead-ad-advertiser-info-renderer,
-      ytd-video-masthead-ad-primary-video-renderer,
-      ytd-in-feed-ad-layout-renderer,
-      ytd-ad-slot-renderer,
-      yt-about-this-ad-renderer,
-      yt-mealbar-promo-renderer,
-      ytd-statement-banner-renderer,
-      ytd-banner-promo-renderer-background,
-      .ytd-video-masthead-ad-v3-renderer,
-      div#root.style-scope.ytd-display-ad-renderer.yt-simple-endpoint,
-      div#sparkles-container.style-scope.ytd-promoted-sparkles-web-renderer,
-      div#main-container.style-scope.ytd-promoted-video-renderer,
-      div#player-ads.style-scope.ytd-watch-flexy,
-      ad-slot-renderer,
-      ytm-promoted-sparkles-web-renderer,
-      masthead-ad,
-      tp-yt-iron-overlay-backdrop,
-      #masthead-ad,
-      ytd-promoted-sparkles-web-renderer,
-      .ytp-ad-module,
-      .video-ads.ytp-ad-module {
-        display: none !important;
-      }
-    `;
-    document.head.appendChild(style);
-    log('Estilos anti-anuncios aplicados ✔️');
-  }
-
-  // Remover popups molestos
-  function popupRemover() {
-    setInterval(() => {
-      const modalOverlay = document.querySelector('tp-yt-iron-overlay-backdrop');
-      const popup = document.querySelector('.style-scope.ytd-enforcement-message-view-model');
-      const popupButton = document.getElementById('dismiss-button');
-      const video = document.querySelector('video');
-
-      document.body.style.setProperty('overflow-y', 'auto', 'important');
-
-      if (modalOverlay) {
-        modalOverlay.removeAttribute('opened');
-        modalOverlay.remove();
-      }
-
-      if (popup) {
-        log('Popup detectado, removiendo...');
-        if (popupButton) popupButton.click();
-        popup.remove();
-        if (video) {
-          video.play();
-          setTimeout(() => video.play(), 500);
-        }
-        log('Popup removido ✔️');
-      }
-    }, 1000);
-  }
-
-  // Iniciar cuando el DOM esté listo
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      removeAds();
-      popupRemover();
-    });
-  } else {
-    removeAds();
-    popupRemover();
-  }
-
-  console.log('[SeaxMusic] 🛡️ Bloqueador de anuncios activado');
-})();
-
 // ===== API DE CONTROL DE YOUTUBE =====
 contextBridge.exposeInMainWorld('youtubeControls', {
   // Escuchar comandos del proceso principal
@@ -1120,6 +953,7 @@ class YouTubeAdBlocker {
     this.isInAdMode = false;
     this.checkInterval = null;
     this.observerSetup = false;
+    this.lastCheckTime = 0;
 
     // Selectores de YouTube para anuncios
     this.selectors = {
@@ -1191,8 +1025,8 @@ class YouTubeAdBlocker {
       clearInterval(this.checkInterval);
     }
 
-    // Verificar anuncios cada 50ms para respuesta rápida
-    this.checkInterval = setInterval(() => this.checkAndBlockAds(), 50);
+    // Verificar anuncios cada 200ms para respuesta rápida y bajo uso de CPU
+    this.checkInterval = setInterval(() => this.checkAndBlockAds(), 200);
 
     // Configurar MutationObserver para detectar cambios en el DOM
     this.setupMutationObserver();
@@ -1215,11 +1049,17 @@ class YouTubeAdBlocker {
   checkAndBlockAds() {
     if (!this.isEnabled) return;
 
+    // Regulador (Throttling) de alto rendimiento: no ejecutar más de una vez cada 150ms
+    const now = Date.now();
+    if (now - this.lastCheckTime < 150) return;
+    this.lastCheckTime = now;
+
     try {
       this.trySkipAd();
       this.handleActiveAd();
       this.closeAdOverlays();
       this.hideAdBanners();
+      this.removePopups();
     } catch (error) {
       // Silenciar errores para no spamear la consola
     }
@@ -1267,6 +1107,11 @@ class YouTubeAdBlocker {
         video.currentTime = video.duration - 0.1;
       }
 
+      // Evitar congelamientos de audio forzando play si se pausa solo
+      if (video.paused) {
+        video.play().catch(() => {});
+      }
+
     } else if (this.isInAdMode) {
       // Restaurar valores originales cuando termina el anuncio
       this.isInAdMode = false;
@@ -1278,6 +1123,37 @@ class YouTubeAdBlocker {
         console.log(`🛡️ [AD-BLOCKER] Restaurando volumen del usuario: ${window._seaxUserVolume}`);
       }
       // NO restaurar si no hay volumen guardado - dejar como está
+
+      // Forzar reproducción inmediata tras saltar el anuncio
+      if (video.paused) {
+        video.play().catch(() => {});
+      }
+    }
+  }
+
+  removePopups() {
+    const modalOverlay = document.querySelector('tp-yt-iron-overlay-backdrop');
+    const popup = document.querySelector('.style-scope.ytd-enforcement-message-view-model');
+    const popupButton = document.getElementById('dismiss-button');
+    const video = document.querySelector('video');
+
+    document.body.style.setProperty('overflow-y', 'auto', 'important');
+
+    if (modalOverlay) {
+      modalOverlay.removeAttribute('opened');
+      modalOverlay.remove();
+    }
+
+    if (popup) {
+      console.log('🛡️ [AD-BLOCKER] Popup de advertencia detectado, removiendo...');
+      if (popupButton) popupButton.click();
+      popup.remove();
+      if (video && video.paused) {
+        video.play().catch(() => {});
+        setTimeout(() => {
+          if (video && video.paused) video.play().catch(() => {});
+        }, 500);
+      }
     }
   }
 

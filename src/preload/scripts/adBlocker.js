@@ -20,6 +20,7 @@ class YouTubeAdBlocker {
     this.originalPlaybackRate = 1;
     this.checkInterval = null;
     this.observerSetup = false;
+    this.lastCheckTime = 0;
     
     // Selectores de YouTube para anuncios
     this.selectors = {
@@ -94,8 +95,8 @@ class YouTubeAdBlocker {
       clearInterval(this.checkInterval);
     }
     
-    // Verificar anuncios cada 50ms para respuesta rápida
-    this.checkInterval = setInterval(() => this.checkAndBlockAds(), 50);
+    // Verificar anuncios cada 200ms para respuesta rápida y bajo uso de CPU
+    this.checkInterval = setInterval(() => this.checkAndBlockAds(), 200);
     
     // Configurar MutationObserver para detectar cambios en el DOM
     this.setupMutationObserver();
@@ -123,6 +124,11 @@ class YouTubeAdBlocker {
    */
   checkAndBlockAds() {
     if (!this.isEnabled) return;
+    
+    // Regulador (Throttling) de alto rendimiento: no ejecutar más de una vez cada 150ms
+    const now = Date.now();
+    if (now - this.lastCheckTime < 150) return;
+    this.lastCheckTime = now;
     
     try {
       // 1. Intentar saltar anuncio con botón

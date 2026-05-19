@@ -1103,12 +1103,15 @@ class PlaylistManager {
         <div class="playlist-track-cover"><img src="${track.thumbnail || `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`}" alt=""></div>
         <div class="playlist-track-info">
           <span class="playlist-track-title">${track.title || 'Sin título'}</span>
-          <span class="playlist-track-artist">${track.artist || track.channel || 'YouTube'}</span>
+          <span class="playlist-track-artist">${track.artist || track.channel || 'SeaxMusic'}</span>
         </div>
         <div class="playlist-track-duration">${track.duration || ''}</div>
         <div class="playlist-track-actions">
           <button class="playlist-like-btn ${liked ? 'liked' : ''}" title="Me gusta">
             <i class="${liked ? 'fas' : 'far'} fa-heart"></i>
+          </button>
+          <button class="playlist-add-queue-btn" title="Añadir a la cola">
+            <i class="fas fa-plus"></i>
           </button>
           <button data-action="remove" ${isOwner ? '' : 'disabled'}><i class="fas fa-times"></i></button>
         </div>
@@ -1139,6 +1142,13 @@ class PlaylistManager {
         if (window.libraryManager?.refresh) {
           window.libraryManager.refresh();
         }
+      });
+
+      // ⭐ Click handler para añadir a la cola
+      const addQueueBtn = item.querySelector('.playlist-add-queue-btn');
+      addQueueBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.addToQueue(track);
       });
       
       item.querySelector('[data-action="remove"]')?.addEventListener('click', (e) => {
@@ -1173,7 +1183,7 @@ class PlaylistManager {
     if (query.length >= 2 && this.searchResults.length > 0) {
       candidates = this.searchResults;
     } else if (query.length >= 2 && this.searchLoading) {
-      list.innerHTML = `<div class="playlist-empty-state">Buscando en YouTube...</div>`;
+      list.innerHTML = `<div class="playlist-empty-state">Buscando en SeaxMusic...</div>`;
       return;
     } else {
       const favorites = (window.appState?.favorites || []);
@@ -1196,7 +1206,7 @@ class PlaylistManager {
         <img src="${track.thumbnail || `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`}" alt="">
         <div>
           <div class="playlist-track-title">${track.title || 'Sin título'}</div>
-          <div class="playlist-track-artist">${track.artist || track.channel || 'YouTube'}</div>
+          <div class="playlist-track-artist">${track.artist || track.channel || 'SeaxMusic'}</div>
         </div>
         <button ${exists ? 'disabled' : ''}><i class="fas fa-plus"></i></button>
       `;
@@ -1216,14 +1226,14 @@ class PlaylistManager {
         this.searchResults = response.videos.map(video => ({
           videoId: video.videoId,
           title: video.title,
-          artist: video.channel || video.artist || 'YouTube',
-          channel: video.channel || video.artist || 'YouTube',
+          artist: video.channel || video.artist || 'SeaxMusic',
+          channel: video.channel || video.artist || 'SeaxMusic',
           thumbnail: video.thumbnail,
           duration: video.duration || ''
         }));
       }
     } catch (e) {
-      console.error('[PLAYLIST] Error buscando en YouTube:', e);
+      console.error('[PLAYLIST] Error buscando en SeaxMusic:', e);
     } finally {
       this.searchLoading = false;
       this.renderAddCandidates(playlist);
@@ -1271,8 +1281,8 @@ class PlaylistManager {
     playlist.tracks.push({
       videoId: track.videoId,
       title: track.title || 'Sin título',
-      artist: track.artist || track.channel || 'YouTube',
-      channel: track.channel || track.artist || 'YouTube',
+      artist: track.artist || track.channel || 'SeaxMusic',
+      channel: track.channel || track.artist || 'SeaxMusic',
       thumbnail: track.thumbnail || '',
       duration: track.duration || ''
     });
@@ -1377,14 +1387,14 @@ class PlaylistManager {
         window.electronAPI.playAudioWithPlaylist(
           `https://www.youtube.com/watch?v=${first.videoId}`,
           first.title || 'Sin título',
-          first.artist || first.channel || 'YouTube',
+          first.artist || first.channel || 'SeaxMusic',
           playlistInfo
         );
       } else if (window.electronAPI.playAudio) {
         window.electronAPI.playAudio(
           `https://www.youtube.com/watch?v=${first.videoId}`,
           first.title || 'Sin título',
-          first.artist || first.channel || 'YouTube'
+          first.artist || first.channel || 'SeaxMusic'
         );
       }
     }
@@ -1445,7 +1455,7 @@ class PlaylistManager {
       window.appState.currentTrack = {
         videoId: track.videoId,
         title: track.title,
-        artist: track.artist || track.channel || 'YouTube',
+        artist: track.artist || track.channel || 'SeaxMusic',
         thumbnail: playlistInfo.cover || track.thumbnail || `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`,
         playlistName: playlistInfo.name
       };
@@ -1457,7 +1467,7 @@ class PlaylistManager {
     const trackImageEl = document.getElementById('trackImage');
     
     if (trackNameEl) trackNameEl.textContent = track.title || 'Sin título';
-    if (trackArtistEl) trackArtistEl.textContent = track.artist || track.channel || 'YouTube';
+    if (trackArtistEl) trackArtistEl.textContent = track.artist || track.channel || 'SeaxMusic';
     
     // ⭐ Usar cover de playlist si está disponible
     if (trackImageEl && playlistInfo.cover) {
@@ -1506,14 +1516,14 @@ class PlaylistManager {
         window.electronAPI.playAudioWithPlaylist(
           `https://www.youtube.com/watch?v=${track.videoId}`,
           track.title || 'Sin título',
-          track.artist || track.channel || 'YouTube',
+          track.artist || track.channel || 'SeaxMusic',
           playlistInfo
         );
       } else if (window.electronAPI.playAudio) {
         window.electronAPI.playAudio(
           `https://www.youtube.com/watch?v=${track.videoId}`,
           track.title || 'Sin título',
-          track.artist || track.channel || 'YouTube'
+          track.artist || track.channel || 'SeaxMusic'
         );
       }
     }

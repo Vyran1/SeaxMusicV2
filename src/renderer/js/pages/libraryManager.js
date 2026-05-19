@@ -459,6 +459,9 @@ class LibraryManager {
           <button class="library-card-play">
             <i class="fas fa-play"></i>
           </button>
+          <button class="library-card-add-queue" title="Añadir a la cola">
+            <i class="fas fa-plus"></i>
+          </button>
         </div>
         <div class="library-card-title" title="${fav.title}">${fav.title || 'Sin título'}</div>
         <div class="library-card-artist">${fav.artist || fav.channel || 'Artista desconocido'}</div>
@@ -496,6 +499,9 @@ class LibraryManager {
         <div class="list-col-artist">${fav.artist || fav.channel || 'Artista desconocido'}</div>
         <div class="list-col-duration">${fav.duration || '--:--'}</div>
         <div class="list-col-actions">
+          <button class="list-action-btn add-queue-btn" title="Añadir a la cola">
+            <i class="fas fa-plus"></i>
+          </button>
           <button class="list-action-btn remove-btn" title="Quitar de biblioteca">
             <i class="fas fa-trash-alt"></i>
           </button>
@@ -631,7 +637,9 @@ class LibraryManager {
     // Card click (play)
     document.querySelectorAll('.library-card').forEach(card => {
       card.addEventListener('click', (e) => {
-        if (!e.target.closest('.library-card-remove') && !e.target.closest('.library-card-drag')) {
+        if (!e.target.closest('.library-card-remove') && 
+            !e.target.closest('.library-card-drag') && 
+            !e.target.closest('.library-card-add-queue')) {
           this.playTrack(card.dataset.videoId);
         }
       });
@@ -645,13 +653,35 @@ class LibraryManager {
         this.removeFromLibrary(card.dataset.videoId);
       });
     });
+
+    // Add to Queue buttons
+    document.querySelectorAll('.library-card-add-queue').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const card = btn.closest('.library-card');
+        const index = parseInt(card.dataset.index, 10);
+        let favorites = [];
+        if (window.electronAPI && window.electronAPI.getFavorites) {
+          favorites = await window.electronAPI.getFavorites();
+        } else if (window.appState && window.appState.favorites) {
+          favorites = window.appState.favorites;
+        }
+        favorites = this.sortFavorites(favorites);
+        const track = favorites[index];
+        if (track && window.addToQueue) {
+          window.addToQueue(track);
+        }
+      });
+    });
   }
   
   setupListEvents() {
     // Row click (play)
     document.querySelectorAll('.library-list-item').forEach(item => {
       item.addEventListener('click', (e) => {
-        if (!e.target.closest('.remove-btn') && !e.target.closest('.list-col-drag')) {
+        if (!e.target.closest('.remove-btn') && 
+            !e.target.closest('.add-queue-btn') && 
+            !e.target.closest('.list-col-drag')) {
           this.playTrack(item.dataset.videoId);
         }
       });
@@ -663,6 +693,26 @@ class LibraryManager {
         e.stopPropagation();
         const item = btn.closest('.library-list-item');
         this.removeFromLibrary(item.dataset.videoId);
+      });
+    });
+
+    // Add to Queue buttons
+    document.querySelectorAll('.library-list-item .add-queue-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const item = btn.closest('.library-list-item');
+        const index = parseInt(item.dataset.index, 10);
+        let favorites = [];
+        if (window.electronAPI && window.electronAPI.getFavorites) {
+          favorites = await window.electronAPI.getFavorites();
+        } else if (window.appState && window.appState.favorites) {
+          favorites = window.appState.favorites;
+        }
+        favorites = this.sortFavorites(favorites);
+        const track = favorites[index];
+        if (track && window.addToQueue) {
+          window.addToQueue(track);
+        }
       });
     });
   }
