@@ -142,6 +142,10 @@ class LibraryManager {
               <option value="artist">Artista A-Z</option>
             </select>
           </div>
+          <div class="library-search-container">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" id="librarySearchInput" placeholder="Buscar en tu biblioteca...">
+          </div>
           <div class="library-view-toggle">
             <button class="view-btn active" data-view="grid" title="Vista de cuadrícula">
               <i class="fas fa-th-large"></i>
@@ -209,6 +213,16 @@ class LibraryManager {
       sortSelect.addEventListener('change', (e) => {
         this.sortBy = e.target.value;
         this.loadFavorites();
+      });
+    }
+    
+    // Buscar en tiempo real
+    const searchInput = document.getElementById('librarySearchInput');
+    if (searchInput) {
+      searchInput.value = this.currentQuery || '';
+      searchInput.addEventListener('input', (e) => {
+        this.currentQuery = e.target.value;
+        this.filterFavorites(e.target.value.toLowerCase().trim());
       });
     }
     
@@ -328,6 +342,9 @@ class LibraryManager {
     // Ordenar según el criterio seleccionado
     favorites = this.sortFavorites(favorites);
     
+    // Guardar lista completa para el buscador
+    this.allFavorites = favorites;
+    
     // Actualizar contador
     const countEl = document.getElementById('libraryCount');
     if (countEl) {
@@ -346,11 +363,49 @@ class LibraryManager {
       emptyEl?.classList.add('hidden');
       contentEl?.classList.remove('hidden');
       
-      this.renderGrid(favorites);
-      this.renderList(favorites);
+      const query = (this.currentQuery || '').toLowerCase().trim();
+      if (query) {
+        this.filterFavorites(query);
+      } else {
+        this.isFiltering = false;
+        const libraryPage = document.querySelector('.library-page');
+        if (libraryPage) libraryPage.classList.remove('library-page-filtering');
+        
+        this.renderGrid(favorites);
+        this.renderList(favorites);
+      }
     }
 
     this.renderGlobalPlaylists();
+  }
+
+  filterFavorites(query) {
+    if (!this.allFavorites) return;
+    
+    const filtered = this.allFavorites.filter(fav => {
+      const title = (fav.title || '').toLowerCase();
+      const artist = (fav.artist || fav.channel || '').toLowerCase();
+      return title.includes(query) || artist.includes(query);
+    });
+    
+    this.isFiltering = query.length > 0;
+    
+    const libraryPage = document.querySelector('.library-page');
+    if (libraryPage) {
+      if (this.isFiltering) {
+        libraryPage.classList.add('library-page-filtering');
+      } else {
+        libraryPage.classList.remove('library-page-filtering');
+      }
+    }
+    
+    const countEl = document.getElementById('libraryCount');
+    if (countEl) {
+      countEl.textContent = filtered.length;
+    }
+    
+    this.renderGrid(filtered);
+    this.renderList(filtered);
   }
 
   renderGlobalPlaylists() {
@@ -538,6 +593,10 @@ class LibraryManager {
   }
   
   handleDragStart(e, viewType) {
+    if (this.isFiltering) {
+      e.preventDefault();
+      return;
+    }
     this.draggedItem = e.target.closest(viewType === 'grid' ? '.library-card' : '.library-list-item');
     this.draggedIndex = parseInt(this.draggedItem.dataset.index);
     
@@ -659,15 +718,14 @@ class LibraryManager {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const card = btn.closest('.library-card');
-        const index = parseInt(card.dataset.index, 10);
+        const videoId = card.dataset.videoId;
         let favorites = [];
         if (window.electronAPI && window.electronAPI.getFavorites) {
           favorites = await window.electronAPI.getFavorites();
         } else if (window.appState && window.appState.favorites) {
           favorites = window.appState.favorites;
         }
-        favorites = this.sortFavorites(favorites);
-        const track = favorites[index];
+        const track = favorites.find(f => f.videoId === videoId);
         if (track && window.addToQueue) {
           window.addToQueue(track);
         }
@@ -701,15 +759,14 @@ class LibraryManager {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const item = btn.closest('.library-list-item');
-        const index = parseInt(item.dataset.index, 10);
+        const videoId = item.dataset.videoId;
         let favorites = [];
         if (window.electronAPI && window.electronAPI.getFavorites) {
           favorites = await window.electronAPI.getFavorites();
         } else if (window.appState && window.appState.favorites) {
           favorites = window.appState.favorites;
         }
-        favorites = this.sortFavorites(favorites);
-        const track = favorites[index];
+        const track = favorites.find(f => f.videoId === videoId);
         if (track && window.addToQueue) {
           window.addToQueue(track);
         }

@@ -747,17 +747,9 @@ async function initApp() {
     });
   }
 
-  // ⭐ Actualizar saludo del banner según la hora
-  const homeGreeting = document.getElementById('homeGreeting');
-  if (homeGreeting) {
-    const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) {
-      homeGreeting.textContent = '☀️ Buenos días,';
-    } else if (hour >= 12 && hour < 19) {
-      homeGreeting.textContent = '🌤️ Buenas tardes,';
-    } else {
-      homeGreeting.textContent = '🌙 Buenas noches,';
-    }
+  // ⭐ Actualizar saludo y tema del banner según la hora
+  if (typeof updateSmartBanner === 'function') {
+    updateSmartBanner();
   }
 
   try {
@@ -1059,28 +1051,27 @@ async function initApp() {
         trackImage.style.transform = `scale(${1.0 + bounce})`;
       }
 
+      // 3. DJ Pulse Ring (Siempre activo si DJ Mix está encendido)
+      const djPulseRing = domCache.get('djPulseRing');
+      if (djPulseRing) {
+        if (!appState.djMixEnabled) {
+          djPulseRing.style.opacity = '0';
+          djPulseRing.style.transform = 'scale(1)';
+        } else {
+          const pulseBass = (data[0] + data[1]) / 2;
+          const normalizedPulseBass = Math.pow(pulseBass / 255, 1.2);
+          const scale = 1.0 + (normalizedPulseBass * 0.5); // Escala armonizada con el nuevo diseño
+          const opacity = 0.35 + (normalizedPulseBass * 0.55);
+          const borderWidth = 1.5 + (normalizedPulseBass * 2.5);
+
+          djPulseRing.style.transform = `scale(${scale})`;
+          djPulseRing.style.opacity = opacity.toString();
+          djPulseRing.style.borderWidth = `${borderWidth}px`;
+        }
+      }
 
       // B. Elementos de la pantalla completa Now Playing (SOLO procesar si está activa)
       if (isNowPlayingActive) {
-        // 1. DJ Pulse Ring
-        const djPulseRing = domCache.get('djPulseRing');
-        if (djPulseRing) {
-          if (!appState.djMixEnabled) {
-            djPulseRing.style.opacity = '0';
-            djPulseRing.style.transform = 'scale(1)';
-          } else {
-            const pulseBass = (data[0] + data[1]) / 2;
-            const normalizedPulseBass = Math.pow(pulseBass / 255, 1.2);
-            const scale = 1.0 + (normalizedPulseBass * 0.7);
-            const opacity = 0.3 + (normalizedPulseBass * 0.6);
-            const borderWidth = 2 + (normalizedPulseBass * 3);
-
-            djPulseRing.style.transform = `scale(${scale})`;
-            djPulseRing.style.opacity = opacity.toString();
-            djPulseRing.style.borderWidth = `${borderWidth}px`;
-          }
-        }
-
         // 2. Visualizadores grandes
         const npVizs = domCache.getNowPlayingVisualizers();
         npVizs.forEach(container => {
@@ -2092,6 +2083,8 @@ function wireHomeActions() {
 }
 
 function renderHomeModules() {
+  updateSmartBanner(); // E: Banner Dinámico
+
   if (typeof renderDJPlaylists === 'function') {
     renderDJPlaylists();
   }
@@ -2104,10 +2097,212 @@ function renderHomeModules() {
   }
   renderHeroResume();
   renderDynamicCards();
+  renderTopArtists(); // D: Artistas Favoritos
   renderSeaxVibes();
   renderDJPlaylists(); // ⭐ DJ Engine playlists
   renderMoments();
   renderUserPlaylist();
+}
+
+// ===== BANNER INTELIGENTE DINÁMICO (Opción E) =====
+function updateSmartBanner() {
+  const hero = document.querySelector('.home-hero');
+  const greetingEl = document.getElementById('homeGreeting');
+  const subtitleEl = document.querySelector('.home-hero-subtitle');
+  
+  if (!hero) return;
+
+  const hour = new Date().getHours();
+  let timeClass = '';
+  let greetingText = '';
+  let subtitleText = '';
+
+  // Obtener nombre del usuario si está guardado
+  let userName = 'Usuario';
+  try {
+    const storedUser = localStorage.getItem('seaxmusic_user');
+    if (storedUser) {
+      const parsed = JSON.parse(storedUser);
+      if (parsed && parsed.name) {
+        userName = parsed.name;
+      }
+    }
+  } catch (e) {
+    console.error('[BANNER] Error leyendo usuario:', e);
+  }
+
+  if (hour >= 5 && hour < 12) {
+    timeClass = 'hero-morning';
+    greetingText = '☀️ Buenos días,';
+    subtitleText = 'Comienza tu día con el ritmo ideal.';
+  } else if (hour >= 12 && hour < 19) {
+    timeClass = 'hero-afternoon';
+    greetingText = '🌤️ Buenas tardes,';
+    subtitleText = 'Mantén la energía en alto durante la tarde.';
+  } else {
+    timeClass = 'hero-night';
+    greetingText = '🌙 Buenas noches,';
+    subtitleText = 'Desconéctate o relájate con la mejor vibra nocturna.';
+  }
+
+  // Actualizar clases CSS
+  hero.classList.remove('hero-morning', 'hero-afternoon', 'hero-night');
+  hero.classList.add(timeClass);
+
+  // Actualizar textos
+  if (greetingEl) {
+    greetingEl.textContent = greetingText;
+  }
+  
+  const nameEl = document.getElementById('homeBannerName');
+  if (nameEl) {
+    nameEl.textContent = userName;
+  }
+
+  if (subtitleEl) {
+    subtitleEl.textContent = subtitleText;
+  }
+}
+
+// ===== BURBUJAS DE ARTISTAS FAVORITOS (Opción D) =====
+async function renderTopArtists() {
+  const section = document.getElementById('topArtistsSection');
+  const row = document.getElementById('topArtistsRow');
+  if (!section || !row) return;
+
+  const history = appState.recentHistory || [];
+  const favorites = appState.favorites || [];
+  const allTracks = [...history, ...favorites];
+
+  const artistCounts = {};
+  const artistSampleTracks = {};
+
+  allTracks.forEach(track => {
+    const artistName = (track.artist || track.channel || '').trim();
+    if (!artistName || artistName === 'SeaxMusic') return;
+    
+    artistCounts[artistName] = (artistCounts[artistName] || 0) + 1;
+    if (!artistSampleTracks[artistName]) {
+      artistSampleTracks[artistName] = track;
+    }
+  });
+
+  const sortedArtists = Object.keys(artistCounts).sort((a, b) => artistCounts[b] - artistCounts[a]);
+  
+  let artistsToRender = [];
+
+  if (sortedArtists.length >= 3) {
+    artistsToRender = sortedArtists.slice(0, 7).map(name => {
+      const track = artistSampleTracks[name];
+      return {
+        name: name,
+        thumbnail: track?.thumbnail || `https://i.ytimg.com/vi/${track?.videoId}/hqdefault.jpg`,
+        videoId: track?.videoId
+      };
+    });
+  } else {
+    // Onboarding: sugerir artistas populares por defecto con tracks representativos
+    const defaultArtists = [
+      { name: 'Coldplay', videoId: 'Dx43yLgA-A8', thumbnail: 'https://i.ytimg.com/vi/Dx43yLgA-A8/hqdefault.jpg' },
+      { name: 'Billie Eilish', videoId: 'q-H8786zYpI', thumbnail: 'https://i.ytimg.com/vi/q-H8786zYpI/hqdefault.jpg' },
+      { name: 'The Weeknd', videoId: '4NRXx6U8ABQ', thumbnail: 'https://i.ytimg.com/vi/4NRXx6U8ABQ/hqdefault.jpg' },
+      { name: 'Dua Lipa', videoId: 'TUVcZfQe-Kw', thumbnail: 'https://i.ytimg.com/vi/TUVcZfQe-Kw/hqdefault.jpg' },
+      { name: 'Bruno Mars', videoId: 'PMivT7MJ41M', thumbnail: 'https://i.ytimg.com/vi/PMivT7MJ41M/hqdefault.jpg' },
+      { name: 'Adele', videoId: 'YQHsXMglC9I', thumbnail: 'https://i.ytimg.com/vi/YQHsXMglC9I/hqdefault.jpg' },
+      { name: 'Eminem', videoId: 'uelHwf8o7_U', thumbnail: 'https://i.ytimg.com/vi/uelHwf8o7_U/hqdefault.jpg' }
+    ];
+    artistsToRender = defaultArtists;
+  }
+
+  row.innerHTML = artistsToRender.map(artist => {
+    let thumb = artist.thumbnail || './assets/img/icon.png';
+    if (artist.videoId && (!artist.thumbnail || artist.thumbnail.includes('i.ytimg.com'))) {
+      thumb = `https://i.ytimg.com/vi/${artist.videoId}/hqdefault.jpg`;
+    }
+    return `
+      <button class="artist-bubble-card" data-artist="${artist.name}">
+        <div class="artist-avatar-container">
+          <img class="artist-avatar-img" src="${thumb}" 
+               onerror="this.onerror=null; this.src='./assets/img/icon.png';" 
+               alt="${artist.name}" loading="lazy">
+          <div class="artist-play-overlay">
+            <i class="fas fa-play"></i>
+          </div>
+        </div>
+        <span class="artist-bubble-name">${artist.name}</span>
+      </button>
+    `;
+  }).join('');
+
+  row.querySelectorAll('.artist-bubble-card').forEach(card => {
+    card.addEventListener('click', async () => {
+      const artistName = card.dataset.artist;
+      if (!artistName) return;
+
+      console.log(`[ARTIST MIX] 🎧 Iniciando mix para el artista: ${artistName}`);
+      
+      if (typeof showLoader === 'function') {
+        showLoader(`Cargando Mix de ${artistName}...`);
+      }
+
+      try {
+        const localTracks = allTracks.filter(track => {
+          const name = (track.artist || track.channel || '').toLowerCase();
+          return name.includes(artistName.toLowerCase());
+        });
+
+        if (localTracks.length >= 3) {
+          console.log(`[ARTIST MIX] Usando ${localTracks.length} canciones locales para el mix.`);
+          if (typeof hideLoader === 'function') hideLoader();
+          playTrack(localTracks[0], localTracks, 0);
+          return;
+        }
+
+        if (window.electronAPI && window.electronAPI.searchYouTube) {
+          console.log(`[ARTIST MIX] Buscando canciones en YouTube para: ${artistName}`);
+          const response = await window.electronAPI.searchYouTube(`${artistName} mix canciones`);
+          
+          if (typeof hideLoader === 'function') hideLoader();
+
+          if (response.success && response.videos && response.videos.length > 0) {
+            const tracks = response.videos.map(v => ({
+              videoId: v.videoId,
+              title: v.title,
+              artist: v.channel || v.artist || artistName,
+              thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
+              duration: v.duration
+            }));
+
+            playTrack(tracks[0], tracks, 0);
+          } else {
+            console.log('[ARTIST MIX] No se encontraron videos, abriendo búsqueda');
+            openSearchWithArtist(artistName);
+          }
+        } else {
+          if (typeof hideLoader === 'function') hideLoader();
+          openSearchWithArtist(artistName);
+        }
+      } catch (err) {
+        console.error('[ARTIST MIX] Error al reproducir mix:', err);
+        if (typeof hideLoader === 'function') hideLoader();
+        openSearchWithArtist(artistName);
+      }
+    });
+  });
+
+  section.style.display = 'block';
+}
+
+function openSearchWithArtist(artistName) {
+  openSearchPage();
+  setTimeout(() => {
+    if (window.searchManager) {
+      if (window.searchManager.searchInput) {
+        window.searchManager.searchInput.value = artistName;
+      }
+      window.searchManager.performSearch(artistName);
+    }
+  }, 200);
 }
 
 function renderHomeSkeletons() {

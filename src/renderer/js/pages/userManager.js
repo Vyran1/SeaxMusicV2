@@ -584,10 +584,25 @@ class UserManager {
     console.log('[LOGIN] Previous key:', previousKey, '| New key:', nextKey);
     
     const now = Date.now();
+    const wasLoggedIn = !!window.appState?.isLoggedIn;
+
+    // Si es la misma cuenta y ya estaba logueado, solo actualizar datos de perfil de forma no destructiva
+    if (wasLoggedIn && previousKey === nextKey) {
+      console.log('[LOGIN] El usuario ya está logueado y es el mismo. Actualizando perfil de forma no destructiva.');
+      this.user = user;
+      localStorage.setItem('seaxmusic_user', JSON.stringify(user));
+      if (window.electronAPI && window.electronAPI.saveUserData) {
+        window.electronAPI.saveUserData(user).catch(err => 
+          console.error('Error saving user data:', err)
+        );
+      }
+      this.updateUserUI();
+      return;
+    }
+    
     const shouldNotify = !this.loginNotificationShown;
     const lastLoginTooSoon = now - this.lastLoginProcessedAt < 5000;
     
-    const wasLoggedIn = !!window.appState?.isLoggedIn;
     this.user = user;
     if (window.appState) {
       window.appState.isLoggedIn = true;

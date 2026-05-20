@@ -226,6 +226,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-modal-opened', () => {
       callback();
     });
+  },
+
+  // ===== GLOBAL KEYBOARD SHORTCUTS =====
+  getHotkeys: () => ipcRenderer.invoke('get-hotkeys'),
+  setHotkey: (action, accelerator) => ipcRenderer.invoke('set-hotkey', { action, accelerator }),
+  resetHotkeys: () => ipcRenderer.invoke('reset-hotkeys'),
+  toggleHotkeysEnabled: (enabled) => ipcRenderer.invoke('toggle-hotkeys-enabled', { enabled }),
+  onGlobalHotkeyTriggered: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('global-hotkey-triggered', handler);
+    return () => {
+      ipcRenderer.removeListener('global-hotkey-triggered', handler);
+    };
   }
 });
 

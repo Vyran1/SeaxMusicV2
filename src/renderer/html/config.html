@@ -73,5 +73,171 @@
         </div>
       </div>
     </div>
+
+    <!-- ⭐ Atajos de Teclado Globales Section -->
+    <div class="config-card full-width">
+      <div class="config-card-header hotkeys-header">
+        <div>
+          <h2>Atajos de Teclado Globales</h2>
+          <p>Controla SeaxMusic incluso si la aplicación está minimizada o en segundo plano.</p>
+        </div>
+        <div class="hotkeys-toggle-wrapper">
+          <label class="switch-container">
+            <span class="switch-label">Activar atajos</span>
+            <input type="checkbox" id="toggleHotkeysEnabled" checked style="display: none;">
+            <div class="custom-switch">
+              <div class="switch-handle"></div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="hotkeys-list">
+        <!-- Hotkey Item: Play/Pause -->
+        <div class="hotkey-item" data-action="playPause">
+          <div class="hotkey-info">
+            <div class="hotkey-icon"><i class="fas fa-play"></i></div>
+            <div>
+              <h3>Reproducir / Pausar</h3>
+              <p>Alterna entre reproducir y pausar el audio actual.</p>
+            </div>
+          </div>
+          <div class="hotkey-control">
+            <div class="hotkey-display" id="display-playPause"></div>
+            <div class="hotkey-actions">
+              <button class="hotkey-btn record-btn" data-action="playPause" title="Grabar nuevo atajo">
+                <i class="fas fa-keyboard"></i>
+                <span>Grabar</span>
+              </button>
+              <button class="hotkey-btn clear-btn" data-action="playPause" title="Limpiar atajo">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hotkey Item: Next -->
+        <div class="hotkey-item" data-action="next">
+          <div class="hotkey-info">
+            <div class="hotkey-icon"><i class="fas fa-forward"></i></div>
+            <div>
+              <h3>Siguiente Canción</h3>
+              <p>Salta a la siguiente pista de la cola de reproducción.</p>
+            </div>
+          </div>
+          <div class="hotkey-control">
+            <div class="hotkey-display" id="display-next"></div>
+            <div class="hotkey-actions">
+              <button class="hotkey-btn record-btn" data-action="next" title="Grabar nuevo atajo">
+                <i class="fas fa-keyboard"></i>
+                <span>Grabar</span>
+              </button>
+              <button class="hotkey-btn clear-btn" data-action="next" title="Limpiar atajo">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hotkey Item: Prev -->
+        <div class="hotkey-item" data-action="prev">
+          <div class="hotkey-info">
+            <div class="hotkey-icon"><i class="fas fa-backward"></i></div>
+            <div>
+              <h3>Canción Anterior</h3>
+              <p>Vuelve al inicio de la canción actual o a la pista anterior.</p>
+            </div>
+          </div>
+          <div class="hotkey-control">
+            <div class="hotkey-display" id="display-prev"></div>
+            <div class="hotkey-actions">
+              <button class="hotkey-btn record-btn" data-action="prev" title="Grabar nuevo atajo">
+                <i class="fas fa-keyboard"></i>
+                <span>Grabar</span>
+              </button>
+              <button class="hotkey-btn clear-btn" data-action="prev" title="Limpiar atajo">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hotkey Item: Vol Up -->
+        <div class="hotkey-item" data-action="volumeUp">
+          <div class="hotkey-info">
+            <div class="hotkey-icon"><i class="fas fa-volume-up"></i></div>
+            <div>
+              <h3>Subir Volumen</h3>
+              <p>Incrementa el volumen general en un 5%.</p>
+            </div>
+          </div>
+          <div class="hotkey-control">
+            <div class="hotkey-display" id="display-volumeUp"></div>
+            <div class="hotkey-actions">
+              <button class="hotkey-btn record-btn" data-action="volumeUp" title="Grabar nuevo atajo">
+                <i class="fas fa-keyboard"></i>
+                <span>Grabar</span>
+              </button>
+              <button class="hotkey-btn clear-btn" data-action="volumeUp" title="Limpiar atajo">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hotkey Item: Vol Down -->
+        <div class="hotkey-item" data-action="volumeDown">
+          <div class="hotkey-info">
+            <div class="hotkey-icon"><i class="fas fa-volume-down"></i></div>
+            <div>
+              <h3>Bajar Volumen</h3>
+              <p>Disminuye el volumen general en un 5%.</p>
+            </div>
+          </div>
+          <div class="hotkey-control">
+            <div class="hotkey-display" id="display-volumeDown"></div>
+            <div class="hotkey-actions">
+              <button class="hotkey-btn record-btn" data-action="volumeDown" title="Grabar nuevo atajo">
+                <i class="fas fa-keyboard"></i>
+                <span>Grabar</span>
+              </button>
+              <button class="hotkey-btn clear-btn" data-action="volumeDown" title="Limpiar atajo">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hotkey Item: Mute -->
+        <div class="hotkey-item" data-action="mute">
+          <div class="hotkey-info">
+            <div class="hotkey-icon"><i class="fas fa-volume-mute"></i></div>
+            <div>
+              <h3>Silenciar / Reactivar</h3>
+              <p>Silencia completamente el reproductor o restaura el volumen anterior.</p>
+            </div>
+          </div>
+          <div class="hotkey-control">
+            <div class="hotkey-display" id="display-mute"></div>
+            <div class="hotkey-actions">
+              <button class="hotkey-btn record-btn" data-action="mute" title="Grabar nuevo atajo">
+                <i class="fas fa-keyboard"></i>
+                <span>Grabar</span>
+              </button>
+              <button class="hotkey-btn clear-btn" data-action="mute" title="Limpiar atajo">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hotkeys-footer">
+        <button class="config-reset-btn" id="resetAllHotkeysBtn">
+          <i class="fas fa-sync-alt"></i> Restablecer Valores Predeterminados
+        </button>
+        <span id="hotkeysStatusMsg" class="hotkeys-status-msg"></span>
+      </div>
+    </div>
   </section>
 </div>

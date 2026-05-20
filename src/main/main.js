@@ -19,6 +19,7 @@ require('./ipc/playerIpc');
 require('./ipc/favoritesIpc');
 require('./ipc/authIpc');
 require('./ipc/systemIpc');
+require('./ipc/hotkeyIpc');
 
 // Ciclo de vida de la aplicación (Electron App Lifecycle)
 app.whenReady().then(() => {

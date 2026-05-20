@@ -14,10 +14,7 @@
   // ─── Configuración ────────────────────────────────────────
   const CFG = {
     transitionMs: 2500,   // Duración de la transición suave (más lenta y premium)
-    sampleSize: 32,       // Resolución del canvas de muestreo
-    minSaturation: 0.18,  // Descartar grises
-    minBrightness: 0.08,  // Descartar negros
-    maxBrightness: 0.94,  // Descartar blancos
+    sampleSize: 48,       // Resolución del canvas de muestreo (detalles ricos)
     defaultR: 225, defaultG: 56, defaultB: 56, // Color base (rojo SeaxMusic)
     throttleMs: 600,
   };
@@ -26,6 +23,7 @@
   let lastUrl = null;
   let lastExtracted = 0;
   let rafId = null;
+  let isMonochromatic = false; // Bandera para indicar si el disco es en blanco y negro
 
   // ¿El usuario eligió "Del álbum" en configuración?
   // Se inicializa desde localStorage para persistir entre recargas.
@@ -80,67 +78,136 @@
     ];
   }
 
-  // ─── Asegurar color VISIBLE y VIBRANTE ───────────────────
-  // No cambia el tono, solo ajusta saturación y luminosidad
-  // para que el color sea siempre legible y bonito en la UI.
-  function makeVibrant(r, g, b) {
+  // ─── Adaptar color para acentos de UI Oscura ──────────────
+  // Ajusta la saturación y luminosidad de manera adaptativa,
+  // preservando el tono cromático original y garantizando contraste.
+  function getAdaptiveAccent(r, g, b, isMono = false) {
     const [h, s, l] = rgbToHsl(r, g, b);
-    // Saturación ultra-llamativa (82%+) para un look premium
-    const newS = Math.min(Math.max(s * 1.4, 0.82), 1.0);
-    // Luminosidad vibrante perfecta (48% - 58%)
-    const newL = Math.min(Math.max(l, 0.48), 0.58);
+    
+    let newS, newL;
+    
+    if (isMono) {
+      // Caso Monocromático: gris pizarra/silver muy pulido y premium
+      // Usamos un ligero matiz azulado/slate (hue ~210 si el original no tiene tono)
+      const finalH = s < 0.05 ? 210 : h;
+      newS = 0.12; 
+      newL = 0.55; 
+      return hslToRgb(finalH, newS, newL);
+    }
+    
+    // Caso con color real:
+    // Ajustar saturación adaptativamente (no forzar a 100% si el tono es sobrio)
+    if (s < 0.30) {
+      newS = Math.min(Math.max(s * 1.3, 0.35), 0.55); // Aumentar levemente para visibilidad
+    } else {
+      newS = Math.min(Math.max(s * 1.1, 0.55), 0.92); // Mantener vivo sin saturar al extremo
+    }
+    
+    // Ajustar luminosidad adaptativamente para contraste contra fondo oscuro
+    if (l < 0.40) {
+      // Subir colores muy oscuros
+      newL = 0.46 + (l * 0.15); 
+    } else if (l > 0.65) {
+      // Bajar colores muy claros para que no encandilen y tengan cuerpo
+      newL = 0.54 + ((l - 0.65) * 0.12);
+      newL = Math.min(newL, 0.62);
+    } else {
+      // Ajuste fino para el rango medio
+      newL = 0.48 + (l - 0.40) * 0.4;
+    }
+    
+    // Clampar para seguridad en UI oscura
+    newL = Math.min(Math.max(newL, 0.48), 0.62);
+    
     return hslToRgb(h, newS, newL);
   }
 
-  // ─── Extracción del color dominante ───────────────────────
+  // ─── Extracción del color dominante (Clustering) ──────────
   function extractDominant(img) {
     try {
       ctx.clearRect(0, 0, CFG.sampleSize, CFG.sampleSize);
       ctx.drawImage(img, 0, 0, CFG.sampleSize, CFG.sampleSize);
       const { data } = ctx.getImageData(0, 0, CFG.sampleSize, CFG.sampleSize);
 
-      // Cuantización: agrupar píxeles en buckets de 32px
-      const buckets = {};
-      for (let i = 0; i < data.length; i += 4) {
-        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
-        if (a < 100) continue; // Ignorar semi-transparentes
+      const clusters = [];
+      const distanceThreshold = 35; // Distancia máxima en espacio RGB para agrupar
+      let totalSamples = 0;
 
-        const [, s, l] = rgbToHsl(r, g, b);
-        if (s < CFG.minSaturation) continue;
-        if (l < CFG.minBrightness || l > CFG.maxBrightness) continue;
+      // Muestrear píxeles saltando de a 3 (píxeles de 4 bytes) para máxima velocidad de procesamiento
+      for (let i = 0; i < data.length; i += 12) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        
+        if (a < 128) continue; // Descartar píxeles muy transparentes
+        totalSamples++;
 
-        // Cuantizar a nivel de 32 para agrupar colores similares
-        const qr = Math.round(r / 32) * 32;
-        const qg = Math.round(g / 32) * 32;
-        const qb = Math.round(b / 32) * 32;
-        const key = `${qr},${qg},${qb}`;
-
-        if (!buckets[key]) {
-          buckets[key] = { r: 0, g: 0, b: 0, count: 0, score: 0 };
+        let merged = false;
+        for (const cluster of clusters) {
+          const dr = r - cluster.r;
+          const dg = g - cluster.g;
+          const db = b - cluster.b;
+          const dist = Math.sqrt(dr * dr + dg * dg + db * db);
+          
+          if (dist < distanceThreshold) {
+            // Recalcular promedio del cluster ponderado por la cantidad de píxeles
+            cluster.r = (cluster.r * cluster.count + r) / (cluster.count + 1);
+            cluster.g = (cluster.g * cluster.count + g) / (cluster.count + 1);
+            cluster.b = (cluster.b * cluster.count + b) / (cluster.count + 1);
+            cluster.count++;
+            merged = true;
+            break;
+          }
         }
-        buckets[key].r += r;
-        buckets[key].g += g;
-        buckets[key].b += b;
-        buckets[key].count++;
-        // Score = saturación al cuadrado × luminosidad balanceada
-        buckets[key].score += (s * s) * (1 - Math.abs(l - 0.5) * 1.5);
+
+        if (!merged) {
+          clusters.push({ r, g, b, count: 1 });
+        }
       }
 
-      // Promediar los RGB y score
-      const candidates = Object.values(buckets).map(b => ({
-        r: Math.round(b.r / b.count),
-        g: Math.round(b.g / b.count),
-        b: Math.round(b.b / b.count),
-        count: b.count,
-        avgScore: b.score / b.count
-      }));
+      if (!clusters.length) return null;
 
-      if (!candidates.length) return null;
+      // Calcular HSL y puntaje de cada cluster
+      let maxSaturation = 0;
+      clusters.forEach(cluster => {
+        const [h, s, l] = rgbToHsl(cluster.r, cluster.g, cluster.b);
+        cluster.hsl = [h, s, l];
+        
+        if (s > maxSaturation) {
+          maxSaturation = s;
+        }
 
-      // Ordenar priorizando fuertemente colores vivos pero requiriendo presencia mínima
-      candidates.sort((a, b) => (b.avgScore * Math.pow(b.count, 0.35)) - (a.avgScore * Math.pow(a.count, 0.35)));
-      const best = candidates[0];
-      return { r: best.r, g: best.g, b: best.b };
+        // Puntuación sofisticada:
+        // 1. Presencia del color (volumen relativo)
+        const popWeight = cluster.count / totalSamples;
+        
+        // 2. Saturación (nos gustan colores definidos)
+        const satWeight = s;
+        
+        // 3. Luminosidad óptima (preferimos colores con buena luminosidad para UI oscura)
+        // Parábola centrada en 0.55
+        const targetL = 0.55;
+        const lumWeight = Math.max(0.1, 1 - Math.abs(l - targetL) * 1.5);
+        
+        // Fórmula final de puntuación
+        cluster.score = Math.pow(satWeight, 1.2) * lumWeight * Math.pow(popWeight, 0.4);
+      });
+
+      // Detectar si la carátula es monocromática (poca o nula saturación general)
+      if (maxSaturation < 0.15) {
+        // En caso monocromático, elegir el cluster más poblado (el color dominante real)
+        clusters.sort((a, b) => b.count - a.count);
+        const best = clusters[0];
+        
+        // Retornar con bandera de monocromía para getAdaptiveAccent
+        return { r: best.r, g: best.g, b: best.b, isMonochromatic: true };
+      }
+
+      // Ordenar por el puntaje del cluster
+      clusters.sort((a, b) => b.score - a.score);
+      const best = clusters[0];
+      return { r: best.r, g: best.g, b: best.b, isMonochromatic: false };
 
     } catch (e) {
       console.warn('[AURA] Error extrayendo color:', e.message);
@@ -161,7 +228,7 @@
 
     // Sincronizar color de acento con la ventana de PiP mediante el proceso principal
     try {
-      const [vR, vG, vB] = makeVibrant(r, g, b);
+      const [vR, vG, vB] = getAdaptiveAccent(r, g, b, isMonochromatic);
       if (window.electronAPI && typeof window.electronAPI.send === 'function') {
         window.electronAPI.send('aura-color-update', { r: vR, g: vG, b: vB });
       }
@@ -199,7 +266,7 @@
   // ─── Aplicar al :root como fuente única de verdad ─────────
   function applyToRoot(r, g, b) {
     // Calcular variantes
-    const [vR, vG, vB] = makeVibrant(r, g, b);
+    const [vR, vG, vB] = getAdaptiveAccent(r, g, b, isMonochromatic);
     const bright = [
       Math.min(255, vR + 25),
       Math.min(255, vG + 25),
@@ -246,7 +313,8 @@
       if (!window._auraAlbumModeEnabled) return;
       const color = extractDominant(img);
       if (color) {
-        console.log(`[AURA] 🎨 rgb(${color.r}, ${color.g}, ${color.b})`);
+        console.log(`[AURA] 🎨 rgb(${color.r}, ${color.g}, ${color.b}), Monochromatic: ${color.isMonochromatic}`);
+        isMonochromatic = color.isMonochromatic;
         animateTo(color.r, color.g, color.b);
         const trackImage = document.getElementById('trackImage');
         if (trackImage) trackImage.classList.add('aura-active');
@@ -261,6 +329,7 @@
   }
 
   function resetToDefault() {
+    isMonochromatic = false;
     animateTo(CFG.defaultR, CFG.defaultG, CFG.defaultB);
     lastUrl = null;
     const trackImage = document.getElementById('trackImage');

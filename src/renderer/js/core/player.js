@@ -171,6 +171,33 @@ class MusicPlayer {
         this.handlePipControl(data);
       });
     }
+
+    // ⭐ Escuchar eventos de atajos de teclado globales
+    if (window.electronAPI?.onGlobalHotkeyTriggered) {
+      window.electronAPI.onGlobalHotkeyTriggered(({ action }) => {
+        console.log('[PLAYER] Acción de atajo global recibida:', action);
+        switch (action) {
+          case 'playPause':
+            this.togglePlay();
+            break;
+          case 'next':
+            this.next();
+            break;
+          case 'prev':
+            this.previous();
+            break;
+          case 'volumeUp':
+            this.changeVolume(0.05);
+            break;
+          case 'volumeDown':
+            this.changeVolume(-0.05);
+            break;
+          case 'mute':
+            this.toggleMute();
+            break;
+        }
+      });
+    }
   }
 
   // ===== DJ MIX =====
@@ -612,6 +639,18 @@ class MusicPlayer {
     this.updateVolumeUI();
     
     // Enviar comando de volumen a YouTube
+    if (window.electronAPI && window.electronAPI.send) {
+      window.electronAPI.send('update-volume', this.volume);
+    }
+  }
+
+  changeVolume(amount) {
+    this.volume = Math.max(0, Math.min(1, this.volume + amount));
+    this.persistVolume(this.volume);
+    this.updateVolumeUI();
+    if (window.nowPlayingManager) {
+      window.nowPlayingManager.syncVolume(this.volume);
+    }
     if (window.electronAPI && window.electronAPI.send) {
       window.electronAPI.send('update-volume', this.volume);
     }
