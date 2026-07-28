@@ -21,8 +21,35 @@ require('./ipc/authIpc');
 require('./ipc/systemIpc');
 require('./ipc/hotkeyIpc');
 
+// Content-Security-Policy estricta para el renderer principal
+const { session } = require('electron');
+
+function setupCSP() {
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self'; " +
+          "script-src 'self'; " +
+          "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com; " +
+          "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; " +
+          "img-src 'self' https://i.ytimg.com data: blob:; " +
+          "connect-src 'self' https://lrclib.net https://api.github.com; " +
+          "media-src 'self' https://www.youtube.com; " +
+          "frame-src 'self' https://www.youtube.com; " +
+          "object-src 'none'"
+        ]
+      }
+    });
+  });
+}
+
 // Ciclo de vida de la aplicación (Electron App Lifecycle)
 app.whenReady().then(() => {
+  // Inicializar CSP
+  setupCSP();
+
   // Inicializar AdBlocker declarativo a nivel de red
   setupDeclarativeAdBlocker();
 

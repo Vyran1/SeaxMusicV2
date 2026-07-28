@@ -1,30 +1,13 @@
-const { ipcMain, app } = require('electron');
-const path = require('path');
+const { ipcMain } = require('electron');
 const state = require('../state');
 const discordRPC = require('../services/discordRPC');
 const {
   createYouTubeWindow,
-  createBackendWindow,
-  createAuxYoutubeWindow,
-  setVideoOnlyMode
+  createAuxYoutubeWindow
 } = require('../windows/youtubeWindow');
 const { createPipWindow } = require('../windows/pipWindow');
-
-// Helper to get max resolution thumbnail
-function getMaxResThumbnail(thumbnail, videoId) {
-  if (videoId) {
-    return `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
-  }
-  if (!thumbnail) return null;
-  return thumbnail
-    .replace(/\/default\.jpg$/, '/maxresdefault.jpg')
-    .replace(/\/mqdefault\.jpg$/, '/maxresdefault.jpg')
-    .replace(/\/hqdefault\.jpg$/, '/maxresdefault.jpg')
-    .replace(/\/sddefault\.jpg$/, '/maxresdefault.jpg')
-    .replace('/mqdefault', '/maxresdefault')
-    .replace('/hqdefault', '/maxresdefault')
-    .replace('/sddefault', '/maxresdefault');
-}
+const { getMaxResThumbnail } = require('../utils/thumbnails');
+const { startVideoPreviewInternal, stopVideoPreviewInternal } = require('./videoPreview');
 
 // Recibir volumen real del backend y reenviar al renderer
 ipcMain.on('video-volume-updated', (event, realVolume) => {
@@ -242,86 +225,12 @@ ipcMain.on('pip-hover-update', (event, isHovering) => {
 });
 
 // ===== Video Preview Helper & IPC =====
-async function startVideoPreviewInternal() {
-  const active = state.getActiveYouTubeWindow();
-  if (!active || active.isDestroyed() || !state.mainWindow || state.mainWindow.isDestroyed()) {
-    return { success: false, error: 'No hay ventana activa' };
-  }
-
-  if (state.videoPreviewTimer) {
-    return { success: true };
-  }
-
-  await setVideoOnlyMode(active, true);
-  active.webContents.send('youtube-control', 'fullscreen');
-
-  // Asegurar render sin mostrar ventana en taskbar
-  try {
-    state.videoPreviewPrev = {
-      bounds: active.getBounds(),
-      visible: active.isVisible(),
-      opacity: active.getOpacity ? active.getOpacity() : 1,
-      skipTaskbar: active.isSkipTaskbar ? active.isSkipTaskbar() : true,
-      focusable: active.isFocusable ? active.isFocusable() : true
-    };
-    active.setBounds({ x: -2000, y: -2000, width: 800, height: 450 });
-    if (active.setOpacity) active.setOpacity(0.01);
-    if (active.setSkipTaskbar) active.setSkipTaskbar(true);
-    if (active.setFocusable) active.setFocusable(false);
-    active.showInactive();
-  } catch (e) { }
-
-  active.webContents.send('video-preview-start');
-
-  state.videoPreviewTimer = setInterval(async () => {
-    try {
-      if (!active || active.isDestroyed() || !state.mainWindow || state.mainWindow.isDestroyed()) return;
-      const image = await active.webContents.capturePage();
-      const dataUrl = image.toDataURL();
-      state.mainWindow.webContents.send('video-preview-frame', dataUrl);
-    } catch (e) {
-      // Ignorar errores de captura
-    }
-  }, 45);
-
-  return { success: true };
-}
-
-async function stopVideoPreviewInternal() {
-  const active = state.getActiveYouTubeWindow();
-  if (active && !active.isDestroyed()) {
-    await setVideoOnlyMode(active, false);
-    active.webContents.send('video-preview-stop');
-    try {
-      if (state.videoPreviewPrev) {
-        if (active.setOpacity) active.setOpacity(state.videoPreviewPrev.opacity ?? 1);
-        if (active.setSkipTaskbar) active.setSkipTaskbar(!!state.videoPreviewPrev.skipTaskbar);
-        if (active.setFocusable) active.setFocusable(!!state.videoPreviewPrev.focusable);
-        if (state.videoPreviewPrev.visible) {
-          active.showInactive();
-        } else {
-          active.hide();
-        }
-        if (state.videoPreviewPrev.bounds) {
-          active.setBounds(state.videoPreviewPrev.bounds);
-        }
-      }
-    } catch (e) { }
-  }
-  if (state.videoPreviewTimer) {
-    clearInterval(state.videoPreviewTimer);
-    state.videoPreviewTimer = null;
-  }
-  state.videoPreviewPrev = null;
-  return { success: true };
-}
-
 ipcMain.handle('start-video-preview', async () => {
   state.videoPreviewClients += 1;
   if (state.videoPreviewTimer) {
     return { success: true, clients: state.videoPreviewClients };
   }
-  return startVideoPreviewInternal();
+  return startVideoPreviewInternal(state);
 });
 
 ipcMain.handle('stop-video-preview', async () => {
@@ -329,7 +238,7 @@ ipcMain.handle('stop-video-preview', async () => {
   if (state.videoPreviewClients > 0) {
     return { success: true, clients: state.videoPreviewClients };
   }
-  return stopVideoPreviewInternal();
+  return stopVideoPreviewInternal(state);
 });
 
 // Handle responses from backend player

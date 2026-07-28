@@ -238,6 +238,8 @@
 
     if (rafId) cancelAnimationFrame(rafId);
 
+    let frameCount = 0;
+
     function step(now) {
       if (!window._auraAlbumModeEnabled) {
         rafId = null;
@@ -245,17 +247,23 @@
       }
 
       const t = Math.min(1, (now - start) / CFG.transitionMs);
-      const e = easeInOut(t);
 
-      curR = Math.round(startR + (tgtR - startR) * e);
-      curG = Math.round(startG + (tgtG - startG) * e);
-      curB = Math.round(startB + (tgtB - startB) * e);
-
-      applyToRoot(curR, curG, curB);
+      // Throttle a ~15fps: calcular cada frame pero actualizar CSS cada 4 frames
+      frameCount++;
+      if (frameCount % 4 === 0 || t >= 1) {
+        const e = easeInOut(t);
+        curR = Math.round(startR + (tgtR - startR) * e);
+        curG = Math.round(startG + (tgtG - startG) * e);
+        curB = Math.round(startB + (tgtB - startB) * e);
+        applyToRoot(curR, curG, curB);
+      }
 
       if (t < 1) {
         rafId = requestAnimationFrame(step);
       } else {
+        // Asegurar valor final
+        curR = tgtR; curG = tgtG; curB = tgtB;
+        applyToRoot(tgtR, tgtG, tgtB);
         rafId = null;
       }
     }
@@ -355,14 +363,7 @@
         --aura-glow:  rgba(225, 56, 56, 0.14);
       }
 
-      /* ── Transición en toda la UI que use variables de acento ── */
-      *,
-      *::before,
-      *::after {
-        --accent-transition: 1.2s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-
-      /* Elementos clave que necesitan transición explícita */
+      /* ── Transición en elementos clave que usan variables de acento ── */
       .player-bar,
       .player-bar::before,
       .sidebar,

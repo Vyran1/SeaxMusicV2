@@ -1202,11 +1202,14 @@ class PlaylistManager {
       const exists = playlist.tracks.some(t => t.videoId === track.videoId);
       const item = document.createElement('div');
       item.className = 'playlist-add-item';
+      const thumbSrc = track.thumbnail || `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`;
+      const safeTitle = window.escapeHtml(track.title) || 'Sin t\u00edtulo';
+      const safeArtist = window.escapeHtml(track.artist || track.channel) || 'SeaxMusic';
       item.innerHTML = `
-        <img src="${track.thumbnail || `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`}" alt="">
+        <img src="${thumbSrc}" alt="">
         <div>
-          <div class="playlist-track-title">${track.title || 'Sin título'}</div>
-          <div class="playlist-track-artist">${track.artist || track.channel || 'SeaxMusic'}</div>
+          <div class="playlist-track-title">${safeTitle}</div>
+          <div class="playlist-track-artist">${safeArtist}</div>
         </div>
         <button ${exists ? 'disabled' : ''}><i class="fas fa-plus"></i></button>
       `;
@@ -1342,7 +1345,7 @@ class PlaylistManager {
   playPlaylist(playlist, shuffle = false) {
     if (!playlist || playlist.tracks.length === 0) return;
 
-    let queue = [...playlist.tracks];
+    const queue = [...playlist.tracks];
     if (shuffle) {
       for (let i = queue.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));

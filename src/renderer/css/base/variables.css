@@ -16,9 +16,36 @@
   /* Text colors */
   --text-primary: #FFFFFF;
   --text-secondary: #B3B3B3;
-  --text-muted: #6B6B6B;
+  --text-muted: #9B9B9B;
 
   /* UI elements */
   --border-color: #333333;
   --shadow: rgba(0, 0, 0, 0.5);
+
+  /* Spacing tokens */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 40px;
+
+  /* Radius tokens */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 50%;
+
+  /* Typography tokens */
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 32px;
+  --font-primary: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Space Grotesk', 'Manrope', sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', monospace;
 }

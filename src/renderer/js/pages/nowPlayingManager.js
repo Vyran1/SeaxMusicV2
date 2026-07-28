@@ -119,6 +119,11 @@ class NowPlayingManager {
 
     // Info container para animaciones
     this.infoContainer = this.page?.querySelector('.nowplaying-info');
+
+    // Lyrics elements (cache para hot path)
+    this.lyricsContent = document.getElementById('lyricsContent');
+    this.nowPlayingContent = document.getElementById('nowPlayingContent');
+    this.lyricsContainer = document.getElementById('lyricsContainer');
   }
 
   bindEvents() {
@@ -1191,7 +1196,6 @@ class NowPlayingManager {
    * Iniciar sincronización de letras
    */
   startLyricsSync() {
-    // Detener sync anterior primero
     this.stopLyricsSync();
 
     if (!window.lyricsService?.hasSyncedLyrics()) {
@@ -1200,16 +1204,16 @@ class NowPlayingManager {
     }
 
     this.lastHighlightedLine = -1;
-    this.lyricsAnimationId = requestAnimationFrame(() => this.updateLyricsHighlight());
-    console.log('[LYRICS] Sincronización iniciada');
+    this.lyricsAnimationId = setInterval(() => this.updateLyricsHighlight(), 200);
+    console.log('[LYRICS] Sincronización iniciada (200ms)');
   }
 
   /**
    * Detener sincronización de letras
    */
   stopLyricsSync() {
-    if (this.lyricsAnimationId) {
-      cancelAnimationFrame(this.lyricsAnimationId);
+    if (this.lyricsAnimationId !== null) {
+      clearInterval(this.lyricsAnimationId);
       this.lyricsAnimationId = null;
     }
     this.lastHighlightedLine = -1;
@@ -1219,27 +1223,20 @@ class NowPlayingManager {
    * Actualizar highlight de la línea actual
    */
   updateLyricsHighlight() {
-    const content = document.getElementById('nowPlayingContent');
-
-    // Verificar que seguimos en modo letras
-    if (!content?.classList.contains('lyrics-active')) {
+    if (!this.nowPlayingContent?.classList.contains('lyrics-active')) {
       this.stopLyricsSync();
       return;
     }
 
-    // Usar el tiempo guardado (más preciso)
     const currentTime = this.currentPlaybackTime || 0;
 
-    // Obtener línea actual
     window.lyricsService?.getCurrentLine(currentTime);
     const currentIndex = window.lyricsService?.currentLineIndex ?? -1;
 
-    // Solo actualizar si cambió la línea (optimización)
     if (currentIndex !== this.lastHighlightedLine) {
       this.lastHighlightedLine = currentIndex;
 
-      const lyricsContent = document.getElementById('lyricsContent');
-      const lines = lyricsContent?.querySelectorAll('.lyrics-line');
+      const lines = this.lyricsContent?.querySelectorAll('.lyrics-line');
 
       lines?.forEach((line, index) => {
         line.classList.remove('active', 'passed', 'upcoming');
@@ -1254,17 +1251,14 @@ class NowPlayingManager {
         }
       });
     }
-
-    // Continuar loop
-    this.lyricsAnimationId = requestAnimationFrame(() => this.updateLyricsHighlight());
   }
 
   /**
    * Scroll suave a la línea activa - Estilo Spotify
    */
   scrollToLyricLine(lineEl) {
-    const container = document.getElementById('lyricsContainer');
-    if (!container || !lineEl) return;
+    if (!this.lyricsContainer || !lineEl) return;
+    const container = this.lyricsContainer;
 
     // Calcular posición para centrar la línea
     const containerHeight = container.clientHeight;
@@ -1397,7 +1391,7 @@ class NowPlayingManager {
       itemEl.dataset.index = index;
 
       // Intentar obtener una imagen bonita
-      let videoId = track.videoId;
+      const videoId = track.videoId;
       let imgUrl = defaultImg;
       if (videoId) {
         imgUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;

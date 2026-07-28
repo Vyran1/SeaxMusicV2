@@ -1,5 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// getBestThumbnail is duplicated in src/main/utils/thumbnails.js
+// This inline version is needed because preload contextBridge runs in an isolated world
 function getBestThumbnail(videoId, url = '') {
   if (videoId) {
     return `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
@@ -293,7 +295,7 @@ ipcRenderer.on('youtube-control', (event, action, value) => {
     if (!video) {
       // Si no existe video element, buscar en iframes (YouTube podría usar iframes)
       const iframes = document.querySelectorAll('iframe');
-      for (let iframe of iframes) {
+      for (const iframe of iframes) {
         try {
           const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
           video = iframeDoc.querySelector('video');
@@ -446,6 +448,7 @@ let seaxAnalyser = null;
 let seaxAudioSource = null;
 let seaxDataArray = null;
 let seaxVisualizerInterval = null;
+let seaxPreviousData = null;
 
 function setupAudioVisualizer(video) {
   if (!video || video._seaxAudioVisualizerAttached) return;
@@ -480,13 +483,16 @@ function setupAudioVisualizer(video) {
         simplifiedData.push(Math.round(sum / step));
       }
       
-      // Solo enviar si hay datos para no saturar
       let sum = 0;
       for (let i = 0; i < simplifiedData.length; i++) sum += simplifiedData[i];
-      if (sum > 0) {
-        ipcRenderer.send('audio-frequency-data', simplifiedData);
-      }
-    }, 60);
+      if (sum === 0) return;
+
+      // Delta check: solo enviar si hubo cambio significativo
+      if (seaxPreviousData && simplifiedData.every((v, i) => Math.abs(v - seaxPreviousData[i]) <= 5)) return;
+      seaxPreviousData = [...simplifiedData];
+
+      ipcRenderer.send('audio-frequency-data', simplifiedData);
+    }, 33);
     
     console.log('[SeaxMusic] 🎛️ Real-time audio visualizer connected');
   } catch (e) {

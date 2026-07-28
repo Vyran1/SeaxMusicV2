@@ -5,6 +5,17 @@
   box-sizing: border-box;
 }
 
+/* Accesibilidad: foco visible solo con teclado */
+:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm, 4px);
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 body {
   font-family: 'Manrope', 'Segoe UI', sans-serif;
   background-color: var(--bg-primary);

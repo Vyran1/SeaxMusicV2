@@ -5,9 +5,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SeaxMusic</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="assets/fonts/fontawesome-all.min.css">
   <link rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+    crossorigin="anonymous">
 
   <!-- Base Styles -->
   <link rel="stylesheet" href="css/base/variables.css">
@@ -353,8 +357,8 @@
         <div class="header-left">
           <button class="nav-btn" id="sidebarToggle" aria-label="Cerrar sidebar" title="Cerrar sidebar"><i
               class="fas fa-times"></i></button>
-          <button class="nav-btn" id="backBtn"><i class="fas fa-chevron-left"></i></button>
-          <button class="nav-btn" id="forwardBtn"><i class="fas fa-chevron-right"></i></button>
+          <button class="nav-btn" id="backBtn" aria-label="Anterior página"><i class="fas fa-chevron-left"></i></button>
+          <button class="nav-btn" id="forwardBtn" aria-label="Siguiente página"><i class="fas fa-chevron-right"></i></button>
         </div>
         <div class="header-right">
           <button class="user-profile" id="userBtn">
@@ -493,16 +497,16 @@
           <div class="track-name" id="trackName">Selecciona una canción</div>
           <div class="track-artist" id="trackArtist">SeaxMusic</div>
         </div>
-        <button class="like-btn" id="likeBtn"><i class="far fa-heart"></i></button>
+        <button class="like-btn" id="likeBtn" aria-label="Me gusta"><i class="far fa-heart"></i></button>
         <button class="expand-btn" id="expandBtn" title="Pantalla completa"><i class="fas fa-expand-alt"></i></button>
       </div>
     </div>
 
     <div class="player-center">
       <div class="player-controls">
-        <button class="control-btn" id="shuffleBtn"><i class="fas fa-random"></i></button>
+        <button class="control-btn" id="shuffleBtn" aria-label="Aleatorio"><i class="fas fa-random"></i></button>
         <div class="skip-preview-wrapper">
-          <button class="control-btn" id="prevBtn"><i class="fas fa-step-backward"></i></button>
+          <button class="control-btn" id="prevBtn" aria-label="Anterior"><i class="fas fa-step-backward"></i></button>
           <div class="skip-preview" id="prevPreview">
             <img class="skip-preview-cover" id="prevPreviewCover" src="./assets/img/icon.png" alt="">
             <div class="skip-preview-info">
@@ -512,9 +516,9 @@
             </div>
           </div>
         </div>
-        <button class="control-btn play-btn" id="playBtn"><i class="fas fa-play"></i></button>
+        <button class="control-btn play-btn" id="playBtn" aria-label="Reproducir"><i class="fas fa-play"></i></button>
         <div class="skip-preview-wrapper">
-          <button class="control-btn" id="nextBtn"><i class="fas fa-step-forward"></i></button>
+          <button class="control-btn" id="nextBtn" aria-label="Siguiente"><i class="fas fa-step-forward"></i></button>
           <div class="skip-preview" id="nextPreview">
             <img class="skip-preview-cover" id="nextPreviewCover" src="./assets/img/icon.png" alt="">
             <div class="skip-preview-info">
@@ -524,7 +528,7 @@
             </div>
           </div>
         </div>
-        <button class="control-btn" id="repeatBtn"><i class="fas fa-redo"></i></button>
+        <button class="control-btn" id="repeatBtn" aria-label="Repetir"><i class="fas fa-redo"></i></button>
         <button class="control-btn dj-mix-btn" id="djMixBtn" title="DJ Mix: Desactivado">
           <div class="dj-pulse-ring" id="djPulseRing"></div>
           <i class="fas fa-headphones-alt dj-icon"></i>
@@ -541,7 +545,7 @@
     </div>
 
     <div class="player-right">
-      <button class="volume-btn" id="volumeBtn"><i class="fas fa-volume-up"></i></button>
+      <button class="volume-btn" id="volumeBtn" aria-label="Volumen"><i class="fas fa-volume-up"></i></button>
       <div class="volume-container">
         <div class="volume-bar">
           <div class="volume-fill" id="volumeFill"></div>
@@ -556,7 +560,7 @@
   </div>
 
   <!-- Playlist Modal - PREMIUM REDESIGN -->
-  <div class="playlist-modal" id="playlistModal">
+  <div class="playlist-modal" id="playlistModal" role="dialog" aria-modal="true" aria-label="Crear playlist">
     <div class="playlist-modal-card premium">
       <div class="playlist-modal-glow"></div>
       <div class="playlist-modal-header">
@@ -664,7 +668,7 @@
   </div>
 
   <!-- Playlist Copy Modal -->
-  <div class="playlist-modal" id="playlistCopyModal">
+  <div class="playlist-modal" id="playlistCopyModal" role="dialog" aria-modal="true" aria-label="Copiar playlist">
     <div class="playlist-modal-card">
       <div class="playlist-modal-header">
         <h3>Copiar playlist</h3>
@@ -683,7 +687,7 @@
   </div>
 
   <!-- Account Switch Modal -->
-  <div class="playlist-modal" id="accountSwitchModal">
+  <div class="playlist-modal" id="accountSwitchModal" role="dialog" aria-modal="true" aria-label="Cambiar cuenta">
     <div class="playlist-modal-card">
       <div class="playlist-modal-header">
         <h3>Cambiar cuenta</h3>
@@ -701,7 +705,7 @@
   </div>
 
   <!-- Dev Access Modal -->
-  <div class="playlist-modal" id="devAccessModal">
+  <div class="playlist-modal" id="devAccessModal" role="dialog" aria-modal="true" aria-label="Acceso de desarrollo">
     <div class="playlist-modal-card">
       <div class="playlist-modal-header">
         <h3>Acceso Dev</h3>
@@ -724,7 +728,10 @@
     </div>
   </div>
 
+  <script src="js/utils/constants.js"></script>
+  <script src="js/utils/dom.js"></script>
   <script src="js/core/app.js"></script>
+  <script src="js/core/audioReactivity.js"></script>
   <script src="js/core/player.js"></script>
   <script src="js/core/ui.js"></script>
   <script src="js/core/auraEngine.js"></script>

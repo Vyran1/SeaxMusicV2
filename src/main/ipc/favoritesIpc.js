@@ -160,7 +160,7 @@ ipcMain.handle('add-favorite', async (event, video) => {
 });
 
 ipcMain.handle('remove-favorite', async (event, videoId) => {
-  let favorites = loadFavorites();
+  const favorites = loadFavorites();
   const index = favorites.findIndex(v => v.videoId === videoId);
   if (index !== -1) {
     favorites.splice(index, 1);

@@ -1,7 +1,7 @@
 // UI interaction logic
 
 // ⭐ Contenido original del inicio (para poder volver)
-let originalHomeContent = null;
+const originalHomeContent = null;
 
 // ===== SISTEMA DE NAVEGACIÓN CON HISTORIAL =====
 const navigationHistory = {

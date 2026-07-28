@@ -28,9 +28,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   forceCheckYouTubeLogin: () => ipcRenderer.invoke('force-check-youtube-login'),
 
-  // ⭐ CRÍTICO: Enviar comandos IPC a YouTube
+  // ⭐ IPC con allowlist de canales permitidos
   send: (channel, ...args) => {
-    ipcRenderer.send(channel, ...args);
+    const allowed = new Set([
+      'audio-control', 'seek-audio', 'update-volume', 'play-audio',
+      'set-current-playlist', 'clear-current-playlist',
+      'dj-set-mode', 'dj-set-window-volume', 'dj-control-window',
+      'video-preview-start', 'video-preview-stop',
+      'aura-color-update'
+    ]);
+    if (allowed.has(channel)) {
+      ipcRenderer.send(channel, ...args);
+    }
   },
 
   // YouTube login listener

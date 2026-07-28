@@ -58,7 +58,6 @@ class MusicPlayer {
     this.isPlaying = false;
     this.currentTime = 0;
     this.duration = 0;
-    // Leer volumen guardado por usuario o usar 0.7 por defecto
     this.volumeStorageKey = getVolumeStorageKey(getCurrentUser());
     const savedVolume = localStorage.getItem(this.volumeStorageKey);
     const legacyVolume = localStorage.getItem('seaxmusic_volume');
@@ -66,65 +65,80 @@ class MusicPlayer {
       ? parseFloat(savedVolume)
       : (legacyVolume !== null ? parseFloat(legacyVolume) : 0.7);
     this.isShuffle = false;
-    this.repeatMode = 'off'; // 'off', 'all', 'one'
+    this.repeatMode = 'off';
     this.currentTrack = null;
     this.suppressVolumePersist = false;
     this.suppressVolumeUpdates = false;
-    
+
+    this.dom = {
+      playBtn: null, prevBtn: null, nextBtn: null,
+      shuffleBtn: null, repeatBtn: null, likeBtn: null,
+      progressFill: null, progressHandle: null,
+      volumeFill: null, volumeHandle: null, volumeBtn: null, volumePercent: null,
+      trackImage: null, trackName: null, trackArtist: null,
+      currentTime: null, totalTime: null,
+      djMixBtn: null, pipBtn: null, pipPlayBtn: null, expandBtn: null,
+      fullscreenBtn: null
+    };
+
     this.initializeControls();
+  }
+
+  getEl(id) {
+    if (!this.dom[id]) {
+      this.dom[id] = document.getElementById(id);
+    }
+    return this.dom[id];
   }
   
   initializeControls() {
-    // Play/Pause button
-    const playBtn = document.getElementById('playBtn');
-    playBtn.addEventListener('click', () => this.togglePlay());
+    const playBtn = this.getEl('playBtn');
+    if (playBtn) playBtn.addEventListener('click', () => this.togglePlay());
     
-    // Previous/Next buttons
-    document.getElementById('prevBtn').addEventListener('click', () => this.previous());
-    document.getElementById('nextBtn').addEventListener('click', () => this.next());
+    this.getEl('prevBtn')?.addEventListener('click', () => this.previous());
+    this.getEl('nextBtn')?.addEventListener('click', () => this.next());
     
-    // Shuffle button
-    const shuffleBtn = document.getElementById('shuffleBtn');
-    shuffleBtn.addEventListener('click', () => this.toggleShuffle());
+    const shuffleBtn = this.getEl('shuffleBtn');
+    if (shuffleBtn) shuffleBtn.addEventListener('click', () => this.toggleShuffle());
     
-    // Repeat button
-    const repeatBtn = document.getElementById('repeatBtn');
-    repeatBtn.addEventListener('click', () => this.toggleRepeat());
+    const repeatBtn = this.getEl('repeatBtn');
+    if (repeatBtn) repeatBtn.addEventListener('click', () => this.toggleRepeat());
     
-    // Progress bar - Draggable
     const progressBar = document.querySelector('.progress-bar');
-    progressBar.addEventListener('click', (e) => this.seek(e));
-    progressBar.addEventListener('mousedown', (e) => this.startProgressDrag(e));
+    if (progressBar) {
+      progressBar.addEventListener('click', (e) => this.seek(e));
+      progressBar.addEventListener('mousedown', (e) => this.startProgressDrag(e));
+    }
     
-    // Volume controls - Draggable
     const volumeBar = document.querySelector('.volume-bar');
-    volumeBar.addEventListener('click', (e) => this.setVolume(e));
-    volumeBar.addEventListener('mousedown', (e) => this.startVolumeDrag(e));
+    if (volumeBar) {
+      volumeBar.addEventListener('click', (e) => this.setVolume(e));
+      volumeBar.addEventListener('mousedown', (e) => this.startVolumeDrag(e));
+    }
     
-    const volumeBtn = document.getElementById('volumeBtn');
-    volumeBtn.addEventListener('click', () => this.toggleMute());
+    const volumeBtn = this.getEl('volumeBtn');
+    if (volumeBtn) volumeBtn.addEventListener('click', () => this.toggleMute());
 
-    const djMixBtn = document.getElementById('djMixBtn');
+    const djMixBtn = this.getEl('djMixBtn');
     djMixBtn?.addEventListener('click', () => this.toggleDjMix());
 
-    const pipBtn = document.getElementById('pipBtn');
+    const pipBtn = this.getEl('pipBtn');
     pipBtn?.addEventListener('click', () => this.togglePipMode());
-    const pipPrevBtn = document.getElementById('pipPrevBtn');
+    const pipPrevBtn = this.getEl('pipPrevBtn');
     pipPrevBtn?.addEventListener('click', () => this.previous());
-    const pipPlayBtn = document.getElementById('pipPlayBtn');
+    const pipPlayBtn = this.getEl('pipPlayBtn');
     pipPlayBtn?.addEventListener('click', () => this.togglePlay());
-    const pipNextBtn = document.getElementById('pipNextBtn');
+    const pipNextBtn = this.getEl('pipNextBtn');
     pipNextBtn?.addEventListener('click', () => this.next());
-    const pipCloseBtn = document.getElementById('pipCloseBtn');
+    const pipCloseBtn = this.getEl('pipCloseBtn');
     pipCloseBtn?.addEventListener('click', () => this.togglePipMode());
-    const pipProgressBar = document.getElementById('pipProgressBar');
+    const pipProgressBar = this.getEl('pipProgressBar');
     pipProgressBar?.addEventListener('click', (e) => this.seek(e));
 
-    // Like button
-    document.getElementById('likeBtn').addEventListener('click', () => this.toggleLike());
+    this.getEl('likeBtn')?.addEventListener('click', () => this.toggleLike());
     
-    // Configuración button
-    document.getElementById('fullscreenBtn').addEventListener('click', () => {
+    const fullscreenBtn = this.getEl('fullscreenBtn');
+    if (fullscreenBtn) fullscreenBtn.addEventListener('click', () => {
       if (window.configManager) {
         window.configManager.showConfigPage();
       } else {
@@ -132,13 +146,8 @@ class MusicPlayer {
       }
     });
     
-    // ⭐ Track image click → Open Now Playing
-    const trackImage = document.getElementById('trackImage');
-    trackImage?.addEventListener('click', () => this.openNowPlaying());
-    
-    // ⭐ Expand button → Open Now Playing
-    const expandBtn = document.getElementById('expandBtn');
-    expandBtn?.addEventListener('click', () => this.openNowPlaying());
+    this.getEl('trackImage')?.addEventListener('click', () => this.openNowPlaying());
+    this.getEl('expandBtn')?.addEventListener('click', () => this.openNowPlaying());
     
     // Initialize volume UI
     this.updateVolumeUI();
@@ -158,7 +167,7 @@ class MusicPlayer {
     if (window.electronAPI?.onPipClosed) {
       window.electronAPI.onPipClosed(() => {
         this.pipEnabled = false;
-        const pipBtn = document.getElementById('pipBtn');
+        const pipBtn = this.getEl('pipBtn');
         if (pipBtn) {
           pipBtn.classList.remove('active');
           pipBtn.title = 'Pantalla sobre pantalla';
@@ -233,7 +242,7 @@ class MusicPlayer {
 
   syncDjMixButtons() {
     const enabled = !!window.appState?.djMixEnabled;
-    const djBtn = document.getElementById('djMixBtn');
+    const djBtn = this.getEl('djMixBtn');
     if (djBtn) {
       djBtn.classList.toggle('dj-active', enabled);
       djBtn.title = enabled ? 'DJ Mix: Activado' : 'DJ Mix: Desactivado';
@@ -325,7 +334,8 @@ class MusicPlayer {
   }
   
   updatePlayButton() {
-    const playBtn = document.getElementById('playBtn');
+    const playBtn = this.getEl('playBtn');
+    if (!playBtn) return;
     const icon = playBtn.querySelector('i');
     if (this.isPlaying) {
       icon.className = 'fas fa-pause';
@@ -333,7 +343,7 @@ class MusicPlayer {
       icon.className = 'fas fa-play';
     }
 
-    const pipPlayBtn = document.getElementById('pipPlayBtn');
+    const pipPlayBtn = this.getEl('pipPlayBtn');
     if (pipPlayBtn) {
       const pipIcon = pipPlayBtn.querySelector('i');
       if (pipIcon) {
@@ -436,9 +446,8 @@ class MusicPlayer {
   
   toggleShuffle() {
     this.isShuffle = !this.isShuffle;
-    const shuffleBtn = document.getElementById('shuffleBtn');
+    const shuffleBtn = this.getEl('shuffleBtn');
     
-    // Cambiar estilos del botón
     if (shuffleBtn) {
       shuffleBtn.style.color = this.isShuffle ? 'var(--accent-primary)' : 'var(--text-secondary)';
       shuffleBtn.title = this.isShuffle ? 'Aleatorio: Activado' : 'Aleatorio: Desactivado';
@@ -510,7 +519,7 @@ class MusicPlayer {
     const currentIndex = modes.indexOf(this.repeatMode);
     this.repeatMode = modes[(currentIndex + 1) % modes.length];
     
-    const repeatBtn = document.getElementById('repeatBtn');
+    const repeatBtn = this.getEl('repeatBtn');
     
     // Enviar modo de repetición a YouTube
     if (window.electronAPI && window.electronAPI.send) {
@@ -657,18 +666,18 @@ class MusicPlayer {
   }
   
   updateVolumeUI() {
-    const volumeFill = document.getElementById('volumeFill');
-    const volumeHandle = document.getElementById('volumeHandle');
-    const volumeBtn = document.getElementById('volumeBtn');
-    const volumePercent = document.getElementById('volumePercent');
+    const volumeFill = this.getEl('volumeFill');
+    const volumeHandle = this.getEl('volumeHandle');
+    const volumeBtn = this.getEl('volumeBtn');
+    const volumePercent = this.getEl('volumePercent');
+    if (!volumeBtn) return;
     const icon = volumeBtn.querySelector('i');
     
     const percent = this.volume * 100;
-    volumeFill.style.width = percent + '%';
-    volumeHandle.style.left = percent + '%';
-    volumePercent.textContent = Math.round(percent) + '%';
+    if (volumeFill) volumeFill.style.width = percent + '%';
+    if (volumeHandle) volumeHandle.style.left = percent + '%';
+    if (volumePercent) volumePercent.textContent = Math.round(percent) + '%';
     
-    // Update volume icon
     if (this.volume === 0) {
       icon.className = 'fas fa-volume-mute';
     } else if (this.volume < 0.5) {
@@ -677,7 +686,6 @@ class MusicPlayer {
       icon.className = 'fas fa-volume-up';
     }
 
-    // Sincronizar Now Playing en tiempo real
     if (window.nowPlayingManager) {
       window.nowPlayingManager.syncVolume(this.volume);
     }
@@ -700,7 +708,7 @@ class MusicPlayer {
       if (window.electronAPI?.openPipWindow) {
         await window.electronAPI.openPipWindow();
         this.pipEnabled = true;
-        const pipBtn = document.getElementById('pipBtn');
+        const pipBtn = this.getEl('pipBtn');
         if (pipBtn) {
           pipBtn.classList.add('active');
           pipBtn.title = 'Cerrar pantalla sobre pantalla';
@@ -735,24 +743,24 @@ class MusicPlayer {
   }
   
   updateProgress(percent) {
-    const progressFill = document.getElementById('progressFill');
-    const progressHandle = document.getElementById('progressHandle');
-    
-    progressFill.style.width = percent + '%';
-    progressHandle.style.left = percent + '%';
+    const progressFill = this.getEl('progressFill');
+    const progressHandle = this.getEl('progressHandle');
+    if (progressFill) progressFill.style.width = percent + '%';
+    if (progressHandle) progressHandle.style.left = percent + '%';
   }
   
   updateTime(current, total) {
     this.currentTime = current;
     this.duration = total;
     
-    document.getElementById('currentTime').textContent = this.formatTime(current);
-    document.getElementById('totalTime').textContent = this.formatTime(total);
+    const currentTimeEl = this.getEl('currentTime');
+    const totalTimeEl = this.getEl('totalTime');
+    if (currentTimeEl) currentTimeEl.textContent = this.formatTime(current);
+    if (totalTimeEl) totalTimeEl.textContent = this.formatTime(total);
     
     const percent = (current / total) * 100;
     this.updateProgress(percent);
     
-    // ⭐ Actualizar Now Playing si está activo
     if (window.nowPlayingManager) {
       window.nowPlayingManager.updateProgress(current, total);
     }
@@ -782,7 +790,7 @@ class MusicPlayer {
   
   // ⭐ Actualizar estado visual del like button
   updateLikeButton() {
-    const likeBtn = document.getElementById('likeBtn');
+    const likeBtn = this.getEl('likeBtn');
     if (!likeBtn) return;
     
     const icon = likeBtn.querySelector('i');
@@ -832,13 +840,14 @@ class MusicPlayer {
       }
     }
     
-    // ⭐ Guardar track actual
     this.currentTrack = track;
     
-    document.getElementById('trackName').textContent = track.title || 'Selecciona una canción';
-    document.getElementById('trackArtist').textContent = track.artist || 'SeaxMusic';
+    const trackName = this.getEl('trackName');
+    const trackArtist = this.getEl('trackArtist');
+    if (trackName) trackName.textContent = track.title || 'Selecciona una canción';
+    if (trackArtist) trackArtist.textContent = track.artist || 'SeaxMusic';
     
-    const trackImage = document.getElementById('trackImage');
+    const trackImage = this.getEl('trackImage');
     if (track.thumbnail) {
       trackImage.src = track.thumbnail;
       trackImage.style.display = 'block';
@@ -938,21 +947,25 @@ if (window.electronAPI && window.electronAPI.onUpdateVideoInfo) {
 
     const prevId = player.currentTrack.videoId || null;
     
-    // Actualizar propiedades del track actual
     if (videoInfo.title) {
       player.currentTrack.title = videoInfo.title;
-      document.getElementById('trackName').textContent = videoInfo.title;
+      const trackNameEl = document.getElementById('trackName');
+      if (trackNameEl) trackNameEl.textContent = videoInfo.title;
     } else if (videoInfo.videoId && videoInfo.videoId !== prevId) {
-      document.getElementById('trackName').textContent = 'Cargando...';
+      const trackNameEl = document.getElementById('trackName');
+      if (trackNameEl) trackNameEl.textContent = 'Cargando...';
     }
     if (videoInfo.artist) {
       player.currentTrack.artist = videoInfo.artist;
-      document.getElementById('trackArtist').textContent = videoInfo.artist;
+      const trackArtistEl = document.getElementById('trackArtist');
+      if (trackArtistEl) trackArtistEl.textContent = videoInfo.artist;
     } else if (videoInfo.channel) {
       player.currentTrack.artist = videoInfo.channel;
-      document.getElementById('trackArtist').textContent = videoInfo.channel;
+      const trackArtistEl = document.getElementById('trackArtist');
+      if (trackArtistEl) trackArtistEl.textContent = videoInfo.channel;
     } else if (videoInfo.videoId && videoInfo.videoId !== prevId) {
-      document.getElementById('trackArtist').textContent = 'YouTube';
+      const trackArtistEl = document.getElementById('trackArtist');
+      if (trackArtistEl) trackArtistEl.textContent = 'YouTube';
     }
     if (videoInfo.channel) {
       player.currentTrack.channel = videoInfo.channel;
@@ -974,7 +987,8 @@ if (window.electronAPI && window.electronAPI.onUpdateVideoInfo) {
     }
     if (videoInfo.duration && videoInfo.duration > 0) {
       player.duration = videoInfo.duration;
-      document.getElementById('totalTime').textContent = player.formatTime(videoInfo.duration);
+      const totalTimeEl = document.getElementById('totalTime');
+      if (totalTimeEl) totalTimeEl.textContent = player.formatTime(videoInfo.duration);
     }
     
     // ⭐ Actualizar like button
@@ -1070,13 +1084,9 @@ if (window.electronAPI && window.electronAPI.onUpdateAlbumCover) {
     if (trackImage && coverUrl) {
       trackImage.src = coverUrl;
       trackImage.style.display = 'block';
-      
-      // Actualizar currentTrack
       if (player.currentTrack) {
         player.currentTrack.thumbnail = coverUrl;
       }
-      
-      // ⭐ Actualizar Now Playing si está activo
       if (window.nowPlayingManager && window.nowPlayingManager.isActive && player.currentTrack) {
         window.nowPlayingManager.updateSong(player.currentTrack);
       }
