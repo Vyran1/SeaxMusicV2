@@ -34,7 +34,7 @@ function setupCSP() {
           "script-src 'self'; " +
           "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com; " +
           "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; " +
-          "img-src 'self' https://i.ytimg.com data: blob:; " +
+          "img-src 'self' https://i.ytimg.com https://img.youtube.com data: blob:; " +
           "connect-src 'self' https://lrclib.net https://api.github.com; " +
           "media-src 'self' https://www.youtube.com; " +
           "frame-src 'self' https://www.youtube.com; " +
