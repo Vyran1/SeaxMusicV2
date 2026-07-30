@@ -64,7 +64,7 @@ class AppUpdater {
         const sendLog = (msg) => {
             console.log(msg);
             if (mainWindow && !mainWindow.isDestroyed()) {
-                if (mainWindow && !mainWindow.isDestroyed()) {
+                if (mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
                     mainWindow.webContents.send('update-log', msg);
                 }
             }
@@ -721,7 +721,7 @@ async fetchReleaseCommits(currentVersion, latestTag) {
       }
 
       // Notificar al main renderer que el modal se abrió
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      if (this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.webContents && !this.mainWindow.webContents.isDestroyed()) {
         this.mainWindow.webContents.send('update-modal-opened');
       }
     });
@@ -775,7 +775,7 @@ async fetchReleaseCommits(currentVersion, latestTag) {
             this.cleanupWindowSync();
             if (this.mainWindow && !this.mainWindow.isDestroyed()) {
                 this.mainWindow.setEnabled(true);
-                if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+                if (this.mainWindow.webContents && !this.mainWindow.webContents.isDestroyed()) {
                     this.mainWindow.webContents.send('update-modal-closed');
                 }
             }
@@ -825,20 +825,16 @@ async fetchReleaseCommits(currentVersion, latestTag) {
     // Enviar estado a la ventana del renderer
     sendStatusToWindow(status, data = null) {
         const mainWindow = BrowserWindow.getAllWindows()[0];
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('update-status', { status, data });
-            }
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+            mainWindow.webContents.send('update-status', { status, data });
         }
     }
     
     // Enviar logs al renderer para debug
     sendLogToRenderer(message) {
         const mainWindow = BrowserWindow.getAllWindows()[0];
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.webContents.send('update-log', message);
-            }
+        if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+            mainWindow.webContents.send('update-log', message);
         }
     }
     
