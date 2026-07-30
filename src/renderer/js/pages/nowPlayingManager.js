@@ -1241,33 +1241,38 @@ class NowPlayingManager {
     }
 
     const currentTime = this.currentPlaybackTime || 0;
-
     window.lyricsService?.getCurrentLine(currentTime);
     const currentIndex = window.lyricsService?.currentLineIndex ?? -1;
 
-    if (currentIndex !== this.lastHighlightedLine) {
-      this.lastHighlightedLine = currentIndex;
+    const prevIndex = this.lastHighlightedLine;
+    if (currentIndex === prevIndex) return;
+    this.lastHighlightedLine = currentIndex;
 
-      const lines = this.lyricsContent?.querySelectorAll('.lyrics-line');
+    const lines = this.lyricsContent?.querySelectorAll('.lyrics-line');
+    if (!lines) return;
 
-      lines?.forEach((line, index) => {
-        line.classList.remove('active', 'passed', 'upcoming');
+    const getState = (idx, activeIdx) => {
+      if (idx === activeIdx) return 'active';
+      if (idx < activeIdx) return 'passed';
+      if (idx === activeIdx + 1) return 'upcoming';
+      return null;
+    };
 
-        if (index === currentIndex) {
-          line.classList.add('active');
-        } else if (index < currentIndex) {
-          line.classList.add('passed');
-        } else if (index === currentIndex + 1) {
-          line.classList.add('upcoming');
-        }
-      });
+    const start = Math.max(0, Math.min(prevIndex, currentIndex) - 1);
+    const end = Math.min(lines.length - 1, Math.max(prevIndex, currentIndex) + 2);
 
-      // Scroll con debounce (máximo 1 scroll cada 300ms)
-      const now = Date.now();
-      if (now - this._lastScrollTime > 300 && lines && lines[currentIndex]) {
-        this._lastScrollTime = now;
-        this.scrollToLyricLine(lines[currentIndex]);
-      }
+    for (let i = start; i <= end; i++) {
+      const cls = getState(i, currentIndex);
+      const line = lines[i];
+      line.classList.remove('active', 'passed', 'upcoming');
+      if (cls) line.classList.add(cls);
+    }
+
+    // Scroll con debounce (máximo 1 scroll cada 300ms)
+    const now = Date.now();
+    if (now - this._lastScrollTime > 300 && lines && lines[currentIndex]) {
+      this._lastScrollTime = now;
+      this.scrollToLyricLine(lines[currentIndex]);
     }
   }
 
