@@ -477,14 +477,18 @@ class DJEngine {
     }));
 
     if (match) {
-      // Actualizar tracks y metadata
-      match.tracks = formattedTracks;
-      match.logo = this.generateCollageCover(formattedTracks);
+      // Fusionar tracks nuevos con existentes (sin duplicar)
+      const existingIds = new Set((match.tracks || []).map(t => t.videoId));
+      const newTracks = formattedTracks.filter(t => !existingIds.has(t.videoId));
+      if (newTracks.length > 0) {
+        match.tracks = [...(match.tracks || []), ...newTracks];
+      }
+      match.logo = this.generateCollageCover(match.tracks);
       match.updatedAt = now.toISOString();
       match.description = autoPlaylist.description || match.description;
       playlistManager.upsertGlobalPlaylist(match);
       if (playlistManager.refreshSidebar) playlistManager.refreshSidebar();
-      console.log('[DJ ENGINE] ✅ Playlist actualizada en comunidad:', match.name, '-', formattedTracks.length, 'tracks');
+      console.log('[DJ ENGINE] ✅ Playlist actualizada en comunidad:', match.name, '-', match.tracks.length, 'tracks');
       return match;
     }
 
@@ -567,7 +571,7 @@ class DJEngine {
     }
   }
 
-  // 🔄 Actualizar playlists personales con más frecuencia
+  // Actualizar playlists personales
   refreshPersonalPlaylists() {
     const playlists = this.generateAllAutoPlaylists();
     // Actualizar versiones locales de solo lectura
@@ -578,16 +582,11 @@ class DJEngine {
   }
 
   startSchedulers() {
-    // Refrescar MIX personales cada 10 minutos
-    setInterval(() => {
-      this.refreshPersonalPlaylists();
-    }, 10 * 60 * 1000);
-
-    // Verificar publicación global con menos frecuencia
-    setInterval(() => {
+    // Verificar publicación global una vez al iniciar
+    setTimeout(() => {
       this.autoPublishIfNeeded();
       this.notifyDJUpdate();
-    }, 60 * 60 * 1000);
+    }, 5000);
   }
 
   notifyDJUpdate() {
@@ -608,6 +607,11 @@ class DJEngine {
     let globalChanged = false;
     global.forEach(p => {
       if (!p?.isDJGenerated) return;
+      // Eliminar readOnly para permitir edición
+      if (p.readOnly) {
+        delete p.readOnly;
+        globalChanged = true;
+      }
       const isAppLogo = typeof p.logo === 'string' && p.logo.includes('assets/img/icon.png');
       if ((isAppLogo || !p.logo) && Array.isArray(p.tracks) && p.tracks.length > 0) {
         p.logo = this.generateCollageCover(p.tracks);
@@ -628,6 +632,11 @@ class DJEngine {
     let localChanged = false;
     (playlistManager.playlists || []).forEach(p => {
       if (!p?.isDJGenerated) return;
+      // Eliminar readOnly para permitir edición
+      if (p.readOnly) {
+        delete p.readOnly;
+        localChanged = true;
+      }
       const isAppLogo = typeof p.logo === 'string' && p.logo.includes('assets/img/icon.png');
       if ((isAppLogo || !p.logo) && Array.isArray(p.tracks) && p.tracks.length > 0) {
         p.logo = this.generateCollageCover(p.tracks);
@@ -915,13 +924,22 @@ class DJEngine {
         secondaryAvatar: userProfile.avatar || ''
       },
       isDJGenerated: true,
-      readOnly: true,
       djType: autoPlaylist.type,
       updatedAt: now
     };
 
     if (existing) {
-      Object.assign(existing, base);
+      // Preservar tracks añadidos por el usuario, solo agregar tracks nuevos generados
+      const existingIds = new Set((existing.tracks || []).map(t => t.videoId));
+      const newTracks = (autoPlaylist.tracks || []).filter(t => !existingIds.has(t.videoId));
+      if (newTracks.length > 0) {
+        existing.tracks = [...(existing.tracks || []), ...newTracks];
+      }
+      existing.name = autoPlaylist.name;
+      existing.description = autoPlaylist.description;
+      existing.logo = this.generateCollageCover(existing.tracks);
+      existing.updatedAt = now;
+      existing.djType = autoPlaylist.type;
       playlistManager.savePlaylists?.();
       playlistManager.upsertGlobalPlaylist?.(existing);
       return existing.id;

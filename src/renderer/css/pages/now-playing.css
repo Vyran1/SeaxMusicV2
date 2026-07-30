@@ -1010,19 +1010,18 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 15vh 60px 45vh;
+  padding: 20vh 60px 30vh;
   scroll-behavior: smooth;
   position: relative;
-  /* Fade elegante arriba y abajo */
   mask-image: linear-gradient(to bottom,
       transparent 0%,
-      black 12%,
-      black 80%,
+      black 10%,
+      black 85%,
       transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom,
       transparent 0%,
-      black 12%,
-      black 80%,
+      black 10%,
+      black 85%,
       transparent 100%);
 }
 
@@ -1107,49 +1106,46 @@
 
 /* ===== LETRAS ESTILO SEAX PREMIUM - MEJOR QUE APPLE/SPOTIFY ===== */
 .lyrics-line {
+  position: relative;
   font-size: 32px;
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.35);
-  line-height: 1.7;
-  padding: 8px 0;
-  /* Transición suave solo en color - SIN zoom */
-  transition: color 0.4s ease-out, opacity 0.4s ease-out;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.15);
+  line-height: 1.6;
+  padding: 10px 0 10px 24px;
   cursor: pointer;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
+  border-left: 3px solid transparent;
+  transition: color 0.5s ease, font-weight 0.5s ease, text-shadow 0.5s ease, border-color 0.5s ease, padding 0.5s ease;
 }
 
 .lyrics-line:hover {
-  color: rgba(255, 255, 255, 0.55);
-}
-
-/* 🎵 LÍNEA ACTIVA - Solo cambio de color, SIN zoom */
-.lyrics-line.active {
-  font-size: 42px;
-  font-weight: 900;
-  color: #ffffff;
-  text-shadow: 0 0 40px rgba(255, 255, 255, 0.4);
-  transform: scale(1.05);
-  will-change: transform;
-  backface-visibility: hidden;
-}
-
-/* Líneas pasadas */
-.lyrics-line.passed {
-  color: rgba(255, 255, 255, 0.1);
-  filter: blur(1px);
-}
-
-/* Línea siguiente */
-.lyrics-line.upcoming {
   color: rgba(255, 255, 255, 0.4);
 }
 
-/* Letras sin sincronización */
+.lyrics-line.active {
+  font-size: 32px;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 0 30px rgba(255, 255, 255, 0.25), 0 0 60px rgba(255, 255, 255, 0.1);
+  padding-left: 24px;
+  border-left-color: var(--accent-primary, #eb5757);
+}
+
+.lyrics-line.passed {
+  color: rgba(255, 255, 255, 0.08);
+}
+
+.lyrics-line.upcoming {
+  color: rgba(255, 255, 255, 0.35);
+}
+
 .lyrics-content.plain .lyrics-line {
   font-size: 22px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.65);
   cursor: default;
+  padding-left: 0;
+  border-left: none;
 }
 
 .lyrics-content.plain .lyrics-line:hover {
@@ -1207,10 +1203,11 @@
 
   .lyrics-line {
     font-size: 22px;
+    padding: 6px 0 6px 18px;
   }
 
   .lyrics-line.active {
-    font-size: 26px;
+    font-size: 22px;
   }
 }
 
@@ -1225,10 +1222,11 @@
 
   .lyrics-line {
     font-size: 20px;
+    padding: 5px 0 5px 14px;
   }
 
   .lyrics-line.active {
-    font-size: 24px;
+    font-size: 20px;
   }
 }
 

@@ -368,23 +368,35 @@ class LyricsService {
     }
 
     /**
-     * Obtener línea actual por tiempo
+     * Obtener línea actual por tiempo (binary search O(log n))
      */
     getCurrentLine(currentTime) {
         if (!this.parsedLyrics.length || this.parsedLyrics[0].time === -1) {
             return null;
         }
 
-        let line = null;
-        for (let i = 0; i < this.parsedLyrics.length; i++) {
-            if (this.parsedLyrics[i].time <= currentTime) {
-                line = this.parsedLyrics[i];
-                this.currentLineIndex = i;
+        const arr = this.parsedLyrics;
+        let lo = 0;
+        let hi = arr.length - 1;
+        let best = -1;
+
+        while (lo <= hi) {
+            const mid = (lo + hi) >> 1;
+            if (arr[mid].time <= currentTime) {
+                best = mid;
+                lo = mid + 1;
             } else {
-                break;
+                hi = mid - 1;
             }
         }
-        return line;
+
+        if (best >= 0) {
+            this.currentLineIndex = best;
+            return arr[best];
+        }
+
+        this.currentLineIndex = 0;
+        return arr[0];
     }
 
     /**

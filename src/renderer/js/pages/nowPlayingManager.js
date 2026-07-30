@@ -1193,7 +1193,7 @@ class NowPlayingManager {
   }
 
   /**
-   * Iniciar sincronización de letras
+   * Iniciar sincronización de letras con rAF
    */
   startLyricsSync() {
     this.stopLyricsSync();
@@ -1204,8 +1204,19 @@ class NowPlayingManager {
     }
 
     this.lastHighlightedLine = -1;
-    this.lyricsAnimationId = setInterval(() => this.updateLyricsHighlight(), 200);
-    console.log('[LYRICS] Sincronización iniciada (200ms)');
+    this._lastScrollTime = 0;
+
+    const syncLoop = () => {
+      if (!this.nowPlayingContent?.classList.contains('lyrics-active')) {
+        this.stopLyricsSync();
+        return;
+      }
+      this.updateLyricsHighlight();
+      this.lyricsAnimationId = requestAnimationFrame(syncLoop);
+    };
+
+    this.lyricsAnimationId = requestAnimationFrame(syncLoop);
+    console.log('[LYRICS] Sincronización iniciada (rAF)');
   }
 
   /**
@@ -1213,10 +1224,11 @@ class NowPlayingManager {
    */
   stopLyricsSync() {
     if (this.lyricsAnimationId !== null) {
-      clearInterval(this.lyricsAnimationId);
+      cancelAnimationFrame(this.lyricsAnimationId);
       this.lyricsAnimationId = null;
     }
     this.lastHighlightedLine = -1;
+    this._lastScrollTime = 0;
   }
 
   /**
@@ -1243,32 +1255,43 @@ class NowPlayingManager {
 
         if (index === currentIndex) {
           line.classList.add('active');
-          this.scrollToLyricLine(line);
         } else if (index < currentIndex) {
           line.classList.add('passed');
         } else if (index === currentIndex + 1) {
           line.classList.add('upcoming');
         }
       });
+
+      // Scroll con debounce (máximo 1 scroll cada 300ms)
+      const now = Date.now();
+      if (now - this._lastScrollTime > 300 && lines && lines[currentIndex]) {
+        this._lastScrollTime = now;
+        this.scrollToLyricLine(lines[currentIndex]);
+      }
     }
   }
 
   /**
-   * Scroll suave a la línea activa - Estilo Spotify
+   * Scroll suave a la línea activa - solo si no está visible
    */
   scrollToLyricLine(lineEl) {
     if (!this.lyricsContainer || !lineEl) return;
     const container = this.lyricsContainer;
 
+    const containerRect = container.getBoundingClientRect();
+    const lineRect = lineEl.getBoundingClientRect();
+
+    // Si la línea ya está visible y centrada, no hacer scroll
+    const margin = containerRect.height * 0.15;
+    if (lineRect.top >= containerRect.top + margin && lineRect.bottom <= containerRect.bottom - margin) {
+      return;
+    }
+
     // Calcular posición para centrar la línea
-    const containerHeight = container.clientHeight;
     const lineOffset = lineEl.offsetTop;
     const lineHeight = lineEl.offsetHeight;
+    const scrollTarget = lineOffset - (container.clientHeight / 2) + (lineHeight / 2);
 
-    // Centrar la línea en el contenedor
-    const scrollTarget = lineOffset - (containerHeight / 2) + (lineHeight / 2);
-
-    // Scroll suave
     container.scrollTo({
       top: scrollTarget,
       behavior: 'smooth'

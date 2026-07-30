@@ -687,19 +687,29 @@
   </div>
 
   <!-- Account Switch Modal -->
-  <div class="playlist-modal" id="accountSwitchModal" role="dialog" aria-modal="true" aria-label="Cambiar cuenta">
-    <div class="playlist-modal-card">
-      <div class="playlist-modal-header">
-        <h3>Cambiar cuenta</h3>
-        <button class="playlist-modal-close" id="accountSwitchClose">
+  <div class="switch-account-overlay" id="accountSwitchModal" role="dialog" aria-modal="true" aria-label="Cambiar cuenta">
+    <div class="switch-account-card">
+      <div class="switch-account-header">
+        <div class="switch-account-header-icon">
+          <i class="fas fa-exchange-alt"></i>
+        </div>
+        <div class="switch-account-header-text">
+          <h3>Cambiar cuenta</h3>
+          <span>Selecciona o añade una cuenta de YouTube</span>
+        </div>
+        <button class="switch-account-close" id="accountSwitchClose">
           <i class="fas fa-times"></i>
         </button>
       </div>
-      <div class="playlist-modal-body">
-        <div class="account-switch-list" id="accountSwitchList"></div>
+      <div class="switch-account-body">
+        <div class="switch-account-list" id="accountSwitchList"></div>
       </div>
-      <div class="playlist-modal-actions">
-        <button class="playlist-btn ghost" id="accountSwitchCancel">Cerrar</button>
+      <div class="switch-account-footer">
+        <button class="switch-account-add" id="accountSwitchAdd">
+          <i class="fas fa-plus-circle"></i>
+          Añadir cuenta
+        </button>
+        <button class="switch-account-cancel" id="accountSwitchCancel">Cerrar</button>
       </div>
     </div>
   </div>

@@ -65,7 +65,14 @@ class UserManager {
   getAccounts() {
     try {
       const raw = localStorage.getItem('seaxmusic_accounts');
-      return raw ? JSON.parse(raw) : [];
+      const accounts = raw ? JSON.parse(raw) : [];
+      const currentKey = this.buildUserKey(this.user);
+      accounts.sort((a, b) => {
+        if (a.key === currentKey) return -1;
+        if (b.key === currentKey) return 1;
+        return new Date(b.lastUsed || 0) - new Date(a.lastUsed || 0);
+      });
+      return accounts;
     } catch (e) {
       console.error('[ACCOUNTS] Error leyendo cuentas:', e);
       return [];
@@ -85,12 +92,15 @@ class UserManager {
     const key = this.buildUserKey(user);
     console.log('[ACCOUNTS] Guardando cuenta con key:', key);
     const index = accounts.findIndex(acc => acc.key === key);
-    const payload = { key, user };
+    const payload = { key, user, lastUsed: new Date().toISOString() };
     if (index === -1) {
       accounts.unshift(payload);
       console.log('[ACCOUNTS] Nueva cuenta añadida');
     } else {
-      accounts[index] = payload;
+      accounts[index].lastUsed = new Date().toISOString();
+      if (Object.keys(accounts[index].user || {}).length < Object.keys(payload.user || {}).length) {
+        accounts[index].user = payload.user;
+      }
       console.log('[ACCOUNTS] Cuenta existente actualizada');
     }
     this.saveAccounts(accounts);
@@ -150,58 +160,98 @@ class UserManager {
     const list = document.getElementById('accountSwitchList');
     const closeBtn = document.getElementById('accountSwitchClose');
     const cancelBtn = document.getElementById('accountSwitchCancel');
+    const addBtn = document.getElementById('accountSwitchAdd');
     if (!modal || !list) return;
 
-    list.innerHTML = '';
-    const accounts = this.getAccounts();
-    const currentKey = this.buildUserKey(this.user);
+    const renderList = () => {
+      list.innerHTML = '';
+      const accounts = this.getAccounts();
+      const currentKey = this.buildUserKey(this.user);
 
-    if (accounts.length === 0) {
-      list.innerHTML = `<div class="playlist-empty-state">Aún no hay cuentas guardadas.</div>`;
-    } else {
-      accounts.forEach(acc => {
-        const isActive = acc.key === currentKey;
-        const item = document.createElement('div');
-        item.className = 'account-switch-item';
-        item.innerHTML = `
-          <div class="account-avatar">
-            ${acc.user.avatar ? `<img src="${acc.user.avatar}" alt="">` : `<i class="fas fa-user"></i>`}
-          </div>
-          <div class="account-info">
-            <div class="account-name">${acc.user.name || 'Usuario'}</div>
-            <div class="account-email">${acc.user.email || acc.user.handle || 'sin correo'}</div>
-          </div>
-          <div class="account-actions">
-            ${isActive ? `<span class="account-active">Activa</span>` : `<button class="account-use-btn">Usar</button>`}
-            <button class="account-remove-btn" title="Eliminar cuenta"><i class="fas fa-trash"></i></button>
+      if (accounts.length === 0) {
+        list.innerHTML = `
+          <div class="switch-account-empty">
+            <div class="switch-account-empty-icon"><i class="fas fa-users"></i></div>
+            <p>No hay cuentas guardadas</p>
+            <span>Añade tu cuenta de YouTube para sincronizar tus playlists y favoritos</span>
           </div>
         `;
+      } else {
+        accounts.forEach(acc => {
+          const isActive = acc.key === currentKey;
+          const item = document.createElement('div');
+          item.className = `switch-account-item${isActive ? ' active' : ''}`;
 
-        item.querySelector('.account-use-btn')?.addEventListener('click', () => {
-          this.switchAccount(acc.user);
-          modal.classList.remove('active');
+          const lastUsed = acc.lastUsed ? this.formatRelativeTime(acc.lastUsed) : '';
+
+          item.innerHTML = `
+            <div class="switch-account-avatar">
+              ${acc.user.avatar ? `<img src="${acc.user.avatar}" alt="">` : `<i class="fas fa-user"></i>`}
+            </div>
+            <div class="switch-account-info">
+              <div class="switch-account-name">${acc.user.name || 'Usuario'}</div>
+              <div class="switch-account-email">${acc.user.email || acc.user.handle || 'Sin correo'}</div>
+            </div>
+            <div class="switch-account-meta">
+              ${isActive ? `<span class="switch-account-badge">Activa</span>` : ''}
+              ${lastUsed ? `<span class="switch-account-time">${lastUsed}</span>` : ''}
+              <button class="switch-account-remove" title="Eliminar cuenta"><i class="fas fa-times"></i></button>
+            </div>
+          `;
+
+          item.addEventListener('click', (e) => {
+            if (e.target.closest('.switch-account-remove')) return;
+            if (isActive) {
+              modal.classList.remove('active');
+              return;
+            }
+            this.switchAccount(acc.user);
+            modal.classList.remove('active');
+          });
+
+          item.querySelector('.switch-account-remove')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.removeAccount(acc.key);
+            if (acc.key === currentKey) {
+              localStorage.removeItem('seaxmusic_user');
+              this.user = null;
+              this.updateUserUI();
+            }
+            renderList();
+          });
+
+          list.appendChild(item);
         });
+      }
+    };
 
-        item.querySelector('.account-remove-btn')?.addEventListener('click', () => {
-          this.removeAccount(acc.key);
-          if (acc.key === currentKey) {
-            localStorage.removeItem('seaxmusic_user');
-            this.user = null;
-            this.updateUserUI();
-          }
-          this.openAccountSwitcher();
-        });
-
-        list.appendChild(item);
-      });
-    }
+    renderList();
 
     closeBtn?.addEventListener('click', () => modal.classList.remove('active'));
     cancelBtn?.addEventListener('click', () => modal.classList.remove('active'));
+    addBtn?.addEventListener('click', () => {
+      modal.classList.remove('active');
+      this.openLoginWindow();
+    });
     modal.addEventListener('click', (e) => {
       if (e.target === modal) modal.classList.remove('active');
     });
     modal.classList.add('active');
+  }
+
+  formatRelativeTime(timestamp) {
+    if (!timestamp) return '';
+    const now = Date.now();
+    const diff = now - new Date(timestamp).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'ahora';
+    if (mins < 60) return `hace ${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `hace ${hours}h`;
+    const days = Math.floor(hours / 24);
+    if (days === 1) return 'ayer';
+    if (days < 7) return `hace ${days}d`;
+    return new Date(timestamp).toLocaleDateString('es', { day: 'numeric', month: 'short' });
   }
 
   async switchAccount(user) {
@@ -260,6 +310,33 @@ class UserManager {
         console.error('Error parsing user data:', error);
         this.user = null;
       }
+    }
+
+    // Migrar cuentas existentes: asegurar lastUsed
+    try {
+      const raw = localStorage.getItem('seaxmusic_accounts');
+      if (raw) {
+        const accounts = JSON.parse(raw);
+        let changed = false;
+        const currentKey = this.buildUserKey(this.user);
+        accounts.forEach(acc => {
+          if (!acc.lastUsed) {
+            acc.lastUsed = acc.key === currentKey ? new Date().toISOString() : '2025-01-01T00:00:00.000Z';
+            changed = true;
+          }
+        });
+        // Ordenar: activa primero, luego por lastUsed descendente
+        accounts.sort((a, b) => {
+          if (a.key === currentKey) return -1;
+          if (b.key === currentKey) return 1;
+          return new Date(b.lastUsed || 0) - new Date(a.lastUsed || 0);
+        });
+        if (changed) {
+          this.saveAccounts(accounts);
+        }
+      }
+    } catch (e) {
+      console.error('[ACCOUNTS] Error migrando lastUsed:', e);
     }
   }
 
