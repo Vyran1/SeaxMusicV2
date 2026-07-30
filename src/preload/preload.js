@@ -155,6 +155,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ===== BÚSQUEDA DE YOUTUBE =====
   searchYouTube: (query) => ipcRenderer.invoke('search-youtube', query),
+  searchYouTubeMore: (continuation) => ipcRenderer.invoke('search-youtube-more', continuation),
 
   // ===== SISTEMA DE FAVORITOS (persistente en archivo) =====
   getFavorites: () => ipcRenderer.invoke('get-favorites'),

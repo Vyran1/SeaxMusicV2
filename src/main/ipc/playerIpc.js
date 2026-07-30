@@ -1,4 +1,5 @@
 const { ipcMain } = require('electron');
+const https = require('https');
 const state = require('../state');
 const discordRPC = require('../services/discordRPC');
 const {
@@ -1155,163 +1156,184 @@ ipcMain.handle('get-history-videos', async () => {
   }
 });
 
-// ===== BÚSQUEDA DE YOUTUBE =====
-ipcMain.handle('search-youtube', async (event, query) => {
-  console.log('[SEARCH] Buscando en YouTube:', query);
+// ===== BÚSQUEDA DE YOUTUBE — INNERTUBE API (DIRECTO, SIN BROWSER) =====
 
+function innertubeFetch(endpoint, body) {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify(body);
+    const API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
+    const urlObj = new URL(`https://www.youtube.com/youtubei/v1/${endpoint}?key=${API_KEY}`);
+    const options = {
+      hostname: urlObj.hostname,
+      port: 443,
+      path: urlObj.pathname + urlObj.search,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Origin': 'https://www.youtube.com'
+      }
+    };
+    const req = https.request(options, (res) => {
+      let raw = '';
+      res.on('data', chunk => raw += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(raw)); }
+        catch (e) { reject(new Error('Invalid JSON from Innertube')); }
+      });
+    });
+    req.on('error', reject);
+    req.write(payload);
+    req.end();
+  });
+}
+
+function parseInnertubeVideos(data) {
+  const videos = [];
+  const contents = data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents;
+  if (!contents) return { videos, continuation: null };
+
+  let continuation = null;
+
+  for (const section of contents) {
+    if (section.continuationItemRenderer) {
+      continuation = section.continuationItemRenderer.continuationEndpoint?.continuationCommand?.token || continuation;
+      continue;
+    }
+    const items = section?.itemSectionRenderer?.contents || [];
+    for (const item of items) {
+      if (item.continuationItemRenderer) {
+        continuation = item.continuationItemRenderer.continuationEndpoint?.continuationCommand?.token || continuation;
+        continue;
+      }
+      const vr = item.videoRenderer;
+      if (!vr || !vr.videoId) continue;
+      const title = vr.title?.runs?.[0]?.text || vr.title?.simpleText || '';
+      if (!title) continue;
+      const channel = vr.ownerText?.runs?.[0]?.text ||
+                      vr.longBylineText?.runs?.[0]?.text ||
+                      vr.shortBylineText?.runs?.[0]?.text || 'YouTube';
+      const duration = vr.lengthText?.simpleText || '';
+      const thumbs = vr.thumbnail?.thumbnails;
+      const thumbnail = thumbs?.[thumbs.length - 1]?.url ||
+                        `https://i.ytimg.com/vi/${vr.videoId}/hqdefault.jpg`;
+      const isOfficial = !!(vr.ownerBadges?.some(b =>
+        b.metadataBadgeRenderer?.style === 'BADGE_STYLE_TYPE_VERIFIED_ARTIST'
+      ));
+      videos.push({
+        videoId: vr.videoId,
+        title,
+        channel,
+        artist: channel,
+        thumbnail: thumbnail.startsWith('//') ? 'https:' + thumbnail : thumbnail,
+        url: `https://www.youtube.com/watch?v=${vr.videoId}`,
+        duration,
+        isVerified: isOfficial
+      });
+    }
+  }
+  return { videos, continuation };
+}
+
+ipcMain.handle('search-youtube', async (event, query) => {
+  console.log('[SEARCH] Buscando en YouTube (Innertube):', query);
+  try {
+    const data = await innertubeFetch('search', {
+      context: {
+        client: { clientName: 'WEB', clientVersion: '2.20250101.00.00', hl: 'es', gl: 'MX' }
+      },
+      query
+    });
+    const { videos, continuation } = parseInnertubeVideos(data);
+    return {
+      success: videos.length > 0,
+      videos: videos.slice(0, 50),
+      continuation: videos.length >= 20 ? continuation : null
+    };
+  } catch (e) {
+    console.warn('[SEARCH] Innertube falló, usando fallback browser:', e.message);
+    return fallbackBrowserSearch(query);
+  }
+});
+
+ipcMain.handle('search-youtube-more', async (event, continuation) => {
+  if (!continuation) return { success: false, videos: [], continuation: null };
+  console.log('[SEARCH] Cargando más resultados...');
+  try {
+    const data = await innertubeFetch('search', {
+      context: {
+        client: { clientName: 'WEB', clientVersion: '2.20250101.00.00', hl: 'es', gl: 'MX' }
+      },
+      continuation
+    });
+    const { videos, continuation: next } = parseInnertubeVideos(data);
+    return { success: videos.length > 0, videos, continuation: next };
+  } catch (e) {
+    return { success: false, videos: [], continuation: null };
+  }
+});
+
+// Fallback: browser-based search (cuando Innertube falla)
+async function fallbackBrowserSearch(query) {
+  console.log('[SEARCH] Fallback browser para:', query);
   try {
     const auxWindow = createAuxYoutubeWindow();
     const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-
     return new Promise((resolve) => {
       auxWindow.loadURL(searchUrl);
-
       auxWindow.webContents.once('did-finish-load', async () => {
-        console.log('[SEARCH] Página de búsqueda cargada, esperando contenido...');
-
-        // Esperar a que YouTube renderice los resultados
-        await new Promise(r => setTimeout(r, 3000));
-
-        // Hacer scroll para cargar más resultados
-        for (let i = 0; i < 5; i++) {
+        await new Promise(r => setTimeout(r, 2000));
+        for (let i = 0; i < 3; i++) {
           await auxWindow.webContents.executeJavaScript('window.scrollTo(0, document.body.scrollHeight)');
-          await new Promise(r => setTimeout(r, 800));
+          await new Promise(r => setTimeout(r, 500));
         }
-        await new Promise(r => setTimeout(r, 1000));
-
-        // Script para extraer videos de los resultados de búsqueda
-        const extractSearchScript = `
+        const extractScript = `
           (function() {
-            const maxVideos = 50;
+            const maxVideos = 30;
             const videos = [];
-            
-            console.log('[SEARCH] Extrayendo resultados de búsqueda...');
-            
             try {
               if (window.ytInitialData) {
-                const findVideos = (obj, depth = 0) => {
+                const findVideos = (obj, depth) => {
                   if (videos.length >= maxVideos || depth > 25) return;
                   if (!obj || typeof obj !== 'object') return;
-                  
                   if (obj.videoRenderer && obj.videoRenderer.videoId) {
                     const vr = obj.videoRenderer;
-                    const videoId = vr.videoId;
-                    
-                    if (!videos.some(v => v.videoId === videoId)) {
-                      const title = vr.title?.runs?.[0]?.text || vr.title?.simpleText || '';
-                      const channel = vr.ownerText?.runs?.[0]?.text || 
-                                     vr.longBylineText?.runs?.[0]?.text || 
-                                     vr.shortBylineText?.runs?.[0]?.text || 'YouTube';
-                      const duration = vr.lengthText?.simpleText || '';
-                      const thumbnail = vr.thumbnail?.thumbnails?.[0]?.url || 
-                                       'https://i.ytimg.com/vi/' + videoId + '/hqdefault.jpg';
-                      
-                      const isVerified = !!(vr.ownerBadges?.some(b => 
-                        b.metadataBadgeRenderer?.style === 'BADGE_STYLE_TYPE_VERIFIED_ARTIST' ||
-                        b.metadataBadgeRenderer?.style === 'BADGE_STYLE_TYPE_VERIFIED'
-                      ));
-                      
-                      if (title && title.length > 0) {
-                        videos.push({
-                          videoId: videoId,
-                          title: title,
-                          channel: channel,
-                          artist: channel,
-                          thumbnail: thumbnail.startsWith('//') ? 'https:' + thumbnail : thumbnail,
-                          url: 'https://www.youtube.com/watch?v=' + videoId,
-                          duration: duration,
-                          isVerified: isVerified
-                        });
-                        console.log('[SEARCH] Video:', title.substring(0, 40));
-                      }
+                    const title = vr.title?.runs?.[0]?.text || vr.title?.simpleText || '';
+                    if (title && !videos.some(v => v.videoId === vr.videoId)) {
+                      videos.push({
+                        videoId: vr.videoId, title,
+                        channel: vr.ownerText?.runs?.[0]?.text || vr.shortBylineText?.runs?.[0]?.text || 'YouTube',
+                        artist: vr.ownerText?.runs?.[0]?.text || vr.shortBylineText?.runs?.[0]?.text || 'YouTube',
+                        thumbnail: vr.thumbnail?.thumbnails?.[0]?.url || 'https://i.ytimg.com/vi/'+vr.videoId+'/hqdefault.jpg',
+                        url: 'https://www.youtube.com/watch?v='+vr.videoId,
+                        duration: vr.lengthText?.simpleText || '',
+                        isVerified: !!(vr.ownerBadges?.some(b => b.metadataBadgeRenderer?.style?.includes('VERIFIED')))
+                      });
                     }
                   }
-                  
                   for (const key in obj) {
                     if (videos.length >= maxVideos) break;
                     const val = obj[key];
-                    if (Array.isArray(val)) {
-                      for (const item of val) {
-                        if (videos.length >= maxVideos) break;
-                        findVideos(item, depth + 1);
-                      }
-                    } else if (typeof val === 'object') {
-                      findVideos(val, depth + 1);
-                    }
+                    if (Array.isArray(val)) val.forEach(v => findVideos(v, depth+1));
+                    else if (typeof val === 'object') findVideos(val, depth+1);
                   }
                 };
-                
-                findVideos(window.ytInitialData);
+                findVideos(window.ytInitialData, 0);
               }
-            } catch (e) {
-              console.error('[SEARCH] Error ytInitialData:', e);
-            }
-            
-            if (videos.length < 5) {
-              console.log('[SEARCH] Fallback: buscando en DOM...');
-              
-              const videoElements = document.querySelectorAll('ytd-video-renderer, ytd-compact-video-renderer');
-              
-              for (const el of videoElements) {
-                if (videos.length >= maxVideos) break;
-                
-                const linkEl = el.querySelector('a#video-title, a.yt-simple-endpoint[href*="/watch?v="]');
-                if (!linkEl) continue;
-                
-                const href = linkEl.getAttribute('href') || '';
-                const videoMatch = href.match(/v=([a-zA-Z0-9_-]{11})/);
-                if (!videoMatch) continue;
-                
-                const videoId = videoMatch[1];
-                if (videos.some(v => v.videoId === videoId)) continue;
-                
-                const title = linkEl.getAttribute('title') || linkEl.textContent?.trim() || '';
-                const channelEl = el.querySelector('a.yt-simple-endpoint.style-scope.yt-formatted-string, ytd-channel-name a');
-                const channel = channelEl?.textContent?.trim() || 'YouTube';
-                const durationEl = el.querySelector('span.ytd-thumbnail-overlay-time-status-renderer, #text.ytd-thumbnail-overlay-time-status-renderer');
-                const duration = durationEl?.textContent?.trim() || '';
-                
-                if (title && title.length > 0) {
-                  videos.push({
-                    videoId: videoId,
-                    title: title,
-                    channel: channel,
-                    artist: channel,
-                    thumbnail: 'https://i.ytimg.com/vi/' + videoId + '/hqdefault.jpg',
-                    url: 'https://www.youtube.com/watch?v=' + videoId,
-                    duration: duration,
-                    isVerified: false
-                  });
-                }
-              }
-            }
-            
-            console.log('[SEARCH] Total encontrados:', videos.length);
-            return { videos: videos.slice(0, 50) };
+            } catch(e) {}
+            return { videos: videos.slice(0, 30) };
           })()
         `;
-
         try {
-          const result = await auxWindow.webContents.executeJavaScript(extractSearchScript);
-          console.log('[SEARCH] Resultados extraídos:', result.videos?.length || 0);
+          const result = await auxWindow.webContents.executeJavaScript(extractScript);
           resolve({ success: true, videos: result.videos || [] });
-        } catch (error) {
-          console.error('[SEARCH] Error extrayendo:', error);
-          resolve({ success: false, videos: [] });
-        }
+        } catch { resolve({ success: false, videos: [] }); }
       });
-
-      // Timeout de seguridad
-      setTimeout(() => {
-        console.log('[SEARCH] Timeout alcanzado');
-        resolve({ success: false, videos: [] });
-      }, 30000);
+      setTimeout(() => resolve({ success: false, videos: [] }), 20000);
     });
-  } catch (error) {
-    console.error('[SEARCH] Error:', error);
-    return { success: false, videos: [] };
-  }
-});
+  } catch { return { success: false, videos: [] }; }
+}
 
 // ===== TOP 100 GLOBAL - YOUTUBE CHARTS OFICIAL =====
 ipcMain.handle('get-youtube-charts', async () => {

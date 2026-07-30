@@ -8,6 +8,8 @@ class SearchManager {
     this.searchBtn = null;
     this.isSearchPageActive = false;
     this.currentQuery = '';
+    this.continuation = null;
+    this.isLoadingMore = false;
     
     this.init();
   }
@@ -177,6 +179,7 @@ class SearchManager {
 
     console.log('🔍 Buscando en SeaxMusic:', query);
     this.currentQuery = query;
+    this.continuation = null;
     
     // Mostrar sección de resultados y ocultar categorías
     const searchResults = document.getElementById('searchResults');
@@ -204,6 +207,7 @@ class SearchManager {
           if (resultsCount) {
             resultsCount.textContent = `${response.videos.length} resultados para "${query}"`;
           }
+          this.continuation = response.continuation || null;
           this.displaySearchResults(response.videos);
         } else {
           console.log('❌ No se encontraron resultados');
@@ -230,64 +234,129 @@ class SearchManager {
   displaySearchResults(videos) {
     const grid = document.getElementById('searchResultsGrid');
     if (!grid) return;
-    
     grid.innerHTML = '';
-    
-    videos.forEach(video => {
-      const card = document.createElement('div');
-      card.className = 'music-card search-result-card';
-      card.setAttribute('data-video-id', video.videoId);
-      
-      const artistName = video.channel || video.artist || 'SeaxMusic';
-      const videoTitle = video.title || 'Sin título';
-      const videoId = video.videoId || '';
-      
-      // Thumbnail con fallback
-      const thumbnailSrc = video.thumbnail && video.thumbnail.startsWith('http')
-        ? video.thumbnail
-        : (videoId ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : './assets/img/icon.png');
-      
-      card.innerHTML = `
-        <div class="card-image">
-          <img class="card-img" src="${thumbnailSrc}" 
-               onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${videoId}/hqdefault.jpg'; this.onerror=function(){this.src='./assets/img/icon.png'};"
-               alt="${videoTitle}" loading="lazy">
-          <div class="card-overlay">
-            <button class="play-card-btn"><i class="fas fa-play"></i></button>
-            <button class="add-queue-card-btn" title="Añadir a la cola"><i class="fas fa-plus"></i></button>
-          </div>
-          ${video.duration ? `<span class="card-duration">${video.duration}</span>` : ''}
-        </div>
-        <div class="card-info">
-          <p class="card-title" title="${videoTitle}">${videoTitle}</p>
-          <p class="card-artist" title="${artistName}">${artistName}</p>
-          ${video.isVerified ? '<span class="channel-badge"><i class="fas fa-check-circle"></i> Artista oficial</span>' : ''}
-        </div>
-      `;
-      card.style.setProperty('--card-bg', `url('${thumbnailSrc}')`);
-      
-      // Click en botón de añadir a la cola
-      const addQueueBtn = card.querySelector('.add-queue-card-btn');
-      if (addQueueBtn) {
-        addQueueBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          window.addToQueue({
-            videoId: video.videoId,
-            title: videoTitle,
-            artist: artistName,
-            channel: artistName,
-            thumbnail: video.thumbnail || thumbnailSrc
-          });
-        });
-      }
 
-      // Click para reproducir
-      card.addEventListener('click', () => {
-        this.playVideo(video);
-      });
-      
-      grid.appendChild(card);
+    videos.forEach(video => {
+      grid.appendChild(this.createResultCard(video));
     });
+
+    // Botón "Cargar más" al final del grid
+    const loadMoreBtn = document.createElement('button');
+    loadMoreBtn.className = 'search-load-more-btn';
+    loadMoreBtn.innerHTML = '<i class="fas fa-chevron-down"></i> Cargar más resultados';
+    if (this.continuation) {
+      loadMoreBtn.style.display = 'flex';
+    } else {
+      loadMoreBtn.style.display = 'none';
+    }
+    loadMoreBtn.addEventListener('click', () => this.loadMore());
+    grid.appendChild(loadMoreBtn);
+  }
+
+  async loadMore() {
+    if (this.isLoadingMore || !this.continuation) return;
+    this.isLoadingMore = true;
+
+    const loadMoreBtn = document.querySelector('.search-load-more-btn');
+    if (loadMoreBtn) {
+      loadMoreBtn.innerHTML = '<div class="search-load-more-spinner"></div> Cargando...';
+      loadMoreBtn.disabled = true;
+    }
+
+    try {
+      if (window.electronAPI && window.electronAPI.searchYouTubeMore) {
+        const response = await window.electronAPI.searchYouTubeMore(this.continuation);
+        if (response.success && response.videos?.length > 0) {
+          this.continuation = response.continuation || null;
+          this.appendSearchResults(response.videos);
+        } else {
+          this.continuation = null;
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando más resultados:', error);
+      this.continuation = null;
+    }
+
+    this.isLoadingMore = false;
+    if (loadMoreBtn) {
+      if (this.continuation) {
+        loadMoreBtn.innerHTML = '<i class="fas fa-chevron-down"></i> Cargar más resultados';
+        loadMoreBtn.disabled = false;
+      } else {
+        loadMoreBtn.textContent = 'Todos los resultados cargados';
+        loadMoreBtn.disabled = true;
+      }
+    }
+  }
+
+  appendSearchResults(videos) {
+    const grid = document.getElementById('searchResultsGrid');
+    if (!grid) return;
+
+    const loadMoreBtn = grid.querySelector('.search-load-more-btn');
+
+    videos.forEach(video => {
+      const card = this.createResultCard(video);
+      if (loadMoreBtn) {
+        grid.insertBefore(card, loadMoreBtn);
+      } else {
+        grid.appendChild(card);
+      }
+    });
+  }
+
+  createResultCard(video) {
+    const card = document.createElement('div');
+    card.className = 'music-card search-result-card';
+    card.setAttribute('data-video-id', video.videoId);
+
+    const artistName = video.channel || video.artist || 'SeaxMusic';
+    const videoTitle = video.title || 'Sin título';
+    const videoId = video.videoId || '';
+
+    const thumbnailSrc = video.thumbnail && video.thumbnail.startsWith('http')
+      ? video.thumbnail
+      : (videoId ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : './assets/img/icon.png');
+
+    card.innerHTML = `
+      <div class="card-image">
+        <img class="card-img" src="${thumbnailSrc}"
+             onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${videoId}/hqdefault.jpg'; this.onerror=function(){this.src='./assets/img/icon.png'};"
+             alt="${videoTitle}" loading="lazy">
+        <div class="card-overlay">
+          <button class="play-card-btn"><i class="fas fa-play"></i></button>
+          <button class="add-queue-card-btn" title="Añadir a la cola"><i class="fas fa-plus"></i></button>
+        </div>
+        ${video.duration ? `<span class="card-duration">${video.duration}</span>` : ''}
+      </div>
+      <div class="card-info">
+        <p class="card-title" title="${videoTitle}">${videoTitle}</p>
+        <p class="card-artist" title="${artistName}">${artistName}</p>
+        ${video.isVerified ? '<span class="channel-badge"><i class="fas fa-check-circle"></i> Artista oficial</span>' : ''}
+      </div>
+    `;
+    card.style.setProperty('--card-bg', `url('${thumbnailSrc}')`);
+
+    const addQueueBtn = card.querySelector('.add-queue-card-btn');
+    if (addQueueBtn) {
+      addQueueBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.addToQueue({
+          videoId: video.videoId,
+          title: videoTitle,
+          artist: artistName,
+          channel: artistName,
+          thumbnail: video.thumbnail || thumbnailSrc
+        });
+      });
+    }
+
+    card.addEventListener('click', () => {
+      this.playVideo(video);
+    });
+
+    return card;
   }
   
   playVideo(video) {
