@@ -793,6 +793,33 @@ class LibraryManager {
       const track = favorites[trackIndex];
       
       if (track) {
+        // Sincronizar currentTrack en ambos estados
+        if (window.appState) {
+          window.appState.currentTrack = {
+            videoId: track.videoId,
+            title: track.title || 'Sin título',
+            artist: track.artist || track.channel || 'Artista desconocido',
+            channel: track.channel || track.artist || 'YouTube',
+            thumbnail: track.thumbnail || ''
+          };
+        }
+        if (window.musicPlayer) {
+          window.musicPlayer.currentTrack = window.appState.currentTrack;
+        }
+
+        // Actualizar UI
+        const trackNameEl = document.getElementById('trackName');
+        const trackArtistEl = document.getElementById('trackArtist');
+        const trackImageEl = document.getElementById('trackImage');
+        if (trackNameEl) trackNameEl.textContent = track.title || 'Sin título';
+        if (trackArtistEl) trackArtistEl.textContent = track.artist || track.channel || 'Artista desconocido';
+        if (trackImageEl && track.thumbnail) trackImageEl.src = track.thumbnail;
+
+        // Actualizar botón like en todos lados
+        if (window.updateLikeButton) window.updateLikeButton();
+        if (window.musicPlayer?.updateLikeButton) window.musicPlayer.updateLikeButton();
+        if (window.nowPlayingManager?.updateLikeButton) window.nowPlayingManager.updateLikeButton();
+
         // ⭐ Establecer cola desde esta posición
         if (setQueueFromHere && window.setPlayQueue && trackIndex >= 0) {
           window.setPlayQueue(favorites, trackIndex);
@@ -827,14 +854,12 @@ class LibraryManager {
       // Recargar vista
       this.loadFavorites();
       
-      // Actualizar icono de like si la canción actual es la que se quitó
+      // Actualizar like button en todos lados si la canción actual es la que se quitó
       if (window.appState && window.appState.currentTrack && 
           window.appState.currentTrack.videoId === videoId) {
-        const likeBtn = document.getElementById('likeBtn');
-        if (likeBtn) {
-          likeBtn.innerHTML = '<i class="far fa-heart"></i>';
-          likeBtn.classList.remove('liked');
-        }
+        if (window.updateLikeButton) window.updateLikeButton();
+        if (window.musicPlayer?.updateLikeButton) window.musicPlayer.updateLikeButton();
+        if (window.nowPlayingManager?.updateLikeButton) window.nowPlayingManager.updateLikeButton();
       }
     } catch (e) {
       console.error('[LIBRARY] Error quitando de biblioteca:', e);

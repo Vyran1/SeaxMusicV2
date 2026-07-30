@@ -1162,8 +1162,12 @@ function displayFavoritesInGrid(gridElement, videos) {
         videoId: video.videoId,
         title: videoTitle,
         artist: artistName,
-        thumbnail: video.thumbnail
+        thumbnail: video.thumbnail,
+        channel: video.channel || artistName
       };
+      if (window.musicPlayer) {
+        window.musicPlayer.currentTrack = appState.currentTrack;
+      }
 
       // Actualizar UI
       document.getElementById('trackName').textContent = videoTitle;
