@@ -373,6 +373,8 @@ function setPlayQueue(tracks, startIndex = 0) {
   if (window.nowPlayingManager && typeof window.nowPlayingManager.renderQueue === 'function') {
     window.nowPlayingManager.renderQueue();
   }
+
+  updateHomeWidgets();
 }
 
 function playNextInQueue() {
@@ -454,6 +456,7 @@ function playNextInQueue() {
     playFn();
   }
 
+  updateHomeWidgets();
   return true;
 }
 
@@ -1000,6 +1003,9 @@ async function initApp() {
 
       // Actualizar el botón de like
       updateLikeButton();
+
+      // Actualizar widgets del home
+      updateHomeWidgets();
 
       // ⭐ Actualizar NowPlaying con info de next/prev de YouTube
       if (window.nowPlayingManager?.isActive) {
@@ -1916,7 +1922,7 @@ function wireHomeActions() {
 }
 
 function renderHomeModules() {
-  updateSmartBanner(); // E: Banner Dinámico
+  updateSmartBanner();
 
   if (typeof renderDJPlaylists === 'function') {
     renderDJPlaylists();
@@ -1930,11 +1936,65 @@ function renderHomeModules() {
   }
   renderHeroResume();
   renderDynamicCards();
-  renderTopArtists(); // D: Artistas Favoritos
+  renderTopArtists();
   renderSeaxVibes();
-  renderDJPlaylists(); // ⭐ DJ Engine playlists
+  renderDJPlaylists();
   renderMoments();
   renderUserPlaylist();
+  updateHomeWidgets();
+}
+
+function updateHomeWidgets() {
+  // Widget Now Playing
+  const npBody = document.getElementById('widgetNowPlayingBody');
+  if (npBody && appState.currentTrack?.videoId) {
+    const t = appState.currentTrack;
+    npBody.innerHTML = `
+      <div class="widget-track">
+        <img class="widget-track-img" src="${t.thumbnail || './assets/img/icon.png'}" alt="">
+        <div class="widget-track-info">
+          <div class="widget-track-title">${t.title || 'Sin título'}</div>
+          <div class="widget-track-artist">${t.artist || ''}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Widget Stats
+  const wsFavs = document.getElementById('wsFavs');
+  if (wsFavs) wsFavs.textContent = (appState.favorites || []).length;
+  const wsQueue = document.getElementById('wsQueue');
+  if (wsQueue) wsQueue.textContent = Math.max(0, (appState.playQueue?.length || 1) - (appState.playQueueIndex || 0) - 1);
+  const wsPlaylists = document.getElementById('wsPlaylists');
+  if (wsPlaylists) {
+    const count = Object.keys(window.appState?.userPlaylists || {}).length;
+    wsPlaylists.textContent = count;
+  }
+
+  // Widget Queue Preview
+  const qBody = document.getElementById('widgetQueueBody');
+  if (qBody && appState.playQueue?.length > 1) {
+    const nextTracks = appState.playQueue.slice((appState.playQueueIndex || 0) + 1, (appState.playQueueIndex || 0) + 4);
+    if (nextTracks.length > 0) {
+      qBody.innerHTML = nextTracks.map((t, i) => `
+        <div class="widget-queue-item">
+          <span class="widget-queue-idx">${i + 1}</span>
+          <span class="widget-queue-title">${t.title || ''}</span>
+          <span class="widget-queue-artist">${t.artist || ''}</span>
+        </div>
+      `).join('');
+    }
+  }
+
+  // Trending tags click
+  document.querySelectorAll('.trending-tag').forEach(tag => {
+    tag.addEventListener('click', () => {
+      const query = tag.textContent.trim();
+      if (window.openSearchWithArtist) {
+        window.openSearchWithArtist(query);
+      }
+    });
+  });
 }
 
 // ===== BANNER INTELIGENTE DINÁMICO (Opción E) =====

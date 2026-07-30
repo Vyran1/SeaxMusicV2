@@ -458,15 +458,17 @@ class MusicPlayer {
     if (window.appState) {
       if (this.isShuffle) {
         if (window.appState.playQueue && window.appState.playQueue.length > 0) {
-          console.log('[SHUFFLE] Activando Shuffle. Guardando cola original y mezclando cola restante...');
-          window.appState.originalPlayQueue = [...window.appState.playQueue];
+          // Solo guardar cola original UNA VEZ (evita corrupción al re-activar)
+          if (!window.appState.originalPlayQueue) {
+            console.log('[SHUFFLE] Guardando cola original...');
+            window.appState.originalPlayQueue = [...window.appState.playQueue];
+          }
           
+          // Mezclar solo canciones NO reproducidas
           const startIndex = window.appState.playQueueIndex;
           if (window.appState.playQueue.length > startIndex + 1) {
             const played = window.appState.playQueue.slice(0, startIndex + 1);
             const unplayed = window.appState.playQueue.slice(startIndex + 1);
-            
-            // Mezclar canciones restantes
             for (let i = unplayed.length - 1; i > 0; i--) {
               const j = Math.floor(Math.random() * (i + 1));
               [unplayed[i], unplayed[j]] = [unplayed[j], unplayed[i]];
@@ -901,7 +903,7 @@ class MusicPlayer {
       }
 
       titleEl.textContent = data.title || 'Sin título';
-      artistEl.textContent = data.artist || data.channel || 'YouTube';
+      artistEl.textContent = data.artist || data.channel || '';
       const thumb = data.thumbnail || (data.videoId ? `https://i.ytimg.com/vi/${data.videoId}/hqdefault.jpg` : './assets/img/icon.png');
       coverEl.src = thumb;
     };
@@ -965,7 +967,7 @@ if (window.electronAPI && window.electronAPI.onUpdateVideoInfo) {
       if (trackArtistEl) trackArtistEl.textContent = videoInfo.channel;
     } else if (videoInfo.videoId && videoInfo.videoId !== prevId) {
       const trackArtistEl = document.getElementById('trackArtist');
-      if (trackArtistEl) trackArtistEl.textContent = 'YouTube';
+      if (trackArtistEl) trackArtistEl.textContent = '';
     }
     if (videoInfo.channel) {
       player.currentTrack.channel = videoInfo.channel;
@@ -1008,8 +1010,8 @@ if (window.electronAPI && window.electronAPI.onUpdateVideoInfo) {
         window.appState.recentHistory.unshift({
           videoId: track.videoId,
           title: track.title || 'Cargando...',
-          artist: track.artist || track.channel || 'YouTube',
-          channel: track.channel || track.artist || 'YouTube',
+          artist: track.artist || track.channel || '',
+          channel: track.channel || track.artist || '',
           thumbnail: track.thumbnail || './assets/img/icon.png',
           duration: track.duration || player.duration || 0
         });

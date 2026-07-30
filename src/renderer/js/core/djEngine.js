@@ -471,7 +471,7 @@ class DJEngine {
     const formattedTracks = autoPlaylist.tracks.map(t => ({
       videoId: t.videoId,
       title: t.title,
-      artist: t.artist || 'YouTube',
+      artist: t.artist || '',
       thumbnail: t.thumbnail || `https://i.ytimg.com/vi/${t.videoId}/hqdefault.jpg`,
       addedAt: now.toISOString()
     }));
@@ -824,7 +824,7 @@ class DJEngine {
     const formattedTracks = tracks.map(t => ({
       videoId: t.videoId,
       title: t.title,
-      artist: t.artist || 'YouTube',
+      artist: t.artist || '',
       thumbnail: t.thumbnail || `https://i.ytimg.com/vi/${t.videoId}/hqdefault.jpg`
     }));
 
@@ -869,7 +869,7 @@ class DJEngine {
       const trackImageEl = document.getElementById('trackImage');
       
       if (trackNameEl) trackNameEl.textContent = track.title || 'Sin título';
-      if (trackArtistEl) trackArtistEl.textContent = track.artist || 'YouTube';
+      if (trackArtistEl) trackArtistEl.textContent = track.artist || '';
       if (trackImageEl && playlistCover) {
         trackImageEl.src = playlistCover;
       }

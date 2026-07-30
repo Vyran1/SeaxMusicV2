@@ -69,12 +69,10 @@ app.whenReady().then(() => {
   discordRPC.initialize();
 
   // Crear ventana de YouTube activa automáticamente al iniciar
-  setTimeout(() => {
-    if (!state.youtubeWindow || state.youtubeWindow.isDestroyed()) {
-      state.youtubeWindow = createYouTubeWindow(false);
-
-      console.log('[YOUTUBE] YouTube window creada al iniciar (compartiendo sesión persistente)');
-      state.youtubeWindow.loadURL('https://www.youtube.com');
+  if (!state.youtubeWindow || state.youtubeWindow.isDestroyed()) {
+    state.youtubeWindow = createYouTubeWindow(false);
+    console.log('[YOUTUBE] YouTube window creada al iniciar (compartiendo sesión persistente)');
+    state.youtubeWindow.loadURL('https://www.youtube.com');
 
       // Mostrar y abrir DevTools en modo desarrollo
       if (process.argv.includes('--dev')) {
@@ -123,7 +121,6 @@ app.whenReady().then(() => {
         }
       });
     }
-  }, 500);
 
   // Manejo de Modal de Actualización en desarrollo / producción
   const isDevMode = process.argv.includes('--dev');

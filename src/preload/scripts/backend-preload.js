@@ -589,7 +589,7 @@ function repeatCurrentVideo() {
   }, 100);
 }
 
-// ===== ENVIAR ACTUALIZACIONES DE TIEMPO CADA 500MS =====
+// ===== ENVIAR ACTUALIZACIONES DE TIEMPO CADA 150MS (SUAVE) =====
 setInterval(() => {
   const video = document.querySelector('video');
   if (video && !isNaN(video.currentTime) && !isNaN(video.duration) && video.duration > 0) {
@@ -597,36 +597,37 @@ setInterval(() => {
       currentTime: video.currentTime,
       duration: video.duration
     });
-
-    // ⭐ DETECCIÓN ROBUSTA DE FIN DE VIDEO
-    const timeRemaining = video.duration - video.currentTime;
-    const isNearEnd = timeRemaining < 0.5 && timeRemaining >= 0;
-    const isAtEnd = video.ended || (video.currentTime >= video.duration - 0.1);
-
-    if ((isNearEnd || isAtEnd) && !videoEndedNotified && !repeatCooldown) {
-      videoEndedNotified = true;
-      repeatCooldown = true;
-
-      console.log('[VIDEO] 🏁 Video terminado - Repeat mode:', repeatMode);
-
-      if (repeatMode === 'one') {
-        repeatCurrentVideo();
-      } else {
-        ipcRenderer.send('video-ended');
-      }
-
-      // Reset cooldown después de 3 segundos
-      setTimeout(() => {
-        repeatCooldown = false;
-      }, 3000);
-    }
-
-    // Resetear flag cuando el video está en progreso (más del 5% y menos del 95%)
-    if (video.currentTime > video.duration * 0.05 && video.currentTime < video.duration * 0.95) {
-      videoEndedNotified = false;
-    }
   }
-}, 300);
+}, 150);
+
+// ===== DETECTAR FIN DE VIDEO Y ESTADO CADA 1SEG =====
+setInterval(() => {
+  const video = document.querySelector('video');
+  if (!video) return;
+
+  const timeRemaining = video.duration - video.currentTime;
+  const isNearEnd = timeRemaining < 0.5 && timeRemaining >= 0;
+  const isAtEnd = video.ended || (video.currentTime >= video.duration - 0.1);
+
+  if ((isNearEnd || isAtEnd) && !videoEndedNotified && !repeatCooldown) {
+    videoEndedNotified = true;
+    repeatCooldown = true;
+
+    console.log('[VIDEO] Video terminado - Repeat mode:', repeatMode);
+
+    if (repeatMode === 'one') {
+      repeatCurrentVideo();
+    } else {
+      ipcRenderer.send('video-ended');
+    }
+
+    setTimeout(() => { repeatCooldown = false; }, 3000);
+  }
+
+  if (video.currentTime > video.duration * 0.05 && video.currentTime < video.duration * 0.95) {
+    videoEndedNotified = false;
+  }
+}, 1000);
 
 // ⭐ Escuchar evento 'ended' del video (backup)
 setTimeout(() => {
@@ -778,7 +779,7 @@ setInterval(() => {
   }
 }, 1000);
 
-// ===== DETECTAR INFORMACIÓN DEL VIDEO CADA SEGUNDO =====
+// ===== DETECTAR INFORMACIÓN DEL VIDEO CADA 500MS =====
 setInterval(() => {
   const video = document.querySelector('video');
 
@@ -942,7 +943,7 @@ setInterval(() => {
       prevVideo: prevVideoInfo
     });
   }
-}, 1000);
+}, 500);
 
 // ===== SISTEMA DE BLOQUEO DE ANUNCIOS =====
 // Ad blocker integrado directamente (Electron preload no soporta require() para archivos locales)
@@ -1102,18 +1103,12 @@ class YouTubeAdBlocker {
         console.log(`🛡️ [AD-BLOCKER] Guardando estado original: vol=${this.originalVolume}, rate=${this.originalPlaybackRate}`);
       }
 
-      // Silenciar y acelerar el anuncio
+      // Silenciar y ocultar anuncio
       video.volume = 0;
       video.muted = true;
-      video.playbackRate = 16;
       this.adsMuted++;
 
-      // Intentar saltar al final
-      if (video.duration && isFinite(video.duration) && video.duration > 0 && video.duration < 120) {
-        video.currentTime = video.duration - 0.1;
-      }
-
-      // Evitar congelamientos de audio forzando play si se pausa solo
+      // Forzar play si está pausado
       if (video.paused) {
         video.play().catch(() => {});
       }

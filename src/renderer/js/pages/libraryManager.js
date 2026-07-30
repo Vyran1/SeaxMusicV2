@@ -799,7 +799,7 @@ class LibraryManager {
             videoId: track.videoId,
             title: track.title || 'Sin título',
             artist: track.artist || track.channel || 'Artista desconocido',
-            channel: track.channel || track.artist || 'YouTube',
+            channel: track.channel || track.artist || '',
             thumbnail: track.thumbnail || ''
           };
         }

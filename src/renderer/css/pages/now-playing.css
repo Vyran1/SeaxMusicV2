@@ -1115,8 +1115,6 @@
   cursor: pointer;
   letter-spacing: -0.015em;
   border-left: 3px solid transparent;
-  transition: color 0.18s ease, border-color 0.18s ease;
-  will-change: color;
 }
 
 .lyrics-line:hover {

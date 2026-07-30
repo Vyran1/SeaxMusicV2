@@ -1183,10 +1183,9 @@ class NowPlayingManager {
    * Saltar a una línea específica - Click interactivo
    */
   seekToLyricLine(time) {
+    if (!window.lyricsService?.hasSyncedLyrics()) return;
     if (window.electronAPI && window.electronAPI.send) {
       window.electronAPI.send('seek-audio', time);
-
-      // Actualizar visualmente de inmediato
       this.currentPlaybackTime = time;
       this.updateLyricsHighlight();
     }
