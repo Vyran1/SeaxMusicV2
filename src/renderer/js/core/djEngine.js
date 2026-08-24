@@ -280,8 +280,9 @@ class DJEngine {
       }
     });
 
-    // Shuffle the tracks
+    // Shuffle + diversificar por artista (evitar mismo artista seguido y repeats recientes)
     const shuffled = this.shuffleArray(allTracks);
+    const diversified = this.diversifyByArtist(shuffled);
 
     return {
       type: 'seax_vibes',
@@ -289,7 +290,7 @@ class DJEngine {
       description: 'Tu mix personalizado basado en todo lo que escuchas',
       icon: 'fa-fire',
       color: '#E13838',
-      tracks: shuffled.slice(0, 25),
+      tracks: diversified.slice(0, 25),
       generatedAt: new Date().toISOString()
     };
   }
@@ -958,6 +959,28 @@ class DJEngine {
     playlistManager.savePlaylists?.();
     playlistManager.upsertGlobalPlaylist?.(created);
     return created.id;
+  }
+
+  diversifyByArtist(tracks) {
+    if (!tracks || tracks.length <= 2) return [...(tracks || [])];
+    const recentIds = new Set(((window.appState?.recentHistory || this.listenHistory || []).slice(0, 20)).map(h => h.videoId));
+    const normalize = (s) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+    const pool = [...tracks];
+    const result = [];
+    let lastArtist = '';
+    while (pool.length) {
+      let idx = pool.findIndex(t => {
+        const a = normalize(t.artist || t.channel);
+        return a && a !== lastArtist && !recentIds.has(t.videoId);
+      });
+      if (idx === -1) idx = pool.findIndex(t => normalize(t.artist || t.channel) !== lastArtist && normalize(t.artist || t.channel) !== '');
+      if (idx === -1) idx = pool.findIndex(t => !recentIds.has(t.videoId));
+      if (idx === -1) idx = 0;
+      const [next] = pool.splice(idx, 1);
+      result.push(next);
+      lastArtist = normalize(next.artist || next.channel);
+    }
+    return result;
   }
 
   // ⭐ Utilidades

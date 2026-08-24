@@ -1103,10 +1103,17 @@ class YouTubeAdBlocker {
         console.log(`🛡️ [AD-BLOCKER] Guardando estado original: vol=${this.originalVolume}, rate=${this.originalPlaybackRate}`);
       }
 
-      // Silenciar y ocultar anuncio
+      // Silenciar y acelerar el anuncio (16x) - el anuncio termina en ~2s
       video.volume = 0;
       video.muted = true;
       this.adsMuted++;
+
+      // ⭐ Aceleración SEGURA: solo cambiar rate, nunca hacer seek
+      // (el seek causaba saltos al final del video principal)
+      if (video.playbackRate < 16) {
+        video.playbackRate = 16;
+        this.adsAccelerated++;
+      }
 
       // Forzar play si está pausado
       if (video.paused) {

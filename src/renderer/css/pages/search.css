@@ -711,3 +711,141 @@
 @keyframes searchSpin {
   to { transform: rotate(360deg); }
 }
+
+/* ===== RECENT SEARCHES ===== */
+.search-recent {
+  margin: 16px auto 24px;
+  max-width: 700px;
+  animation: recentSlideDown 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes recentSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.search-recent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 0 4px;
+}
+
+.search-recent-header span {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-recent-header span i {
+  font-size: 13px;
+  color: var(--accent-primary);
+}
+
+.search-recent-clear {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 20px;
+  transition: all 0.2s ease;
+  letter-spacing: 0.3px;
+}
+
+.search-recent-clear:hover {
+  color: var(--accent-primary);
+  background: rgba(var(--accent-rgb), 0.1);
+}
+
+.search-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.search-recent-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  background: transparent;
+  border: 1px solid transparent;
+}
+
+.search-recent-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.06);
+  transform: translateX(4px);
+}
+
+.search-recent-icon {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.25);
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+  transition: color 0.2s ease;
+}
+
+.search-recent-item:hover .search-recent-icon {
+  color: var(--accent-primary);
+}
+
+.search-recent-query {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.2s ease;
+}
+
+.search-recent-item:hover .search-recent-query {
+  color: #fff;
+}
+
+.search-recent-remove {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  transition: all 0.2s ease;
+  opacity: 0;
+  flex-shrink: 0;
+}
+
+.search-recent-item:hover .search-recent-remove {
+  opacity: 1;
+}
+
+.search-recent-remove:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+}

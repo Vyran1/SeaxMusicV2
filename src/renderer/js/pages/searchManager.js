@@ -10,8 +10,75 @@ class SearchManager {
     this.currentQuery = '';
     this.continuation = null;
     this.isLoadingMore = false;
+    this.RECENT_SEARCHES_KEY = 'seaxmusic_recent_searches';
+    this.MAX_RECENT = 8;
     
     this.init();
+  }
+
+  getRecentSearches() {
+    try {
+      return JSON.parse(localStorage.getItem(this.RECENT_SEARCHES_KEY)) || [];
+    } catch {
+      return [];
+    }
+  }
+
+  saveRecentSearch(query) {
+    let searches = this.getRecentSearches();
+    searches = searches.filter(s => s.toLowerCase() !== query.toLowerCase());
+    searches.unshift(query);
+    if (searches.length > this.MAX_RECENT) searches = searches.slice(0, this.MAX_RECENT);
+    localStorage.setItem(this.RECENT_SEARCHES_KEY, JSON.stringify(searches));
+  }
+
+  clearRecentSearches() {
+    localStorage.removeItem(this.RECENT_SEARCHES_KEY);
+    this.renderRecentSearches();
+  }
+
+  renderRecentSearches() {
+    const container = document.getElementById('searchRecent');
+    const list = document.getElementById('searchRecentList');
+    if (!container || !list) return;
+    const searches = this.getRecentSearches();
+    if (searches.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+    container.style.display = 'block';
+    list.innerHTML = searches.map(q => `
+      <div class="search-recent-item" data-query="${q.replace(/"/g, '&quot;')}">
+        <i class="fas fa-history search-recent-icon"></i>
+        <span class="search-recent-query">${this.escapeHtml(q)}</span>
+        <button class="search-recent-remove" data-query="${q.replace(/"/g, '&quot;')}"><i class="fas fa-times"></i></button>
+      </div>
+    `).join('');
+
+    list.querySelectorAll('.search-recent-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('.search-recent-remove')) return;
+        const query = item.dataset.query;
+        if (this.searchInput) this.searchInput.value = query;
+        this.performSearch(query);
+      });
+    });
+
+    list.querySelectorAll('.search-recent-remove').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        let searches = this.getRecentSearches();
+        searches = searches.filter(s => s.toLowerCase() !== btn.dataset.query.toLowerCase());
+        localStorage.setItem(this.RECENT_SEARCHES_KEY, JSON.stringify(searches));
+        this.renderRecentSearches();
+      });
+    });
+  }
+
+  escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
   }
 
   init() {
@@ -88,6 +155,13 @@ class SearchManager {
             </button>
           </div>
         </div>
+        <div class="search-recent" id="searchRecent" style="display: none;">
+          <div class="search-recent-header">
+            <span><i class="fas fa-clock"></i> Búsquedas recientes</span>
+            <button class="search-recent-clear" id="searchRecentClear">Limpiar todo</button>
+          </div>
+          <div class="search-recent-list" id="searchRecentList"></div>
+        </div>
         <div class="search-results" id="searchResults" style="display: none;">
           <div class="search-results-header">
             <h2><i class="fas fa-list" style="color: var(--accent-primary); margin-right: 8px;"></i>Resultados</h2>
@@ -118,6 +192,10 @@ class SearchManager {
     this.searchInput = document.getElementById('searchInput');
     const searchSubmitBtn = document.getElementById('searchSubmitBtn');
     const searchClearBtn = document.getElementById('searchClearBtn');
+    const searchRecentClear = document.getElementById('searchRecentClear');
+    
+    // Render recent searches
+    this.renderRecentSearches();
     
     if (this.searchInput) {
       // Enter para buscar
@@ -131,6 +209,14 @@ class SearchManager {
       this.searchInput.addEventListener('input', () => {
         if (searchClearBtn) {
           searchClearBtn.style.display = this.searchInput.value ? 'flex' : 'none';
+        }
+      });
+      
+      // Show recent searches on focus (only when no active results)
+      this.searchInput.addEventListener('focus', () => {
+        const searchResults = document.getElementById('searchResults');
+        if (!searchResults || searchResults.style.display === 'none') {
+          this.renderRecentSearches();
         }
       });
       
@@ -152,8 +238,14 @@ class SearchManager {
           this.searchInput.value = '';
           this.searchInput.focus();
           searchClearBtn.style.display = 'none';
+          this.renderRecentSearches();
         }
       });
+    }
+    
+    // Clear all recent searches
+    if (searchRecentClear) {
+      searchRecentClear.addEventListener('click', () => this.clearRecentSearches());
     }
     
     // Categorías rápidas
@@ -181,15 +273,20 @@ class SearchManager {
     this.currentQuery = query;
     this.continuation = null;
     
-    // Mostrar sección de resultados y ocultar categorías
+    // Guardar en búsquedas recientes
+    this.saveRecentSearch(query);
+    
+    // Mostrar sección de resultados y ocultar categorías/recent
     const searchResults = document.getElementById('searchResults');
     const searchCategories = document.getElementById('searchCategories');
+    const searchRecent = document.getElementById('searchRecent');
     const searchLoading = document.getElementById('searchLoading');
     const searchResultsGrid = document.getElementById('searchResultsGrid');
     const searchNoResults = document.getElementById('searchNoResults');
     const resultsCount = document.getElementById('resultsCount');
     
     if (searchCategories) searchCategories.style.display = 'none';
+    if (searchRecent) searchRecent.style.display = 'none';
     if (searchResults) searchResults.style.display = 'block';
     if (searchLoading) searchLoading.style.display = 'flex';
     if (searchResultsGrid) searchResultsGrid.innerHTML = '';

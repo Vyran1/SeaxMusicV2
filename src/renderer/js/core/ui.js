@@ -303,57 +303,7 @@ function showHomePage(addToHistory = true) {
         <div class="card-grid vibes-grid" id="seaxVibesGrid"></div>
       </section>
 
-      <section class="home-row">
-        <div class="home-row-header">
-          <div>
-            <h2>Widgets</h2>
-            <span>Tu música en vivo</span>
-          </div>
-        </div>
-        <div class="widgets-grid" id="widgetsGrid">
-          <div class="widget-card widget-nowplaying" id="widgetNowPlaying">
-            <div class="widget-header"><i class="fas fa-music"></i> Reproduciendo ahora</div>
-            <div class="widget-body" id="widgetNowPlayingBody">
-              <div class="widget-empty">Ninguna canción en reproducción</div>
-            </div>
-          </div>
-          <div class="widget-card widget-stats" id="widgetStats">
-            <div class="widget-header"><i class="fas fa-chart-bar"></i> Estadísticas</div>
-            <div class="widget-body" id="widgetStatsBody">
-              <div class="widget-stat"><span class="ws-label">Favoritos</span><span class="ws-value" id="wsFavs">0</span></div>
-              <div class="widget-stat"><span class="ws-label">En cola</span><span class="ws-value" id="wsQueue">0</span></div>
-              <div class="widget-stat"><span class="ws-label">Playlists</span><span class="ws-value" id="wsPlaylists">0</span></div>
-            </div>
-          </div>
-          <div class="widget-card widget-trending" id="widgetTrending">
-            <div class="widget-header"><i class="fas fa-fire"></i> Tendencias</div>
-            <div class="widget-body" id="widgetTrendingBody">
-              <div class="trending-tag">pop</div>
-              <div class="trending-tag">reggaeton</div>
-              <div class="trending-tag">rock</div>
-              <div class="trending-tag">electrónica</div>
-              <div class="trending-tag">hip hop</div>
-              <div class="trending-tag">latino</div>
-            </div>
-          </div>
-          <div class="widget-card widget-queue-preview" id="widgetQueuePreview">
-            <div class="widget-header"><i class="fas fa-list"></i> Siguientes</div>
-            <div class="widget-body" id="widgetQueueBody">
-              <div class="widget-empty">Cola vacía</div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <section class="home-row home-moments">
-        <div class="home-row-header">
-          <div>
-            <h2>Momentos</h2>
-            <span id="momentsSubtitle">Elige un mood para esta hora</span>
-          </div>
-        </div>
-        <div class="moments-grid" id="momentsGrid"></div>
-      </section>
 
       <section class="home-row">
         <div class="home-row-header">

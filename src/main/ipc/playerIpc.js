@@ -10,6 +10,28 @@ const { createPipWindow } = require('../windows/pipWindow');
 const { getMaxResThumbnail } = require('../utils/thumbnails');
 const { startVideoPreviewInternal, stopVideoPreviewInternal } = require('./videoPreview');
 
+// ===== TIMINGS CENTRALIZADOS (evitar magic numbers dispersos) =====
+// eslint-disable-next-line no-unused-vars
+const IPC_TIMINGS = {
+  SEARCH_TIMEOUT_MS: 20000,
+  PRELOAD_PAUSE_MS: 500,
+  SEEK_DELAY_MS: 1000,
+  YOUTUBE_LOAD_MS: 2500,
+  RETRY_DELAY_MS: 3000,
+  FORCE_PLAY_DELAY_MS: 1200,
+  FADE_DELAY_MS: 1500,
+  LOGIN_CHECK_INTERVAL_MS: 3000,
+  VIDEO_PREVIEW_INTERVAL_MS: 400,
+  AUX_LOAD_DELAY_MS: 8000
+};
+
+// eslint-disable-next-line no-unused-vars
+const DJ_IPC_TIMINGS = {
+  PRELOAD_MS: 500,
+  SEEK_MS: 1000,
+  PLAY_MS: 400
+};
+
 // Recibir volumen real del backend y reenviar al renderer
 ipcMain.on('video-volume-updated', (event, realVolume) => {
   if (!state.isEventFromActiveYouTube(event)) return;
