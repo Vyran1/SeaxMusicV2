@@ -1,0 +1,53 @@
+/* ===== PILLS & GLASS - Shared component (extraído de home.css/search.css) ===== */
+:root {
+  --pill-radius: 999px;
+  --glass-blur: blur(10px);
+  --glass-bg: rgba(255,255,255,0.06);
+  --glass-border: rgba(255,255,255,0.06);
+}
+
+/* Base pill */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--pill-radius);
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: rgba(255,255,255,0.7);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Glass utility */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+}
+
+/* Hero chip now extends .pill */
+.hero-chip {
+  composes: pill; /* for future CSS modules; fallback below */
+}
+
+/* Trending tag now extends .pill - kept for backward compat, search.css will override with specifics */
+
+/* a11y helper */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

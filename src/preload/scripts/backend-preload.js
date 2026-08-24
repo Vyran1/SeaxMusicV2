@@ -403,18 +403,19 @@ ipcRenderer.on('dj-set-mode', (event, { inactive }) => {
   }
 });
 
-setInterval(() => {
-  if (!window.__seaxDjInactive) return;
-  const video = document.querySelector('video');
-  if (video) {
-    if (!video.paused) {
-      video.pause();
+let _djInactiveInterval = null;
+function ensureDjInactiveGuard() {
+  if (_djInactiveInterval) return;
+  _djInactiveInterval = setInterval(() => {
+    if (!window.__seaxDjInactive) return;
+    const video = document.querySelector('video');
+    if (video) {
+      if (!video.paused) video.pause();
+      if (video.volume !== 0) video.volume = 0;
     }
-    if (video.volume !== 0) {
-      video.volume = 0;
-    }
-  }
-}, 500);
+  }, 1000);
+}
+ensureDjInactiveGuard();
 
 // ===== OBSERVAR CAMBIOS DE VOLUMEN EN EL VIDEO =====
 function attachVolumeObserver() {
@@ -447,6 +448,7 @@ let seaxAudioCtx = null;
 let seaxAnalyser = null;
 let seaxAudioSource = null;
 let seaxDataArray = null;
+// eslint-disable-next-line no-unused-vars -- retained for future visualizer control
 let seaxVisualizerInterval = null;
 let seaxPreviousData = null;
 
@@ -538,6 +540,7 @@ if (document.readyState === 'loading') {
 
 // ===== VARIABLES PARA MODOS DE REPRODUCCIÓN =====
 let repeatMode = 'off';
+// eslint-disable-next-line no-unused-vars -- retained for future shuffle handling in preload (currently handled in renderer)
 let shuffleMode = false;
 let lastRepeatTriggered = 0; // Timestamp para evitar repeticiones múltiples
 
@@ -1224,8 +1227,11 @@ class YouTubeAdBlocker {
 
   setupMutationObserver() {
     if (this.observerSetup) return;
-
-    const observer = new MutationObserver((mutations) => {
+    let _moThrottle = 0;
+    const observer = new MutationObserver(() => {
+      const now = Date.now();
+      if (now - _moThrottle < 200) return;
+      _moThrottle = now;
       this.checkAndBlockAds();
     });
 

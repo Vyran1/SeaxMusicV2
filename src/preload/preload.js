@@ -28,7 +28,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   forceCheckYouTubeLogin: () => ipcRenderer.invoke('force-check-youtube-login'),
 
-  // ⭐ IPC con allowlist de canales permitidos
+  // ⭐ IPC con allowlist de canales permitidos + validación de payload
   send: (channel, ...args) => {
     const allowed = new Set([
       'audio-control', 'seek-audio', 'update-volume', 'play-audio',
@@ -37,9 +37,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
       'video-preview-start', 'video-preview-stop',
       'aura-color-update'
     ]);
-    if (allowed.has(channel)) {
-      ipcRenderer.send(channel, ...args);
+    if (!allowed.has(channel)) return;
+    // Validación estricta de payloads críticos (evita inyección desde renderer comprometido)
+    if (channel === 'dj-set-window-volume') {
+      const p = args[0];
+      if (!p || (p.target !== 'active' && p.target !== 'inactive') || typeof p.volume !== 'number' || !isFinite(p.volume)) return;
     }
+    if (channel === 'dj-set-mode') {
+      const p = args[0];
+      if (!p || (p.target !== 'active' && p.target !== 'inactive')) return;
+    }
+    if (channel === 'dj-control-window') {
+      const p = args[0];
+      const allowedActions = new Set(['play', 'pause', 'volume', 'seek', 'next', 'previous', 'fullscreen']);
+      if (!p || (p.target !== 'active' && p.target !== 'inactive') || !allowedActions.has(p.action)) return;
+    }
+    ipcRenderer.send(channel, ...args);
   },
 
   // YouTube login listener
@@ -236,6 +249,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-modal-opened', () => {
       callback();
     });
+  },
+
+  // ===== TOASTS =====
+  onShowToast: (callback) => {
+    ipcRenderer.on('show-toast', (event, data) => callback(data));
   },
 
   // ===== GLOBAL KEYBOARD SHORTCUTS =====

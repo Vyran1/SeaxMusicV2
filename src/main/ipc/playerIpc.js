@@ -11,7 +11,6 @@ const { getMaxResThumbnail } = require('../utils/thumbnails');
 const { startVideoPreviewInternal, stopVideoPreviewInternal } = require('./videoPreview');
 
 // ===== TIMINGS CENTRALIZADOS (evitar magic numbers dispersos) =====
-// eslint-disable-next-line no-unused-vars
 const IPC_TIMINGS = {
   SEARCH_TIMEOUT_MS: 20000,
   PRELOAD_PAUSE_MS: 500,
@@ -165,6 +164,8 @@ ipcMain.handle('dj-swap-active', async () => {
 });
 
 ipcMain.on('dj-set-window-volume', (event, { target, volume }) => {
+  if (typeof volume !== 'number' || !isFinite(volume)) return;
+  if (target !== 'inactive' && target !== 'active') return;
   const vol = Math.max(0, Math.min(1, volume));
   if (target === 'inactive') {
     const win = state.getDjYouTubeWindow();
@@ -181,6 +182,8 @@ ipcMain.on('dj-set-window-volume', (event, { target, volume }) => {
 });
 
 ipcMain.on('dj-set-mode', (event, { target, inactive }) => {
+  if (target !== 'inactive' && target !== 'active') return;
+  if (typeof inactive !== 'boolean' && typeof inactive !== 'number') return;
   const win = target === 'inactive' ? state.getDjYouTubeWindow() : state.getActiveYouTubeWindow();
   if (win && !win.isDestroyed()) {
     win.webContents.send('dj-set-mode', { inactive: !!inactive });
@@ -228,6 +231,10 @@ ipcMain.on('pip-control', (event, { action, value }) => {
 });
 
 ipcMain.on('dj-control-window', (event, { target, action, value }) => {
+  if (target !== 'inactive' && target !== 'active') return;
+  const allowedActions = new Set(['play', 'pause', 'volume', 'seek', 'next', 'previous', 'fullscreen']);
+  if (typeof action !== 'string' || !allowedActions.has(action)) return;
+  if ((action === 'volume' || action === 'seek') && typeof value !== 'number') return;
   const win = target === 'inactive' ? state.getDjYouTubeWindow() : state.getActiveYouTubeWindow();
   if (win && !win.isDestroyed()) {
     win.webContents.send('youtube-control', action, value);
@@ -1180,7 +1187,7 @@ ipcMain.handle('get-history-videos', async () => {
 
 // ===== BÚSQUEDA DE YOUTUBE — INNERTUBE API (DIRECTO, SIN BROWSER) =====
 
-function innertubeFetch(endpoint, body) {
+function innertubeFetch(endpoint, body, timeoutMs = IPC_TIMINGS.SEARCH_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify(body);
     const API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
@@ -1205,10 +1212,25 @@ function innertubeFetch(endpoint, body) {
         catch (e) { reject(new Error('Invalid JSON from Innertube')); }
       });
     });
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(new Error('Innertube timeout'));
+    });
     req.on('error', reject);
     req.write(payload);
     req.end();
   });
+}
+
+async function innertubeFetchWithRetry(endpoint, body, retries = 1) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await innertubeFetch(endpoint, body);
+    } catch (e) {
+      if (attempt === retries) throw e;
+      console.warn(`[SEARCH] Innertube retry ${attempt + 1}/${retries} after ${e.message}`);
+      await new Promise(r => setTimeout(r, 800 * (attempt + 1)));
+    }
+  }
 }
 
 function parseInnertubeVideos(data) {
@@ -1261,12 +1283,12 @@ function parseInnertubeVideos(data) {
 ipcMain.handle('search-youtube', async (event, query) => {
   console.log('[SEARCH] Buscando en YouTube (Innertube):', query);
   try {
-    const data = await innertubeFetch('search', {
+    const data = await innertubeFetchWithRetry('search', {
       context: {
         client: { clientName: 'WEB', clientVersion: '2.20250101.00.00', hl: 'es', gl: 'MX' }
       },
       query
-    });
+    }, 1);
     const { videos, continuation } = parseInnertubeVideos(data);
     return {
       success: videos.length > 0,
@@ -1275,7 +1297,11 @@ ipcMain.handle('search-youtube', async (event, query) => {
     };
   } catch (e) {
     console.warn('[SEARCH] Innertube falló, usando fallback browser:', e.message);
-    return fallbackBrowserSearch(query);
+    const fb = await fallbackBrowserSearch(query);
+    if (!fb.success && state.mainWindow && !state.mainWindow.isDestroyed()) {
+      state.mainWindow.webContents.send('show-toast', { type: 'error', message: `Búsqueda falló: ${e.message}` });
+    }
+    return fb;
   }
 });
 
@@ -1296,65 +1322,79 @@ ipcMain.handle('search-youtube-more', async (event, continuation) => {
   }
 });
 
-// Fallback: browser-based search (cuando Innertube falla)
-async function fallbackBrowserSearch(query) {
+// Fallback: browser-based search con AbortController y retry
+async function fallbackBrowserSearch(query, retries = 1) {
   console.log('[SEARCH] Fallback browser para:', query);
-  try {
-    const auxWindow = createAuxYoutubeWindow();
-    const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-    return new Promise((resolve) => {
-      auxWindow.loadURL(searchUrl);
-      auxWindow.webContents.once('did-finish-load', async () => {
-        await new Promise(r => setTimeout(r, 2000));
-        for (let i = 0; i < 3; i++) {
-          await auxWindow.webContents.executeJavaScript('window.scrollTo(0, document.body.scrollHeight)');
-          await new Promise(r => setTimeout(r, 500));
-        }
-        const extractScript = `
-          (function() {
-            const maxVideos = 30;
-            const videos = [];
-            try {
-              if (window.ytInitialData) {
-                const findVideos = (obj, depth) => {
-                  if (videos.length >= maxVideos || depth > 25) return;
-                  if (!obj || typeof obj !== 'object') return;
-                  if (obj.videoRenderer && obj.videoRenderer.videoId) {
-                    const vr = obj.videoRenderer;
-                    const title = vr.title?.runs?.[0]?.text || vr.title?.simpleText || '';
-                    if (title && !videos.some(v => v.videoId === vr.videoId)) {
-                      videos.push({
-                        videoId: vr.videoId, title,
-                        channel: vr.ownerText?.runs?.[0]?.text || vr.shortBylineText?.runs?.[0]?.text || 'YouTube',
-                        artist: vr.ownerText?.runs?.[0]?.text || vr.shortBylineText?.runs?.[0]?.text || 'YouTube',
-                        thumbnail: vr.thumbnail?.thumbnails?.[0]?.url || 'https://i.ytimg.com/vi/'+vr.videoId+'/hqdefault.jpg',
-                        url: 'https://www.youtube.com/watch?v='+vr.videoId,
-                        duration: vr.lengthText?.simpleText || '',
-                        isVerified: !!(vr.ownerBadges?.some(b => b.metadataBadgeRenderer?.style?.includes('VERIFIED')))
-                      });
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const auxWindow = createAuxYoutubeWindow();
+      const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+      const result = await new Promise((resolve) => {
+        let settled = false;
+        const timeout = setTimeout(() => {
+          if (!settled) { settled = true; resolve({ success: false, videos: [] }); }
+        }, IPC_TIMINGS.SEARCH_TIMEOUT_MS);
+        auxWindow.loadURL(searchUrl);
+        auxWindow.webContents.once('did-finish-load', async () => {
+          if (settled) return;
+          await new Promise(r => setTimeout(r, 2000));
+          for (let i = 0; i < 3; i++) {
+            try { await auxWindow.webContents.executeJavaScript('window.scrollTo(0, document.body.scrollHeight)'); } catch {}
+            await new Promise(r => setTimeout(r, 500));
+          }
+          const extractScript = `
+            (function() {
+              const maxVideos = 30;
+              const videos = [];
+              try {
+                if (window.ytInitialData) {
+                  const findVideos = (obj, depth) => {
+                    if (videos.length >= maxVideos || depth > 25) return;
+                    if (!obj || typeof obj !== 'object') return;
+                    if (obj.videoRenderer && obj.videoRenderer.videoId) {
+                      const vr = obj.videoRenderer;
+                      const title = vr.title?.runs?.[0]?.text || vr.title?.simpleText || '';
+                      if (title && !videos.some(v => v.videoId === vr.videoId)) {
+                        videos.push({
+                          videoId: vr.videoId, title,
+                          channel: vr.ownerText?.runs?.[0]?.text || vr.shortBylineText?.runs?.[0]?.text || 'YouTube',
+                          artist: vr.ownerText?.runs?.[0]?.text || vr.shortBylineText?.runs?.[0]?.text || 'YouTube',
+                          thumbnail: vr.thumbnail?.thumbnails?.[0]?.url || 'https://i.ytimg.com/vi/'+vr.videoId+'/hqdefault.jpg',
+                          url: 'https://www.youtube.com/watch?v='+vr.videoId,
+                          duration: vr.lengthText?.simpleText || '',
+                          isVerified: !!(vr.ownerBadges?.some(b => b.metadataBadgeRenderer?.style?.includes('VERIFIED')))
+                        });
+                      }
                     }
-                  }
-                  for (const key in obj) {
-                    if (videos.length >= maxVideos) break;
-                    const val = obj[key];
-                    if (Array.isArray(val)) val.forEach(v => findVideos(v, depth+1));
-                    else if (typeof val === 'object') findVideos(val, depth+1);
-                  }
-                };
-                findVideos(window.ytInitialData, 0);
-              }
-            } catch(e) {}
-            return { videos: videos.slice(0, 30) };
-          })()
-        `;
-        try {
-          const result = await auxWindow.webContents.executeJavaScript(extractScript);
-          resolve({ success: true, videos: result.videos || [] });
-        } catch { resolve({ success: false, videos: [] }); }
+                    for (const key in obj) {
+                      if (videos.length >= maxVideos) break;
+                      const val = obj[key];
+                      if (Array.isArray(val)) val.forEach(v => findVideos(v, depth+1));
+                      else if (typeof val === 'object') findVideos(val, depth+1);
+                    }
+                  };
+                  findVideos(window.ytInitialData, 0);
+                }
+              } catch(e) {}
+              return { videos: videos.slice(0, 30) };
+            })()
+          `;
+          try {
+            const r = await auxWindow.webContents.executeJavaScript(extractScript);
+            if (!settled) { settled = true; clearTimeout(timeout); resolve({ success: true, videos: r.videos || [] }); }
+          } catch { if (!settled) { settled = true; clearTimeout(timeout); resolve({ success: false, videos: [] }); } }
+        });
       });
-      setTimeout(() => resolve({ success: false, videos: [] }), 20000);
-    });
-  } catch { return { success: false, videos: [] }; }
+      if (result.success && result.videos.length > 0) return result;
+      if (attempt < retries) {
+        console.warn(`[SEARCH] Fallback intento ${attempt + 1} falló, reintentando...`);
+        await new Promise(r => setTimeout(r, 1000));
+      } else {
+        return result;
+      }
+    } catch { if (attempt === retries) return { success: false, videos: [] }; }
+  }
+  return { success: false, videos: [] };
 }
 
 // ===== TOP 100 GLOBAL - YOUTUBE CHARTS OFICIAL =====

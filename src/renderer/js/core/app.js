@@ -101,9 +101,11 @@ window.appState = appState;
 window.DJ_CONFIG = DJ_CONFIG;
 window.APP_TIMINGS = APP_TIMINGS;
 
-// Restaurar estado DJ Mix
+// Restaurar estado DJ Mix (via StorageManager)
 try {
-  appState.djMixEnabled = localStorage.getItem('seaxmusic_djmix') === '1';
+  const sm = window.StorageManager;
+  const val = sm ? sm.get(sm.KEYS.DJMIX) : localStorage.getItem('seaxmusic_djmix');
+  appState.djMixEnabled = val === '1';
 } catch (e) {
   appState.djMixEnabled = false;
 }
@@ -942,6 +944,26 @@ async function initApp() {
   if (window.electronAPI && window.electronAPI.onUpdateLog) {
     window.electronAPI.onUpdateLog((message) => {
       console.log('[AUTO-UPDATE]', message);
+    });
+  }
+
+  // ⭐ Toasts desde main (ej. búsqueda fallida con retry)
+  if (window.electronAPI && window.electronAPI.onShowToast) {
+    window.electronAPI.onShowToast(({ type, message }) => {
+      try {
+        let toast = document.getElementById('seaxToast');
+        if (!toast) {
+          toast = document.createElement('div');
+          toast.id = 'seaxToast';
+          toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:12px 20px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:9999;font-size:13px;max-width:90%;text-align:center;';
+          document.body.appendChild(toast);
+        }
+        toast.textContent = message;
+        toast.style.background = type === 'error' ? '#7f1d1d' : '#1a1a1a';
+        toast.style.display = 'block';
+        clearTimeout(window._seaxToastTimer);
+        window._seaxToastTimer = setTimeout(() => { toast.style.display = 'none'; }, 4000);
+      } catch {}
     });
   }
 
@@ -2387,16 +2409,16 @@ function renderSkeletonCards(container, count) {
   }
 }
 
-// ===== PERSISTIR CANCIÓN AL CERRAR =====
+// ===== PERSISTIR CANCIÓN AL CERRAR (via StorageManager) =====
 const LAST_TRACK_KEY = 'seaxmusic_last_track';
 
 function saveCurrentTrack() {
   if (appState.currentTrack?.videoId) {
     try {
-      localStorage.setItem(LAST_TRACK_KEY, JSON.stringify({
-        ...appState.currentTrack,
-        savedAt: new Date().toISOString()
-      }));
+      const sm = window.StorageManager;
+      const payload = { ...appState.currentTrack, savedAt: new Date().toISOString() };
+      if (sm) sm.setJSON(sm.KEYS.LAST_TRACK, payload);
+      else localStorage.setItem(LAST_TRACK_KEY, JSON.stringify(payload));
       console.log('[PERSIST] 💾 Canción guardada:', appState.currentTrack.title);
     } catch (e) {
       console.error('[PERSIST] Error guardando canción:', e);
@@ -2406,7 +2428,8 @@ function saveCurrentTrack() {
 
 function restoreLastTrack() {
   try {
-    const saved = localStorage.getItem(LAST_TRACK_KEY);
+    const sm = window.StorageManager;
+    const saved = sm ? sm.get(sm.KEYS.LAST_TRACK) : localStorage.getItem(LAST_TRACK_KEY);
     if (saved) {
       const track = JSON.parse(saved);
       if (track?.videoId) {
@@ -2428,8 +2451,10 @@ function restoreLastTrack() {
 
         console.log('[PERSIST] 🔄 Canción restaurada (pausada):', track.title);
 
-        // Limpiar localStorage después de restaurar
-        localStorage.removeItem(LAST_TRACK_KEY);
+        // Limpiar después de restaurar
+        const sm2 = window.StorageManager;
+        if (sm2) sm2.remove(sm2.KEYS.LAST_TRACK);
+        else localStorage.removeItem(LAST_TRACK_KEY);
         return true;
       }
     }

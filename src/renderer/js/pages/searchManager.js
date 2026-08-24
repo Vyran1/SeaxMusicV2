@@ -18,6 +18,8 @@ class SearchManager {
 
   getRecentSearches() {
     try {
+      const sm = window.StorageManager;
+      if (sm) return sm.getJSON(this.RECENT_SEARCHES_KEY, []);
       return JSON.parse(localStorage.getItem(this.RECENT_SEARCHES_KEY)) || [];
     } catch {
       return [];
@@ -29,11 +31,15 @@ class SearchManager {
     searches = searches.filter(s => s.toLowerCase() !== query.toLowerCase());
     searches.unshift(query);
     if (searches.length > this.MAX_RECENT) searches = searches.slice(0, this.MAX_RECENT);
-    localStorage.setItem(this.RECENT_SEARCHES_KEY, JSON.stringify(searches));
+    const sm = window.StorageManager;
+    if (sm) sm.setJSON(this.RECENT_SEARCHES_KEY, searches);
+    else localStorage.setItem(this.RECENT_SEARCHES_KEY, JSON.stringify(searches));
   }
 
   clearRecentSearches() {
-    localStorage.removeItem(this.RECENT_SEARCHES_KEY);
+    const sm = window.StorageManager;
+    if (sm) sm.remove(this.RECENT_SEARCHES_KEY);
+    else localStorage.removeItem(this.RECENT_SEARCHES_KEY);
     this.renderRecentSearches();
   }
 
@@ -48,10 +54,10 @@ class SearchManager {
     }
     container.style.display = 'block';
     list.innerHTML = searches.map(q => `
-      <div class="search-recent-item" data-query="${q.replace(/"/g, '&quot;')}">
-        <i class="fas fa-history search-recent-icon"></i>
+      <div class="search-recent-item" data-query="${q.replace(/"/g, '&quot;')}" role="listitem" tabindex="0" aria-label="Buscar ${this.escapeHtml(q)}">
+        <i class="fas fa-history search-recent-icon" aria-hidden="true"></i>
         <span class="search-recent-query">${this.escapeHtml(q)}</span>
-        <button class="search-recent-remove" data-query="${q.replace(/"/g, '&quot;')}"><i class="fas fa-times"></i></button>
+        <button class="search-recent-remove" data-query="${q.replace(/"/g, '&quot;')}" aria-label="Eliminar ${this.escapeHtml(q)}"><i class="fas fa-times" aria-hidden="true"></i></button>
       </div>
     `).join('');
 
@@ -69,7 +75,9 @@ class SearchManager {
         e.stopPropagation();
         let searches = this.getRecentSearches();
         searches = searches.filter(s => s.toLowerCase() !== btn.dataset.query.toLowerCase());
-        localStorage.setItem(this.RECENT_SEARCHES_KEY, JSON.stringify(searches));
+        const sm = window.StorageManager;
+        if (sm) sm.setJSON(this.RECENT_SEARCHES_KEY, searches);
+        else localStorage.setItem(this.RECENT_SEARCHES_KEY, JSON.stringify(searches));
         this.renderRecentSearches();
       });
     });
@@ -141,26 +149,27 @@ class SearchManager {
               <p class="search-banner-subtitle">Encuentra tu música favorita en SeaxMusic</p>
             </div>
           </div>
-          <div class="search-box-container">
+          <div class="search-box-container" role="search" aria-label="Buscar música">
             <div class="search-input-wrapper">
-              <i class="fas fa-search search-input-icon"></i>
-              <input type="text" id="searchInput" class="search-input" placeholder="¿Qué quieres escuchar?" autocomplete="off">
-              <button class="search-clear-btn" id="searchClearBtn" style="display: none;">
-                <i class="fas fa-times"></i>
+              <i class="fas fa-search search-input-icon" aria-hidden="true"></i>
+              <label for="searchInput" class="sr-only">Buscar música</label>
+              <input type="text" id="searchInput" class="search-input" placeholder="¿Qué quieres escuchar?" aria-label="Buscar música" autocomplete="off">
+              <button class="search-clear-btn" id="searchClearBtn" style="display: none;" aria-label="Limpiar búsqueda">
+                <i class="fas fa-times" aria-hidden="true"></i>
               </button>
             </div>
-            <button class="search-submit-btn" id="searchSubmitBtn">
-              <i class="fas fa-search"></i>
+            <button class="search-submit-btn" id="searchSubmitBtn" aria-label="Buscar">
+              <i class="fas fa-search" aria-hidden="true"></i>
               <span>Buscar</span>
             </button>
           </div>
         </div>
-        <div class="search-recent" id="searchRecent" style="display: none;">
+        <div class="search-recent" id="searchRecent" style="display: none;" role="region" aria-label="Búsquedas recientes">
           <div class="search-recent-header">
-            <span><i class="fas fa-clock"></i> Búsquedas recientes</span>
-            <button class="search-recent-clear" id="searchRecentClear">Limpiar todo</button>
+            <span><i class="fas fa-clock" aria-hidden="true"></i> Búsquedas recientes</span>
+            <button class="search-recent-clear" id="searchRecentClear" aria-label="Limpiar todas las búsquedas recientes">Limpiar todo</button>
           </div>
-          <div class="search-recent-list" id="searchRecentList"></div>
+          <div class="search-recent-list" id="searchRecentList" role="list"></div>
         </div>
         <div class="search-results" id="searchResults" style="display: none;">
           <div class="search-results-header">

@@ -21,12 +21,12 @@ class DJEngine {
     this.startSchedulers();
   }
 
-  // ⭐ Cargar datos guardados
+  // ⭐ Cargar datos guardados (via StorageManager con fallback)
   loadData() {
     try {
-      const data = localStorage.getItem(this.storageKey);
-      if (data) {
-        const parsed = JSON.parse(data);
+      const sm = window.StorageManager;
+      const parsed = sm ? sm.getJSON(this.storageKey, null) : JSON.parse(localStorage.getItem(this.storageKey) || 'null');
+      if (parsed) {
         this.listenHistory = parsed.listenHistory || [];
         this.artistStats = parsed.artistStats || {};
         this.genrePatterns = parsed.genrePatterns || {};
@@ -47,7 +47,9 @@ class DJEngine {
         timePatterns: this.timePatterns,
         lastUpdated: new Date().toISOString()
       };
-      localStorage.setItem(this.storageKey, JSON.stringify(data));
+      const sm = window.StorageManager;
+      if (sm) sm.setJSON(this.storageKey, data);
+      else localStorage.setItem(this.storageKey, JSON.stringify(data));
     } catch (e) {
       console.error('[DJ ENGINE] Error guardando datos:', e);
     }
@@ -361,10 +363,10 @@ class DJEngine {
   // ⭐ Guardar playlists automáticas
   saveAutoPlaylists(playlists) {
     try {
-      localStorage.setItem(this.autoPlaylistsKey, JSON.stringify({
-        playlists,
-        generatedAt: new Date().toISOString()
-      }));
+      const payload = { playlists, generatedAt: new Date().toISOString() };
+      const sm = window.StorageManager;
+      if (sm) sm.setJSON(this.autoPlaylistsKey, payload);
+      else localStorage.setItem(this.autoPlaylistsKey, JSON.stringify(payload));
     } catch (e) {
       console.error('[DJ ENGINE] Error guardando auto playlists:', e);
     }
@@ -373,9 +375,9 @@ class DJEngine {
   // ⭐ Cargar playlists automáticas
   getAutoPlaylists() {
     try {
-      const data = localStorage.getItem(this.autoPlaylistsKey);
-      if (data) {
-        const parsed = JSON.parse(data);
+      const sm = window.StorageManager;
+      const parsed = sm ? sm.getJSON(this.autoPlaylistsKey, null) : JSON.parse(localStorage.getItem(this.autoPlaylistsKey) || 'null');
+      if (parsed) {
         // Si tiene más de 1 hora, regenerar
         const generatedAt = new Date(parsed.generatedAt);
         const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -560,12 +562,14 @@ class DJEngine {
   autoPublishIfNeeded() {
     try {
       const today = new Date().toISOString().slice(0, 10);
-      const last = localStorage.getItem(this.publishKey);
+      const sm = window.StorageManager;
+      const last = sm ? sm.get(this.publishKey) : localStorage.getItem(this.publishKey);
       if (last === today) return;
 
       const created = this.publishDJPlaylists();
       if (created && created.length > 0) {
-        localStorage.setItem(this.publishKey, today);
+        if (sm) sm.set(this.publishKey, today);
+        else localStorage.setItem(this.publishKey, today);
       }
     } catch (e) {
       console.error('[DJ ENGINE] Error auto-publicando:', e);

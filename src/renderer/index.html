@@ -5,6 +5,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SeaxMusic</title>
+  <script type="importmap">
+  {
+    "imports": {
+      "seax/logger": "./js/utils/logger.js",
+      "seax/storage": "./js/core/storageManager.js",
+      "seax/i18n": "./js/utils/i18n.js"
+    }
+  }
+  </script>
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,6 +46,7 @@
   <link rel="stylesheet" href="css/components/badges.css">
   <link rel="stylesheet" href="css/components/skeleton.css">
   <link rel="stylesheet" href="css/components/dj.css">
+  <link rel="stylesheet" href="css/components/pills.css">
 
   <!-- Pages -->
   <link rel="stylesheet" href="css/pages/home.css">
@@ -740,6 +750,9 @@
 
   <script src="js/utils/constants.js"></script>
   <script src="js/utils/dom.js"></script>
+  <script src="js/utils/logger.js"></script>
+  <script src="js/utils/i18n.js"></script>
+  <script src="js/core/storageManager.js"></script>
   <script src="js/core/app.js"></script>
   <script src="js/core/audioReactivity.js"></script>
   <script src="js/core/player.js"></script>

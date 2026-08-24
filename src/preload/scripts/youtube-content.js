@@ -1,4 +1,5 @@
-/**
+/* eslint-disable no-unused-vars -- variables de estado usadas como flags de intervalo */
+ /**
  * Script inyectado en YouTube para detectar login
  * Se ejecuta en el contexto de YouTube y puede comunicarse con la app
  */

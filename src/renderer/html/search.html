@@ -14,71 +14,73 @@
     </div>
     
     <!-- Search Box -->
-    <div class="search-box-container">
+    <div class="search-box-container" role="search" aria-label="Buscar música">
       <div class="search-input-wrapper">
-        <i class="fas fa-search search-input-icon"></i>
+        <i class="fas fa-search search-input-icon" aria-hidden="true"></i>
+        <label for="searchInput" class="sr-only">Buscar música</label>
         <input 
           type="text" 
           id="searchInput" 
           class="search-input" 
           placeholder="¿Qué quieres escuchar?" 
+          aria-label="Buscar música"
           autocomplete="off"
           autocorrect="off"
           spellcheck="false"
         >
-        <button class="search-clear-btn" id="searchClearBtn" style="display: none;">
-          <i class="fas fa-times"></i>
+        <button class="search-clear-btn" id="searchClearBtn" style="display: none;" aria-label="Limpiar búsqueda">
+          <i class="fas fa-times" aria-hidden="true"></i>
         </button>
       </div>
-      <button class="search-submit-btn" id="searchSubmitBtn">
-        <i class="fas fa-search"></i>
+      <button class="search-submit-btn" id="searchSubmitBtn" aria-label="Buscar">
+        <i class="fas fa-search" aria-hidden="true"></i>
         <span>Buscar</span>
       </button>
     </div>
   </div>
 
   <!-- Recent Searches -->
-  <div class="search-recent" id="searchRecent" style="display: none;">
+  <div class="search-recent" id="searchRecent" style="display: none;" role="region" aria-label="Búsquedas recientes">
     <div class="search-recent-header">
-      <span><i class="fas fa-clock"></i> Búsquedas recientes</span>
-      <button class="search-recent-clear" id="searchRecentClear">Limpiar todo</button>
+      <span><i class="fas fa-clock" aria-hidden="true"></i> Búsquedas recientes</span>
+      <button class="search-recent-clear" id="searchRecentClear" aria-label="Limpiar todas las búsquedas recientes">Limpiar todo</button>
     </div>
-    <div class="search-recent-list" id="searchRecentList"></div>
+    <div class="search-recent-list" id="searchRecentList" role="list"></div>
   </div>
 
   <!-- Categorías rápidas -->
   <div class="search-categories" id="searchCategories">
     <h2><i class="fas fa-fire" style="color: var(--accent-primary); margin-right: 8px;"></i>Explorar</h2>
     <div class="category-grid">
-      <div class="category-card" data-search="musica popular 2026">
+      <div class="category-card" data-search="musica popular 2026" role="button" tabindex="0" aria-label="Buscar Top Hits">
         <div class="category-bg" style="background: linear-gradient(135deg, #E13838, #8B1E3F);"></div>
         <span class="category-name">Top Hits</span>
-        <i class="fas fa-fire category-icon"></i>
+        <i class="fas fa-fire category-icon" aria-hidden="true"></i>
       </div>
-      <div class="category-card" data-search="reggaeton 2026">
+      <div class="category-card" data-search="reggaeton 2026" role="button" tabindex="0" aria-label="Buscar Reggaeton">
         <div class="category-bg" style="background: linear-gradient(135deg, #1DB954, #169C46);"></div>
         <span class="category-name">Reggaeton</span>
-        <i class="fas fa-music category-icon"></i>
+        <i class="fas fa-music category-icon" aria-hidden="true"></i>
       </div>
-      <div class="category-card" data-search="pop latino">
+      <div class="category-card" data-search="pop latino" role="button" tabindex="0" aria-label="Buscar Pop Latino">
         <div class="category-bg" style="background: linear-gradient(135deg, #8B5CF6, #6D28D9);"></div>
         <span class="category-name">Pop Latino</span>
-        <i class="fas fa-star category-icon"></i>
+        <i class="fas fa-star category-icon" aria-hidden="true"></i>
       </div>
-      <div class="category-card" data-search="rock en español">
+      <div class="category-card" data-search="rock en español" role="button" tabindex="0" aria-label="Buscar Rock">
         <div class="category-bg" style="background: linear-gradient(135deg, #F59E0B, #D97706);"></div>
         <span class="category-name">Rock</span>
-        <i class="fas fa-guitar category-icon"></i>
+        <i class="fas fa-guitar category-icon" aria-hidden="true"></i>
       </div>
-      <div class="category-card" data-search="hip hop rap">
+      <div class="category-card" data-search="hip hop rap" role="button" tabindex="0" aria-label="Buscar Hip Hop">
         <div class="category-bg" style="background: linear-gradient(135deg, #3B82F6, #1D4ED8);"></div>
         <span class="category-name">Hip Hop</span>
-        <i class="fas fa-headphones category-icon"></i>
+        <i class="fas fa-headphones category-icon" aria-hidden="true"></i>
       </div>
-      <div class="category-card" data-search="musica electronica DJ">
+      <div class="category-card" data-search="musica electronica DJ" role="button" tabindex="0" aria-label="Buscar Electrónica">
         <div class="category-bg" style="background: linear-gradient(135deg, #EC4899, #BE185D);"></div>
         <span class="category-name">Electrónica</span>
-        <i class="fas fa-bolt category-icon"></i>
+        <i class="fas fa-bolt category-icon" aria-hidden="true"></i>
       </div>
     </div>
   </div>

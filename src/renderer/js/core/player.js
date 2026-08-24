@@ -51,6 +51,19 @@ function getVolumeStorageKey(user) {
   return `seaxmusic_volume_${suffix}`;
 }
 
+function smGet(key) {
+  try {
+    if (window.StorageManager) return window.StorageManager.get(key);
+  } catch {}
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function smSet(key, value) {
+  try {
+    if (window.StorageManager) return window.StorageManager.set(key, value);
+  } catch {}
+  try { localStorage.setItem(key, value); } catch {}
+}
+
 // Player control logic
 
 class MusicPlayer {
@@ -59,8 +72,8 @@ class MusicPlayer {
     this.currentTime = 0;
     this.duration = 0;
     this.volumeStorageKey = getVolumeStorageKey(getCurrentUser());
-    const savedVolume = localStorage.getItem(this.volumeStorageKey);
-    const legacyVolume = localStorage.getItem('seaxmusic_volume');
+    const savedVolume = smGet(this.volumeStorageKey);
+    const legacyVolume = smGet('seaxmusic_volume');
     this.volume = savedVolume !== null
       ? parseFloat(savedVolume)
       : (legacyVolume !== null ? parseFloat(legacyVolume) : 0.7);
@@ -215,7 +228,7 @@ class MusicPlayer {
     const wasEnabled = !!window.appState.djMixEnabled;
     window.appState.djMixEnabled = !wasEnabled;
     try {
-      localStorage.setItem('seaxmusic_djmix', window.appState.djMixEnabled ? '1' : '0');
+      smSet('seaxmusic_djmix', window.appState.djMixEnabled ? '1' : '0');
     } catch (e) {}
     
     if (!window.appState.djMixEnabled) {
@@ -288,13 +301,13 @@ class MusicPlayer {
     if (!this.volumeStorageKey) {
       this.volumeStorageKey = getVolumeStorageKey(getCurrentUser());
     }
-    localStorage.setItem(this.volumeStorageKey, this.volume);
+    smSet(this.volumeStorageKey, String(this.volume));
   }
 
   refreshVolumeForUser(user) {
     this.volumeStorageKey = getVolumeStorageKey(user);
-    const savedVolume = localStorage.getItem(this.volumeStorageKey);
-    const legacyVolume = localStorage.getItem('seaxmusic_volume');
+    const savedVolume = smGet(this.volumeStorageKey);
+    const legacyVolume = smGet('seaxmusic_volume');
     this.volume = savedVolume !== null
       ? parseFloat(savedVolume)
       : (legacyVolume !== null ? parseFloat(legacyVolume) : 0.7);
