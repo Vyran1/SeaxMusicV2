@@ -132,7 +132,7 @@ function renderCommitList(commits) {
     item.innerHTML = `
       <div class="commit-message">${markdownToHtml(msg.replace(/<\/?p>/g, '').trim())}</div>
       <div class="commit-meta">
-        <span class="commit-author">${author}</span>
+        <span class="commit-author">${window.escapeHtml(author)}</span>
         <span class="commit-sha">${sha}</span>
       </div>
     `;

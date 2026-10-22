@@ -75,7 +75,7 @@ class DevManager {
       item.className = 'dev-list-item';
       item.innerHTML = `
         <div>
-          <strong>${pl.name}</strong>
+          <strong>${window.escapeHtml(pl.name)}</strong>
           <div style="font-size:12px; color: var(--text-secondary);">${(pl.tracks || []).length} canciones</div>
         </div>
         <div class="dev-list-actions">
@@ -112,8 +112,8 @@ class DevManager {
       item.className = 'dev-list-item';
       item.innerHTML = `
         <div>
-          <strong>${acc.user?.name || 'Usuario'}</strong>
-          <div style="font-size:12px; color: var(--text-secondary);">${acc.user?.email || acc.user?.handle || 'sin correo'}</div>
+          <strong>${window.escapeHtml(acc.user?.name || 'Usuario')}</strong>
+          <div style="font-size:12px; color: var(--text-secondary);">${window.escapeHtml(acc.user?.email || acc.user?.handle || 'sin correo')}</div>
         </div>
         <div class="dev-list-actions">
           <button data-action="remove">Eliminar</button>

@@ -18,7 +18,7 @@ class UserManager {
     // Listen for YouTube login from IPC
     if (window.electronAPI && window.electronAPI.onYouTubeUserLoggedIn) {
       window.electronAPI.onYouTubeUserLoggedIn((data) => {
-        console.log('[YOUTUBE] Mensaje recibido de YouTube:', data);
+        Logger.debug('[YOUTUBE] Mensaje recibido de YouTube:', data);
         if (data.success) {
           this.handleYouTubeLogin(data.user);
         }
@@ -28,7 +28,7 @@ class UserManager {
     // Listen for YouTube logout from IPC
     if (window.electronAPI && window.electronAPI.onYouTubeUserLoggedOut) {
       window.electronAPI.onYouTubeUserLoggedOut((data) => {
-        console.log('[LOGOUT] YouTube logout detectado:', data);
+        Logger.debug('[LOGOUT] YouTube logout detectado:', data);
         this.handleYouTubeLogout();
       });
     }
@@ -85,26 +85,26 @@ class UserManager {
 
   upsertAccount(user) {
     if (!user) {
-      console.log('[ACCOUNTS] No se puede guardar cuenta: usuario null');
+      Logger.debug('[ACCOUNTS] No se puede guardar cuenta: usuario null');
       return;
     }
     const accounts = this.getAccounts();
     const key = this.buildUserKey(user);
-    console.log('[ACCOUNTS] Guardando cuenta con key:', key);
+    Logger.debug('[ACCOUNTS] Guardando cuenta con key:', key);
     const index = accounts.findIndex(acc => acc.key === key);
     const payload = { key, user, lastUsed: new Date().toISOString() };
     if (index === -1) {
       accounts.unshift(payload);
-      console.log('[ACCOUNTS] Nueva cuenta añadida');
+      Logger.debug('[ACCOUNTS] Nueva cuenta añadida');
     } else {
       accounts[index].lastUsed = new Date().toISOString();
       if (Object.keys(accounts[index].user || {}).length < Object.keys(payload.user || {}).length) {
         accounts[index].user = payload.user;
       }
-      console.log('[ACCOUNTS] Cuenta existente actualizada');
+      Logger.debug('[ACCOUNTS] Cuenta existente actualizada');
     }
     this.saveAccounts(accounts);
-    console.log('[ACCOUNTS] Total cuentas guardadas:', accounts.length);
+    Logger.debug('[ACCOUNTS] Total cuentas guardadas:', accounts.length);
   }
 
   saveCurrentAccountSnapshot() {
@@ -186,11 +186,11 @@ class UserManager {
 
           item.innerHTML = `
             <div class="switch-account-avatar">
-              ${acc.user.avatar ? `<img src="${acc.user.avatar}" alt="">` : `<i class="fas fa-user"></i>`}
+              ${acc.user.avatar ? `<img src="${window.escapeHtml(acc.user.avatar)}" alt="">` : `<i class="fas fa-user"></i>`}
             </div>
             <div class="switch-account-info">
-              <div class="switch-account-name">${acc.user.name || 'Usuario'}</div>
-              <div class="switch-account-email">${acc.user.email || acc.user.handle || 'Sin correo'}</div>
+              <div class="switch-account-name">${window.escapeHtml(acc.user.name || 'Usuario')}</div>
+              <div class="switch-account-email">${window.escapeHtml(acc.user.email || acc.user.handle || 'Sin correo')}</div>
             </div>
             <div class="switch-account-meta">
               ${isActive ? `<span class="switch-account-badge">Activa</span>` : ''}
@@ -429,7 +429,7 @@ class UserManager {
   openLoginWindow() {
     // Open YouTube login window directly (small window with Google Sign In)
     if (window.electronAPI && window.electronAPI.openYouTubeLoginWindow) {
-      console.log('[LOGIN] Opening YouTube login window...');
+      Logger.debug('[LOGIN] Opening YouTube login window...');
       window.electronAPI.openYouTubeLoginWindow();
     } else {
       console.error('[ERROR] Unable to open YouTube login window - electronAPI not available');
@@ -445,14 +445,14 @@ class UserManager {
     let avatarHTML;
     
     if (this.user.avatar && this.user.avatar.startsWith('http')) {
-      avatarHTML = `<img src="${this.user.avatar}" class="user-avatar" style="
+      avatarHTML = `<img src="${window.escapeHtml(this.user.avatar)}" class="user-avatar" style="
         width: 48px;
         height: 48px;
         border-radius: 50%;
         object-fit: cover;
         border: 2px solid rgba(225, 56, 56, 0.3);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      " alt="${this.user.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+      " alt="${window.escapeHtml(this.user.name)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
       <div class="user-avatar-fallback" style="
         width: 48px;
         height: 48px;
@@ -491,8 +491,8 @@ class UserManager {
         <div class="user-info">
           ${avatarHTML}
           <div class="user-details">
-            <div class="user-name">${this.user.name || 'Usuario'}</div>
-            <div class="user-email">${displayEmail}</div>
+            <div class="user-name">${window.escapeHtml(this.user.name || 'Usuario')}</div>
+            <div class="user-email">${window.escapeHtml(displayEmail)}</div>
           </div>
         </div>
 
@@ -560,7 +560,7 @@ class UserManager {
     if (event.data && event.data.type === 'USER_LOGGED_IN') {
       const user = event.data.user;
       
-      console.log('👤 Usuario logueado:', user.name);
+      Logger.debug('👤 Usuario logueado:', user.name);
       
       const previousUser = this.getStoredUser();
       const previousKey = this.buildUserKey(previousUser);
@@ -614,7 +614,7 @@ class UserManager {
       }
       
     } else if (event.data && event.data.type === 'USER_LOGGED_OUT') {
-      console.log('🚪 Sesión cerrada');
+      Logger.debug('🚪 Sesión cerrada');
       
       this.user = null;
       
@@ -651,21 +651,21 @@ class UserManager {
     }
   }
   handleYouTubeLogin(user) {
-    console.log('✅ YouTube login manejado:', user);
-    console.log('[LOGIN] Datos recibidos - Nombre:', user?.name, 'Handle:', user?.handle, 'Email:', user?.email);
+    Logger.debug('✅ YouTube login manejado:', user);
+    Logger.debug('[LOGIN] Datos recibidos - Nombre:', user?.name, 'Handle:', user?.handle, 'Email:', user?.email);
     
     const previousUser = this.getStoredUser();
     const previousKey = this.buildUserKey(previousUser);
     const nextKey = this.buildUserKey(user);
     
-    console.log('[LOGIN] Previous key:', previousKey, '| New key:', nextKey);
+    Logger.debug('[LOGIN] Previous key:', previousKey, '| New key:', nextKey);
     
     const now = Date.now();
     const wasLoggedIn = !!window.appState?.isLoggedIn;
 
     // Si es la misma cuenta y ya estaba logueado, solo actualizar datos de perfil de forma no destructiva
     if (wasLoggedIn && previousKey === nextKey) {
-      console.log('[LOGIN] El usuario ya está logueado y es el mismo. Actualizando perfil de forma no destructiva.');
+      Logger.debug('[LOGIN] El usuario ya está logueado y es el mismo. Actualizando perfil de forma no destructiva.');
       this.user = user;
       localStorage.setItem('seaxmusic_user', JSON.stringify(user));
       if (window.electronAPI && window.electronAPI.saveUserData) {
@@ -687,7 +687,7 @@ class UserManager {
     
     // Save user to localStorage
     localStorage.setItem('seaxmusic_user', JSON.stringify(user));
-    console.log('[LOGIN] Usuario guardado en localStorage');
+    Logger.debug('[LOGIN] Usuario guardado en localStorage');
 
     // ⭐ Cargar volumen guardado para este usuario
     if (window.musicPlayer && typeof window.musicPlayer.refreshVolumeForUser === 'function') {
@@ -696,7 +696,7 @@ class UserManager {
 
     // ⭐ Guardar en lista de cuentas
     this.upsertAccount(user);
-    console.log('[LOGIN] Cuenta guardada en lista de cuentas');
+    Logger.debug('[LOGIN] Cuenta guardada en lista de cuentas');
     
     // Save user to JSON file via Electron IPC
     if (window.electronAPI && window.electronAPI.saveUserData) {
@@ -744,19 +744,19 @@ class UserManager {
       this.reloadAllContent(true);
       this.lastLoginProcessedAt = now;
     } else {
-      console.log('[LOGIN] Sesión ya activa, se omite recarga del loader');
+      Logger.debug('[LOGIN] Sesión ya activa, se omite recarga del loader');
     }
     
     // ⭐ NO cerrar YouTube window después del login
     // La ventana de YouTube debe permanecer abierta para reproducir música
-    console.log('[LOGIN] Login completado - YouTube window permanece abierta para reproducción');
+    Logger.debug('[LOGIN] Login completado - YouTube window permanece abierta para reproducción');
   }
   
   // ⭐ Recargar todo el contenido (historial, favoritos) con loader
   reloadAllContent(force = false) {
     // ⭐ Evitar múltiples recargas simultáneas
     if (this.contentReloadInProgress && !force) {
-      console.log('[RELOAD] Ya hay una recarga en progreso, ignorando...');
+      Logger.debug('[RELOAD] Ya hay una recarga en progreso, ignorando...');
       return;
     }
     if (force) {
@@ -764,7 +764,7 @@ class UserManager {
     }
     
     this.contentReloadInProgress = true;
-    console.log('🔄 Recargando todo el contenido...');
+    Logger.debug('🔄 Recargando todo el contenido...');
     
     // Mostrar loader
     if (typeof showLoader === 'function') {
@@ -809,7 +809,7 @@ class UserManager {
   }
 
   handleYouTubeLogout() {
-    console.log('[LOGOUT] YouTube logout manejado');
+    Logger.debug('[LOGOUT] YouTube logout manejado');
     
     // ⭐ Resetear flags para permitir nuevo login
     this.loginNotificationShown = false;
@@ -875,7 +875,7 @@ class UserManager {
     
     // Después de logout, mostrar automáticamente el login la próxima vez
     // (esto se activa cuando el usuario vuelva a hacer clic en el botón de usuario)
-    console.log('[LOGOUT] Logout completado - el próximo clic en usuario mostrará login');
+    Logger.debug('[LOGOUT] Logout completado - el próximo clic en usuario mostrará login');
   }
 
   showLoginNotification(userName) {
@@ -895,7 +895,7 @@ class UserManager {
       z-index: 10000;
       animation: slideIn 0.3s ease-out;
     `;
-    notification.innerHTML = `<i class="fas fa-check-circle"></i> ¡Bienvenido ${userName}!`;
+    notification.innerHTML = `<i class="fas fa-check-circle"></i> ¡Bienvenido ${window.escapeHtml(userName)}!`;
     document.body.appendChild(notification);
     
     // Remove after 3 seconds
@@ -932,12 +932,14 @@ class UserManager {
 
   saveUserData() {
     localStorage.setItem('seaxmusic_user', JSON.stringify(this.user));
-    // TODO: Save to JSON file using Electron IPC
+    window.electronAPI?.saveUserData?.(this.user)?.catch?.(err =>
+      Logger.warn('No se pudo guardar el usuario en el proceso principal:', err));
   }
 
   clearUserData() {
     localStorage.removeItem('seaxmusic_user');
-    // TODO: Clear from JSON file using Electron IPC
+    window.electronAPI?.clearUserData?.()?.catch?.(err =>
+      Logger.warn('No se pudo limpiar el usuario en el proceso principal:', err));
   }
 
   closeProfileMenu() {
@@ -952,20 +954,19 @@ class UserManager {
     if (window.configManager) {
       window.configManager.showConfigPage();
     } else {
-      console.log('Configuración no disponible');
+      Logger.debug('Configuración no disponible');
     }
   }
 
+  // Secciones aún no implementadas: informan al usuario en lugar de no hacer nada
   openAccount() {
-    console.log('Abriendo cuenta...');
-    // TODO: Open account settings modal
     this.closeProfileMenu();
+    window.uiUtils?.showNotification('Configuración de cuenta: próximamente', 'info');
   }
 
   openHelp() {
-    console.log('Abriendo ayuda...');
-    // TODO: Open help modal
     this.closeProfileMenu();
+    window.uiUtils?.showNotification('Ayuda: próximamente', 'info');
   }
 
   openDevModal() {
@@ -1172,7 +1173,7 @@ class UserManager {
     // Limpiar desde JSON file vía Electron IPC
     if (window.electronAPI && window.electronAPI.clearUserData) {
       window.electronAPI.clearUserData()
-        .then(() => console.log('[OK] Sesión y datos limpios'))
+        .then(() => Logger.debug('[OK] Sesión y datos limpios'))
         .catch(err => console.error('Error limpiando datos:', err));
     }
     
@@ -1180,14 +1181,14 @@ class UserManager {
     if (window.electronAPI && window.electronAPI.logoutYouTube) {
       window.electronAPI.logoutYouTube()
         .then(() => {
-          console.log('[OK] YouTube sesión cerrada');
+          Logger.debug('[OK] YouTube sesión cerrada');
           
           // Después de hacer logout, verificar que realmente se cerró
           // Esperar 3 segundos y luego chequear el estado
           setTimeout(() => {
             if (window.electronAPI && window.electronAPI.forceCheckYouTubeLogin) {
               window.electronAPI.forceCheckYouTubeLogin()
-                .then(() => console.log('[OK] Estado de YouTube verificado'))
+                .then(() => Logger.debug('[OK] Estado de YouTube verificado'))
                 .catch(err => console.error('[ERROR] No se pudo verificar estado:', err));
             }
           }, 3000);
@@ -1201,7 +1202,7 @@ class UserManager {
     if (window.libraryManager) {
       window.libraryManager.refresh();
     }
-    console.log('[LOGOUT] Sesión cerrada correctamente');
+    Logger.debug('[LOGOUT] Sesión cerrada correctamente');
   }
 }
 

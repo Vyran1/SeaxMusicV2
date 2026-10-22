@@ -285,10 +285,10 @@ class PlaylistManager {
         const parsed = JSON.parse(playlist.logo);
         if (parsed.type === 'collage' && parsed.images?.length >= 4) {
           return `<div class="playlist-cover-collage ${sizeClass}">
-            ${parsed.images.slice(0, 4).map(src => `<img src="${src}" alt="">`).join('')}
+            ${parsed.images.slice(0, 4).map(src => `<img src="${window.escapeHtml(src)}" alt="">`).join('')}
           </div>`;
         } else if (parsed.images?.length > 0) {
-          return `<img src="${parsed.images[0]}" alt="" class="${sizeClass}">`;
+          return `<img src="${window.escapeHtml(parsed.images[0])}" alt="" class="${sizeClass}">`;
         }
       } catch (e) {}
     }
@@ -304,14 +304,14 @@ class PlaylistManager {
         t.thumbnail || `https://i.ytimg.com/vi/${t.videoId}/hqdefault.jpg`
       );
       return `<div class="playlist-cover-collage ${sizeClass}">
-        ${thumbs.map(src => `<img src="${src}" alt="">`).join('')}
+        ${thumbs.map(src => `<img src="${window.escapeHtml(src)}" alt="">`).join('')}
       </div>`;
     }
-    
+
     // Fallback: primera imagen o icono
     if (playlist.tracks?.length > 0) {
       const thumb = playlist.tracks[0].thumbnail || `https://i.ytimg.com/vi/${playlist.tracks[0].videoId}/hqdefault.jpg`;
-      return `<img src="${thumb}" alt="" class="${sizeClass}">`;
+      return `<img src="${window.escapeHtml(thumb)}" alt="" class="${sizeClass}">`;
     }
     
     return `<div class="${sizeClass} playlist-cover-empty"><i class="fas fa-music"></i></div>`;
@@ -376,7 +376,7 @@ class PlaylistManager {
     // Update main cover preview
     if (previewCover) {
       if (logo) {
-        previewCover.innerHTML = `<img src="${logo}" alt="">`;
+        previewCover.innerHTML = `<img src="${window.escapeHtml(logo)}" alt="">`;
       } else {
         previewCover.innerHTML = '<i class="fas fa-music"></i>';
       }
@@ -385,7 +385,7 @@ class PlaylistManager {
     // Update mini cover preview in preview card
     if (previewMiniCover) {
       if (logo) {
-        previewMiniCover.innerHTML = `<img src="${logo}" alt="">`;
+        previewMiniCover.innerHTML = `<img src="${window.escapeHtml(logo)}" alt="">`;
       } else {
         previewMiniCover.innerHTML = '<i class="fas fa-music"></i>';
       }
@@ -556,7 +556,7 @@ class PlaylistManager {
       channels.slice(0, 8).forEach(name => {
         const item = document.createElement('div');
         item.className = 'playlist-artist-item';
-        item.innerHTML = `<span>${name}</span><button type="button">Agregar</button>`;
+        item.innerHTML = `<span>${window.escapeHtml(name)}</span><button type="button">Agregar</button>`;
         item.querySelector('button')?.addEventListener('click', () => {
           this.addArtist(name);
         });
@@ -593,7 +593,7 @@ class PlaylistManager {
     this.selectedArtists.forEach(name => {
       const item = document.createElement('div');
       item.className = 'playlist-artist-item';
-      item.innerHTML = `<span>${name}</span><button type="button">Quitar</button>`;
+      item.innerHTML = `<span>${window.escapeHtml(name)}</span><button type="button">Quitar</button>`;
       item.querySelector('button')?.addEventListener('click', () => this.removeArtist(name));
       selectedEl.appendChild(item);
     });
@@ -669,7 +669,7 @@ class PlaylistManager {
           <div class="playlist-item-cover">
             ${this.getPlaylistCoverHtml(playlist, 'small')}
           </div>
-          <span>${playlist.name}</span>
+          <span>${window.escapeHtml(playlist.name)}</span>
         `;
         item.addEventListener('click', () => this.showPlaylist(playlist.id));
         list.appendChild(item);
@@ -690,7 +690,7 @@ class PlaylistManager {
           <div class="playlist-item-cover">
             ${this.getPlaylistCoverHtml(playlist, 'small')}
           </div>
-          <span>${playlist.name}</span>
+          <span>${window.escapeHtml(playlist.name)}</span>
         `;
         item.addEventListener('click', () => this.showPlaylist(playlist.globalId || playlist.id));
         list.appendChild(item);
@@ -783,9 +783,9 @@ class PlaylistManager {
               <div class="global-like-count">${trackCount} canciones</div>
             </div>
             <div class="global-playlist-info">
-              <div class="global-playlist-title">${playlist.name}</div>
+              <div class="global-playlist-title">${window.escapeHtml(playlist.name)}</div>
               <div class="playlist-card-meta">
-                <span>${creatorName}</span>
+                <span>${window.escapeHtml(creatorName)}</span>
                 <span class="likes"><i class="fas fa-heart"></i> ${likeCount}</span>
               </div>
             </div>
@@ -849,10 +849,10 @@ class PlaylistManager {
     const canDelete = isOwnerKey && !isDJReadOnly;
     this.activeIsOwner = canEdit;
     const creatorAvatar = creator.avatar
-      ? `<img src="${creator.avatar}" alt="">`
+      ? `<img src="${window.escapeHtml(creator.avatar)}" alt="">`
       : `<i class="fas fa-user"></i>`;
     const creatorSecondaryAvatar = creator.secondaryAvatar
-      ? `<img src="${creator.secondaryAvatar}" alt="">`
+      ? `<img src="${window.escapeHtml(creator.secondaryAvatar)}" alt="">`
       : '';
     const creatorAvatarHtml = creatorSecondaryAvatar
       ? `<span class="creator-avatar-group">
@@ -901,11 +901,11 @@ class PlaylistManager {
           </div>
           <div class="playlist-hero-info">
             <span class="home-hero-greeting">Playlist</span>
-            <h1>${playlist.name}</h1>
-            <p>${description} • ${count} canciones</p>
+            <h1>${window.escapeHtml(playlist.name)}</h1>
+            <p>${window.escapeHtml(description)} • ${count} canciones</p>
             <div class="playlist-creator">
               ${creatorAvatarHtml}
-              <span class="creator-name">Creada por ${creator.name || 'Usuario'}</span>
+              <span class="creator-name">Creada por ${window.escapeHtml(creator.name || 'Usuario')}</span>
               ${likeButton}
             </div>
             <div class="playlist-hero-actions">
@@ -1020,11 +1020,11 @@ class PlaylistManager {
         item.className = 'account-switch-item';
         item.innerHTML = `
           <div class="account-avatar">
-            ${acc.user.avatar ? `<img src="${acc.user.avatar}" alt="">` : `<i class="fas fa-user"></i>`}
+            ${acc.user.avatar ? `<img src="${window.escapeHtml(acc.user.avatar)}" alt="">` : `<i class="fas fa-user"></i>`}
           </div>
           <div class="account-info">
-            <div class="account-name">${acc.user.name || 'Usuario'}</div>
-            <div class="account-email">${acc.user.email || acc.user.handle || 'sin correo'}</div>
+            <div class="account-name">${window.escapeHtml(acc.user.name || 'Usuario')}</div>
+            <div class="account-email">${window.escapeHtml(acc.user.email || acc.user.handle || 'sin correo')}</div>
           </div>
           <div class="account-actions">
             <button class="account-use-btn" ${disabled ? 'disabled' : ''}>Copiar</button>
@@ -1100,10 +1100,10 @@ class PlaylistManager {
       
       item.innerHTML = `
         <div class="playlist-track-drag ${isOwner ? '' : 'disabled'}"><i class="fas fa-grip-vertical"></i></div>
-        <div class="playlist-track-cover"><img src="${track.thumbnail || `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`}" alt=""></div>
+        <div class="playlist-track-cover"><img src="${window.escapeHtml(track.thumbnail || `https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg`)}" alt=""></div>
         <div class="playlist-track-info">
-          <span class="playlist-track-title">${track.title || 'Sin título'}</span>
-          <span class="playlist-track-artist">${track.artist || track.channel || 'SeaxMusic'}</span>
+          <span class="playlist-track-title">${window.escapeHtml(track.title) || 'Sin título'}</span>
+          <span class="playlist-track-artist">${window.escapeHtml(track.artist || track.channel) || 'SeaxMusic'}</span>
         </div>
         <div class="playlist-track-duration">${track.duration || ''}</div>
         <div class="playlist-track-actions">
@@ -1130,6 +1130,9 @@ class PlaylistManager {
         const icon = likeBtn.querySelector('i');
         if (icon) {
           icon.className = isLiked ? 'fas fa-heart' : 'far fa-heart';
+        }
+        if (isLiked) {
+          window.playLikeAnimation?.(likeBtn);
         }
         
         // Sincronizar con otros lugares
@@ -1206,7 +1209,7 @@ class PlaylistManager {
       const safeTitle = window.escapeHtml(track.title) || 'Sin t\u00edtulo';
       const safeArtist = window.escapeHtml(track.artist || track.channel) || 'SeaxMusic';
       item.innerHTML = `
-        <img src="${thumbSrc}" alt="">
+        <img src="${window.escapeHtml(thumbSrc)}" alt="">
         <div>
           <div class="playlist-track-title">${safeTitle}</div>
           <div class="playlist-track-artist">${safeArtist}</div>

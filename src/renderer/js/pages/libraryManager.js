@@ -32,7 +32,7 @@ class LibraryManager {
   }
   
   async showLibrary(addToHistory = true) {
-    console.log('[LIBRARY] Mostrando biblioteca...');
+    Logger.debug('[LIBRARY] Mostrando biblioteca...');
     
     // Agregar al historial de navegación
     if (addToHistory && window.navigationHistory) {
@@ -66,7 +66,7 @@ class LibraryManager {
   }
   
   async showPlaylistsSection(addToHistory = true) {
-    console.log('[PLAYLISTS] Mostrando sección de playlists...');
+    Logger.debug('[PLAYLISTS] Mostrando sección de playlists...');
 
     if (addToHistory && window.navigationHistory) {
       window.navigationHistory.navigateTo('playlists');
@@ -309,7 +309,7 @@ class LibraryManager {
   }
   
   async loadFavorites() {
-    console.log('[LIBRARY] Cargando favoritos...');
+    Logger.debug('[LIBRARY] Cargando favoritos...');
     
     const currentUser = this.getCurrentUser();
     if (!currentUser) {
@@ -430,7 +430,7 @@ class LibraryManager {
       const coverHtml = window.playlistManager.getPlaylistCoverHtml(playlist, 'large');
       const creatorName = playlist.creator?.name || 'Usuario';
       const creatorAvatar = playlist.creator?.avatar
-        ? `<img src="${playlist.creator.avatar}" alt="">`
+        ? `<img src="${window.escapeHtml(playlist.creator.avatar)}" alt="">`
         : `<i class="fas fa-user"></i>`;
       const likeCount = playlist.likeCount || 0;
 
@@ -443,10 +443,10 @@ class LibraryManager {
           <div class="global-like-count">${likeCount} likes</div>
         </div>
         <div class="global-playlist-info">
-          <div class="global-playlist-title">${playlist.name}</div>
+          <div class="global-playlist-title">${window.escapeHtml(playlist.name)}</div>
           <div class="global-playlist-creator">
             <span class="creator-avatar">${creatorAvatar}</span>
-            <span class="creator-name">${creatorName}</span>
+            <span class="creator-name">${window.escapeHtml(creatorName)}</span>
           </div>
         </div>
       `;
@@ -493,12 +493,15 @@ class LibraryManager {
     if (!gridEl) return;
     
     gridEl.innerHTML = favorites.map((fav, index) => {
-      const bgImage = fav.thumbnail || `https://i.ytimg.com/vi/${fav.videoId}/maxresdefault.jpg`;
-      const fallbackImage = fav.videoId ? `https://i.ytimg.com/vi/${fav.videoId}/hqdefault.jpg` : './assets/img/icon.png';
+      // videoId va dentro de onerror (JS en atributo): solo caracteres válidos de ID de YouTube
+      const videoId = String(fav.videoId || '').replace(/[^\w-]/g, '');
+      const bgImage = window.escapeHtml(fav.thumbnail || `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`);
+      const fallbackImage = videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : './assets/img/icon.png';
+      const title = window.escapeHtml(fav.title);
       return `
-      <div class="library-card" 
-           data-index="${index}" 
-           data-video-id="${fav.videoId}"
+      <div class="library-card"
+           data-index="${index}"
+           data-video-id="${videoId}"
            style="--card-bg: url('${bgImage}');"
            draggable="true">
         <div class="library-card-drag" title="Arrastrar para reordenar">
@@ -508,8 +511,8 @@ class LibraryManager {
           <i class="fas fa-times"></i>
         </button>
         <div class="library-card-image">
-          <img src="${bgImage}" 
-               alt="${fav.title}"
+          <img src="${bgImage}"
+               alt="${title}"
                onerror="this.onerror=null; this.src='${fallbackImage}'; this.onerror=function(){this.src='./assets/img/icon.png'};">
           <button class="library-card-play">
             <i class="fas fa-play"></i>
@@ -518,8 +521,8 @@ class LibraryManager {
             <i class="fas fa-plus"></i>
           </button>
         </div>
-        <div class="library-card-title" title="${fav.title}">${fav.title || 'Sin título'}</div>
-        <div class="library-card-artist">${fav.artist || fav.channel || 'Artista desconocido'}</div>
+        <div class="library-card-title" title="${title}">${window.escapeHtml(fav.title) || 'Sin título'}</div>
+        <div class="library-card-artist">${window.escapeHtml(fav.artist || fav.channel) || 'Artista desconocido'}</div>
       </div>
     `;
     }).join('');
@@ -532,10 +535,13 @@ class LibraryManager {
     const listBody = document.getElementById('libraryListBody');
     if (!listBody) return;
     
-    listBody.innerHTML = favorites.map((fav, index) => `
-      <div class="library-list-item" 
+    listBody.innerHTML = favorites.map((fav, index) => {
+      // videoId va dentro de onerror (JS en atributo): solo caracteres válidos de ID de YouTube
+      const videoId = String(fav.videoId || '').replace(/[^\w-]/g, '');
+      return `
+      <div class="library-list-item"
            data-index="${index}"
-           data-video-id="${fav.videoId}"
+           data-video-id="${videoId}"
            draggable="true">
         <div class="list-col-drag" title="Arrastrar para reordenar">
           <i class="fas fa-grip-vertical"></i>
@@ -543,15 +549,15 @@ class LibraryManager {
         <div class="list-col-num">${index + 1}</div>
         <div class="list-col-title">
           <div class="list-item-image">
-            <img src="${fav.thumbnail || `https://i.ytimg.com/vi/${fav.videoId}/maxresdefault.jpg`}" 
-                 alt="${fav.title}"
-                 onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${fav.videoId}/hqdefault.jpg'; this.onerror=function(){this.src='./assets/img/icon.png'};">
+            <img src="${window.escapeHtml(fav.thumbnail || `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`)}"
+                 alt="${window.escapeHtml(fav.title)}"
+                 onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${videoId}/hqdefault.jpg'; this.onerror=function(){this.src='./assets/img/icon.png'};">
           </div>
           <div class="list-item-info">
-            <span class="list-item-name">${fav.title || 'Sin título'}</span>
+            <span class="list-item-name">${window.escapeHtml(fav.title) || 'Sin título'}</span>
           </div>
         </div>
-        <div class="list-col-artist">${fav.artist || fav.channel || 'Artista desconocido'}</div>
+        <div class="list-col-artist">${window.escapeHtml(fav.artist || fav.channel) || 'Artista desconocido'}</div>
         <div class="list-col-duration">${fav.duration || '--:--'}</div>
         <div class="list-col-actions">
           <button class="list-action-btn add-queue-btn" title="Añadir a la cola">
@@ -562,8 +568,9 @@ class LibraryManager {
           </button>
         </div>
       </div>
-    `).join('');
-    
+    `;
+    }).join('');
+
     this.setupListDragAndDrop();
     this.setupListEvents();
   }
@@ -605,7 +612,7 @@ class LibraryManager {
     e.dataTransfer.setData('text/plain', this.draggedIndex);
   }
   
-  handleDragEnd(e) {
+  handleDragEnd() {
     if (this.draggedItem) {
       this.draggedItem.classList.remove('dragging');
     }
@@ -645,7 +652,7 @@ class LibraryManager {
     const fromIndex = this.draggedIndex;
     const toIndex = parseInt(target.dataset.index);
     
-    console.log(`[LIBRARY] Moviendo de ${fromIndex} a ${toIndex}`);
+    Logger.debug(`[LIBRARY] Moviendo de ${fromIndex} a ${toIndex}`);
     
     // Reordenar favoritos
     await this.reorderFavorites(fromIndex, toIndex);
@@ -677,7 +684,7 @@ class LibraryManager {
         window.appState.favorites = favorites;
       }
       
-      console.log('[LIBRARY] Orden guardado');
+      Logger.debug('[LIBRARY] Orden guardado');
     } catch (e) {
       console.error('[LIBRARY] Error reordenando:', e);
     }
@@ -775,7 +782,7 @@ class LibraryManager {
   }
   
   async playTrack(videoId, setQueueFromHere = true) {
-    console.log('[LIBRARY] Reproduciendo:', videoId);
+    Logger.debug('[LIBRARY] Reproduciendo:', videoId);
     
     try {
       let favorites = [];
@@ -839,7 +846,7 @@ class LibraryManager {
   }
   
   async removeFromLibrary(videoId) {
-    console.log('[LIBRARY] Quitando de biblioteca:', videoId);
+    Logger.debug('[LIBRARY] Quitando de biblioteca:', videoId);
     
     try {
       if (window.electronAPI && window.electronAPI.toggleFavorite) {
@@ -867,7 +874,7 @@ class LibraryManager {
   }
   
   async playAll(shuffle = false) {
-    console.log('[LIBRARY] Reproduciendo todo' + (shuffle ? ' (shuffle)' : ''));
+    Logger.debug('[LIBRARY] Reproduciendo todo' + (shuffle ? ' (shuffle)' : ''));
     
     try {
       let favorites = [];
@@ -923,4 +930,3 @@ const libraryManager = new LibraryManager();
 
 // Exportar para uso global
 window.libraryManager = libraryManager;
-

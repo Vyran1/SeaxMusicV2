@@ -1,8 +1,5 @@
 // UI interaction logic
 
-// ⭐ Contenido original del inicio (para poder volver)
-const originalHomeContent = null;
-
 // ===== SISTEMA DE NAVEGACIÓN CON HISTORIAL =====
 const navigationHistory = {
   history: ['home'],  // Stack de páginas visitadas
@@ -20,7 +17,7 @@ const navigationHistory = {
       this.currentIndex = this.history.length - 1;
     }
     this.updateButtons();
-    console.log('[NAV] Historial:', this.history, 'Índice:', this.currentIndex);
+    Logger.debug('[NAV] Historial:', this.history, 'Índice:', this.currentIndex);
   },
   
   // Ir atrás
@@ -45,7 +42,7 @@ const navigationHistory = {
   
   // Cargar una página sin agregar al historial
   loadPage(page, addToHistory = true) {
-    console.log('[NAV] Cargando página:', page);
+    Logger.debug('[NAV] Cargando página:', page);
     
     if (page === 'home') {
       showHomePage(addToHistory);
@@ -93,12 +90,12 @@ window.navigationHistory = navigationHistory;
 
 // Event listeners para botones de navegación
 document.getElementById('backBtn').addEventListener('click', () => {
-  console.log('[NAV] Back button clicked');
+  Logger.debug('[NAV] Back button clicked');
   navigationHistory.goBack();
 });
 
 document.getElementById('forwardBtn').addEventListener('click', () => {
-  console.log('[NAV] Forward button clicked');
+  Logger.debug('[NAV] Forward button clicked');
   navigationHistory.goForward();
 });
 
@@ -219,7 +216,7 @@ window.scheduleMarqueeRefresh = scheduleMarqueeRefresh;
 
 // ⭐ Función global para mostrar la página de inicio con banner
 function showHomePage(addToHistory = true) {
-  console.log('[NAV] Mostrando página de inicio');
+  Logger.debug('[NAV] Mostrando página de inicio');
   
   // Agregar al historial de navegación
   if (addToHistory && window.navigationHistory) {
@@ -260,7 +257,7 @@ function showHomePage(addToHistory = true) {
           </div>
           <div class="home-hero-text">
             <span class="home-hero-greeting" id="homeGreeting">${greeting}</span>
-            <h1 class="home-hero-title" id="homeBannerName">${userName}</h1>
+            <h1 class="home-hero-title" id="homeBannerName">${window.escapeHtml(userName)}</h1>
             <p class="home-hero-subtitle">Tu mundo musical, curado para este momento.</p>
           </div>
           <div class="home-hero-actions">
@@ -425,7 +422,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
     // Add active class to clicked item
     item.classList.add('active');
     
-    console.log('Navigate to:', navText);
+    Logger.debug('Navigate to:', navText);
   });
 });
 
@@ -519,7 +516,7 @@ function addPlaylistToSidebar(playlist) {
   });
   
   item.addEventListener('click', () => {
-    console.log('Open playlist:', playlist.name);
+    Logger.debug('Open playlist:', playlist.name);
     // TODO: Load playlist content
   });
   
@@ -587,5 +584,4 @@ window.uiUtils = {
   addPlaylistToSidebar,
   showNotification
 };
-
 

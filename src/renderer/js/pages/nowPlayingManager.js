@@ -36,7 +36,7 @@ class NowPlayingManager {
       })();
       window.musicPlayer.refreshVolumeForUser?.(user);
     }
-    console.log('[NOW PLAYING] Manager inicializado');
+    Logger.debug('[NOW PLAYING] Manager inicializado');
   }
 
   async loadHTML() {
@@ -46,7 +46,7 @@ class NowPlayingManager {
     if (!this.page) {
       console.error('[NOW PLAYING] No se encontró #nowPlayingPage en el DOM');
     } else {
-      console.log('[NOW PLAYING] Página encontrada en DOM');
+      Logger.debug('[NOW PLAYING] Página encontrada en DOM');
     }
   }
 
@@ -169,7 +169,7 @@ class NowPlayingManager {
     this.prevBtn?.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      console.log('[NOW PLAYING] Botón Previous clickeado');
+      Logger.debug('[NOW PLAYING] Botón Previous clickeado');
       if (window.musicPlayer) {
         window.musicPlayer.previous();
       } else {
@@ -190,7 +190,7 @@ class NowPlayingManager {
     this.likeBtn?.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      console.log('[NOW PLAYING] Botón Like clickeado', this.currentSong);
+      Logger.debug('[NOW PLAYING] Botón Like clickeado', this.currentSong);
 
       if (!this.currentSong) {
         console.warn('[NOW PLAYING] No hay canción actual para dar like');
@@ -199,8 +199,11 @@ class NowPlayingManager {
 
       if (window.favoritesManager) {
         const isLiked = await window.favoritesManager.toggleFavorite(this.currentSong);
-        console.log('[NOW PLAYING] Resultado toggleFavorite:', isLiked);
+        Logger.debug('[NOW PLAYING] Resultado toggleFavorite:', isLiked);
         this.updateLikeButton();
+        if (isLiked) {
+          window.playLikeAnimation?.(this.likeBtn);
+        }
 
         // También actualizar el botón de like en la barra principal
         const mainLikeBtn = document.getElementById('likeBtn');
@@ -238,7 +241,7 @@ class NowPlayingManager {
     // Queue - abrir panel de cola
     this.queueBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
-      console.log('[NOW PLAYING] Queue button clicked');
+      Logger.debug('[NOW PLAYING] Queue button clicked');
       this.toggleQueuePanel();
     });
 
@@ -256,7 +259,7 @@ class NowPlayingManager {
 
     // Lyrics - toggle panel de letras
     this.lyricsBtn?.addEventListener('click', () => {
-      console.log('[NOW PLAYING] Lyrics button clicked');
+      Logger.debug('[NOW PLAYING] Lyrics button clicked');
       this.toggleLyricsMode();
     });
 
@@ -372,7 +375,7 @@ class NowPlayingManager {
     };
 
     const setVolume = (percent) => {
-      console.log('[NOW PLAYING] Estableciendo volumen:', Math.round(percent * 100) + '%');
+      Logger.debug('[NOW PLAYING] Estableciendo volumen:', Math.round(percent * 100) + '%');
 
       // Actualizar el player principal y enviar a YouTube
       if (window.musicPlayer) {
@@ -665,7 +668,7 @@ class NowPlayingManager {
       this.startVisualizer();
     }
 
-    console.log('[NOW PLAYING] Mostrando vista');
+    Logger.debug('[NOW PLAYING] Mostrando vista');
   }
 
   updateSideImages(nextVideoInfo = null, prevVideoInfo = null) {
@@ -676,7 +679,7 @@ class NowPlayingManager {
     const isLibraryActive = window.libraryManager?.isLibraryActive || false;
     const hasQueue = queue.length > 0 && currentIndex >= 0;
 
-    console.log('[NOW PLAYING] Actualizando carrusel - Cola:', queue.length, 'Índice:', currentIndex, 'Biblioteca activa:', isLibraryActive);
+    Logger.debug('[NOW PLAYING] Actualizando carrusel - Cola:', queue.length, 'Índice:', currentIndex, 'Biblioteca activa:', isLibraryActive);
 
     // ========== ANTERIOR ==========
     let prevSong = null;
@@ -684,20 +687,20 @@ class NowPlayingManager {
     // ⭐ Si hay cola activa (biblioteca), PRIORIZAR la cola
     if (hasQueue && currentIndex > 0 && queue[currentIndex - 1]) {
       prevSong = queue[currentIndex - 1];
-      console.log('[NOW PLAYING] Anterior de cola:', prevSong.title);
+      Logger.debug('[NOW PLAYING] Anterior de cola:', prevSong.title);
     }
 
     // Si no hay cola, usar YouTube
     if (!prevSong && prevVideoInfo && prevVideoInfo.videoId) {
       prevSong = prevVideoInfo;
-      console.log('[NOW PLAYING] Anterior de YouTube:', prevSong.title);
+      Logger.debug('[NOW PLAYING] Anterior de YouTube:', prevSong.title);
     }
 
     // Si no hay prevSong, buscar en historial
     if (!prevSong) {
       const history = window.appState?.recentHistory || [];
       prevSong = history.find(h => h.videoId !== currentVideoId);
-      if (prevSong) console.log('[NOW PLAYING] Anterior de historial:', prevSong.title);
+      if (prevSong) Logger.debug('[NOW PLAYING] Anterior de historial:', prevSong.title);
     }
 
     // Actualizar prev cover
@@ -718,13 +721,13 @@ class NowPlayingManager {
     // ⭐ Si hay cola activa (biblioteca), PRIORIZAR la cola sobre YouTube
     if (hasQueue && currentIndex < queue.length - 1 && queue[currentIndex + 1]) {
       nextSong = queue[currentIndex + 1];
-      console.log('[NOW PLAYING] Siguiente de cola:', nextSong.title);
+      Logger.debug('[NOW PLAYING] Siguiente de cola:', nextSong.title);
     }
 
     // Si no hay cola, usar YouTube
     if (!nextSong && nextVideoInfo && nextVideoInfo.videoId) {
       nextSong = nextVideoInfo;
-      console.log('[NOW PLAYING] Siguiente de YouTube:', nextSong.title);
+      Logger.debug('[NOW PLAYING] Siguiente de YouTube:', nextSong.title);
     }
 
     // Actualizar next cover
@@ -788,7 +791,7 @@ class NowPlayingManager {
 
     this.stopVisualizer();
 
-    console.log('[NOW PLAYING] Ocultando vista');
+    Logger.debug('[NOW PLAYING] Ocultando vista');
   }
 
   toggle(song = null) {
@@ -868,7 +871,7 @@ class NowPlayingManager {
       }
     }
 
-    console.log('[NOW PLAYING] Actualizando canción:', song.title, 'VideoID:', videoId, 'Thumbnail:', song.thumbnail);
+    Logger.debug('[NOW PLAYING] Actualizando canción:', song.title, 'VideoID:', videoId, 'Thumbnail:', song.thumbnail);
 
     // Si hay dirección y estamos activos, animar
     if (direction && this.isActive) {
@@ -888,13 +891,13 @@ class NowPlayingManager {
       thumbnailUrl = this.getHQThumbnail(song.thumbnail);
     }
 
-    console.log('[NOW PLAYING] URL final del cover:', thumbnailUrl);
+    Logger.debug('[NOW PLAYING] URL final del cover:', thumbnailUrl);
 
     // Actualizar cover principal
     if (this.cover && this.cover.src !== thumbnailUrl) {
       this.cover.src = thumbnailUrl;
       this.cover.onerror = () => {
-        console.log('[NOW PLAYING] Error cargando maxres, probando hqdefault...');
+        Logger.debug('[NOW PLAYING] Error cargando maxres, probando hqdefault...');
         if (song.videoId) {
           const fallback = `https://img.youtube.com/vi/${song.videoId}/hqdefault.jpg`;
           if (this.cover.src !== fallback) this.cover.src = fallback;
@@ -967,7 +970,7 @@ class NowPlayingManager {
     }
 
     const isLiked = window.favoritesManager?.isFavorite(this.currentSong.videoId);
-    console.log('[NOW PLAYING] Actualizando like button - isLiked:', isLiked, 'videoId:', this.currentSong.videoId);
+    Logger.debug('[NOW PLAYING] Actualizando like button - isLiked:', isLiked, 'videoId:', this.currentSong.videoId);
 
     if (isLiked) {
       this.likeBtn.innerHTML = '<i class="fas fa-heart"></i>';
@@ -1051,14 +1054,14 @@ class NowPlayingManager {
       this.stopLyricsSync();
       window.lyricsService?.cancel();
       this.lyricsLoadingForSong = null;
-      console.log('[NOW PLAYING] Modo letras desactivado');
+      Logger.debug('[NOW PLAYING] Modo letras desactivado');
     } else {
       // Activar modo letras
       content.classList.add('lyrics-active');
       lyricsBtn?.classList.add('active');
       this.loadLyrics();
       this.updateMiniCarousel();
-      console.log('[NOW PLAYING] Modo letras activado');
+      Logger.debug('[NOW PLAYING] Modo letras activado');
     }
   }
 
@@ -1072,7 +1075,7 @@ class NowPlayingManager {
 
     // Si ya estamos cargando letras para esta canción, no hacer nada
     if (this.lyricsLoadingForSong === songId) {
-      console.log('[LYRICS] Ya cargando para esta canción');
+      Logger.debug('[LYRICS] Ya cargando para esta canción');
       return;
     }
 
@@ -1097,13 +1100,13 @@ class NowPlayingManager {
       const trackName = this.currentSong.title || '';
       const artistName = this.currentSong.artist || this.currentSong.channel || '';
 
-      console.log('[LYRICS] Buscando:', trackName, '-', artistName);
+      Logger.debug('[LYRICS] Buscando:', trackName, '-', artistName);
 
       const lyrics = await window.lyricsService?.searchLyrics(trackName, artistName, songId);
 
       // Verificar que seguimos en la misma canción
       if (this.currentSong?.videoId !== songId) {
-        console.log('[LYRICS] Canción cambió, ignorando resultado');
+        Logger.debug('[LYRICS] Canción cambió, ignorando resultado');
         return;
       }
 
@@ -1176,7 +1179,7 @@ class NowPlayingManager {
       lyricsContent.appendChild(lineEl);
     });
 
-    console.log('[LYRICS] Renderizadas', lyrics.length, 'líneas', hasSynced ? '(sincronizadas)' : '(planas)');
+    Logger.debug('[LYRICS] Renderizadas', lyrics.length, 'líneas', hasSynced ? '(sincronizadas)' : '(planas)');
   }
 
   /**
@@ -1198,7 +1201,7 @@ class NowPlayingManager {
     this.stopLyricsSync();
 
     if (!window.lyricsService?.hasSyncedLyrics()) {
-      console.log('[LYRICS] Sin letras sincronizadas');
+      Logger.debug('[LYRICS] Sin letras sincronizadas');
       return;
     }
 
@@ -1215,7 +1218,7 @@ class NowPlayingManager {
     };
 
     this.lyricsAnimationId = requestAnimationFrame(syncLoop);
-    console.log('[LYRICS] Sincronización iniciada (rAF)');
+    Logger.debug('[LYRICS] Sincronización iniciada (rAF)');
   }
 
   /**
@@ -1428,11 +1431,11 @@ class NowPlayingManager {
 
       itemEl.innerHTML = `
         <div class="np-queue-cover-wrapper">
-          <img class="np-queue-cover" src="${imgUrl}" alt="Cover" onerror="this.src='${defaultImg}'">
+          <img class="np-queue-cover" src="${window.escapeHtml(imgUrl)}" alt="Cover" onerror="this.src='${defaultImg}'">
         </div>
         <div class="np-queue-item-info">
-          <div class="np-queue-item-title">${track.title || 'Sin título'}</div>
-          <div class="np-queue-item-artist">${track.artist || track.channel || 'Artista desconocido'}</div>
+          <div class="np-queue-item-title">${window.escapeHtml(track.title) || 'Sin título'}</div>
+          <div class="np-queue-item-artist">${window.escapeHtml(track.artist || track.channel) || 'Artista desconocido'}</div>
         </div>
         <button class="np-queue-item-remove" title="Eliminar de la cola">
           <i class="fas fa-times"></i>
@@ -1465,7 +1468,7 @@ class NowPlayingManager {
     window.appState.playQueueIndex = index;
     const track = queue[index];
 
-    console.log('[NOW PLAYING] Reproduciendo item de cola de índice:', index, track.title);
+    Logger.debug('[NOW PLAYING] Reproduciendo item de cola de índice:', index, track.title);
 
     // Calcular dirección de animación
     const direction = index >= oldIndex ? 'next' : 'prev';
@@ -1523,7 +1526,7 @@ class NowPlayingManager {
     const queue = window.appState?.playQueue || [];
     if (index < 0 || index >= queue.length) return;
 
-    console.log('[NOW PLAYING] Eliminando item de cola de índice:', index);
+    Logger.debug('[NOW PLAYING] Eliminando item de cola de índice:', index);
 
     const currentIndex = window.appState?.playQueueIndex ?? -1;
 
@@ -1564,7 +1567,7 @@ class NowPlayingManager {
   }
 
   clearQueue() {
-    console.log('[NOW PLAYING] Limpiando toda la cola');
+    Logger.debug('[NOW PLAYING] Limpiando toda la cola');
     window.clearPlayQueue?.();
     
     // Si musicPlayer existe, pausar
