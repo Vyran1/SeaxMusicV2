@@ -1,4 +1,48 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webFrame } = require('electron');
+
+// ===== Quitar los anuncios de las respuestas del reproductor (mundo principal) =====
+// Sin datos de anuncios, YouTube no programa el pre-roll: no hay nada que cargar ni silenciar.
+// El preload corre aislado, así que el parche se inyecta en la página con webFrame.
+webFrame.executeJavaScript(`(${function stripAdsInPage() {
+  const AD_KEYS = ['adPlacements', 'playerAds', 'adSlots'];
+  const strip = (obj) => {
+    if (obj && typeof obj === 'object') {
+      AD_KEYS.forEach((key) => { if (key in obj) delete obj[key]; });
+    }
+    return obj;
+  };
+
+  // Respuesta inicial embebida en la página
+  let initialResponse;
+  try {
+    Object.defineProperty(window, 'ytInitialPlayerResponse', {
+      configurable: true,
+      get() { return initialResponse; },
+      set(value) { initialResponse = strip(value); }
+    });
+  } catch (e) { }
+
+  // Respuestas posteriores (cambio de canción sin recargar)
+  const originalFetch = window.fetch;
+  window.fetch = async function (...args) {
+    const response = await originalFetch.apply(this, args);
+    const input = args[0];
+    const url = typeof input === 'string' ? input : (input && input.url) || '';
+    if (!/\/youtubei\/v1\/(player|next)(\?|$)/.test(url)) return response;
+    try {
+      const data = strip(await response.clone().json());
+      const headers = new Headers(response.headers);
+      headers.delete('content-length');
+      return new Response(JSON.stringify(data), {
+        status: response.status,
+        statusText: response.statusText,
+        headers
+      });
+    } catch (e) {
+      return response;
+    }
+  };
+}.toString()})();`).catch(() => {});
 
 // getBestThumbnail is duplicated in src/main/utils/thumbnails.js
 // This inline version is needed because preload contextBridge runs in an isolated world
@@ -1094,6 +1138,7 @@ class YouTubeAdBlocker {
     if (!video) return;
 
     const isAdPlaying = this.isAdCurrentlyPlaying();
+    if (!isAdPlaying) this.adSince = 0;
 
     if (isAdPlaying) {
       // Guardar valores originales SOLO si no estamos ya en modo anuncio
@@ -1111,13 +1156,21 @@ class YouTubeAdBlocker {
       video.muted = true;
       this.adsMuted++;
 
-      // ⭐ Aceleración SEGURA: solo cambiar rate, nunca hacer seek
-      // (el seek causaba saltos al final del video principal)
       if (video.playbackRate < 16) {
         video.playbackRate = 16;
         this.adsAccelerated++;
       }
 
+      // Terminar el anuncio de golpe: saltar al final del clip. Solo si el anuncio
+      // lleva confirmado 300ms (evita reaccionar a parpadeos), el clip es corto y
+      // no estamos cerca del final. Nunca se hace sobre la canción: su duración es larga.
+      const now = Date.now();
+      if (!this.adSince) this.adSince = now;
+      if (now - this.adSince >= 300 &&
+          Number.isFinite(video.duration) && video.duration > 0 && video.duration < 120 &&
+          video.currentTime < video.duration - 0.5) {
+        try { video.currentTime = video.duration; } catch (e) { }
+      }
       // Forzar play si está pausado
       if (video.paused) {
         video.play().catch(() => {});
@@ -1126,6 +1179,7 @@ class YouTubeAdBlocker {
     } else if (this.isInAdMode) {
       // Restaurar valores originales cuando termina el anuncio
       this.isInAdMode = false;
+      this.adSince = 0;
       video.playbackRate = 1;
       video.muted = false;
       // ⭐ SIEMPRE usar el volumen del usuario guardado (prioridad máxima)
@@ -1169,20 +1223,15 @@ class YouTubeAdBlocker {
   }
 
   isAdCurrentlyPlaying() {
-    // ⭐ MÉTODO MÁS CONFIABLE: Solo verificar la clase 'ad-showing' en el player
-    // Esta clase SOLO está presente cuando hay un anuncio de video reproduciéndose
+    // Fuente más fiable: la API interna del reproductor (1 = anuncio reproduciéndose)
     const player = document.querySelector('#movie_player');
-    if (player && player.classList.contains('ad-showing')) {
-      return true;
+    if (!player) return false;
+    if (typeof player.getAdState === 'function') {
+      try { return player.getAdState() === 1; } catch (e) { }
     }
-
-    // Verificar también el texto de "Anuncio" o "Ad" visible
-    const adText = document.querySelector('.ytp-ad-text');
-    if (adText && this.isElementVisible(adText)) {
-      return true;
-    }
-
-    return false;
+    // Respaldo: la clase que YouTube pone solo durante un anuncio de video.
+    // No se usa '.ytp-ad-text' porque puede aparecer fuera de anuncios y hacer saltar canciones.
+    return player.classList.contains('ad-showing');
   }
 
   closeAdOverlays() {
@@ -1362,13 +1411,7 @@ function checkYouTubeLoginStatus() {
     const hasAvatarImg = topbarMenuButton?.querySelector('img[src*="ggpht"]') ||
       topbarMenuButton?.querySelector('img[src*="lh3"]');
 
-    // 2. Buscar el botón de usuario en la barra superior (topbar)
-    const userButton = document.querySelector('button[aria-label*="Cuenta"], button[aria-label*="gusto"], button[aria-label*="perfil"]');
-
-    // 3. Buscar elemento con información del usuario
-    const userMenu = document.querySelector('yt-simple-endpoint#endpoint[href*="accounts.google"]');
-
-    // 4. Buscar el img del avatar (del topbar button) - SOLO si tiene src
+    // 2. Buscar el img del avatar (del topbar button) - SOLO si tiene src
     const profileImage = hasAvatarImg ||
       document.querySelector('#avatar-button img[src*="ggpht"]') ||
       document.querySelector('button img[src*="lh3"]');

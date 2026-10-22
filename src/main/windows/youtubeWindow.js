@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { BrowserWindow, session } = require('electron');
 const path = require('path');
 const state = require('../state');
@@ -37,7 +38,7 @@ function createYouTubeWindow(isLoginWindow = false) {
     // Mute initially to prevent startup autoplay of YouTube's last session
     try {
       win.webContents.setAudioMuted(true);
-      console.log('[VOLUME] Muted backend YouTube window on creation');
+      logger.debug('[VOLUME] Muted backend YouTube window on creation');
     } catch (e) {
       console.error('[VOLUME] Error muting on creation:', e);
     }
@@ -65,7 +66,7 @@ function createBackendWindow(id) {
 
   try {
     backendWindow.webContents.setAudioMuted(true);
-    console.log('[VOLUME] Muted backend window on creation');
+    logger.debug('[VOLUME] Muted backend window on creation');
   } catch (e) {
     console.error('[VOLUME] Error muting backend window on creation:', e);
   }
@@ -172,7 +173,7 @@ function setupDeclarativeAdBlocker() {
     ytSession.webRequest.onBeforeRequest(filter, (details, callback) => {
       callback({ cancel: true });
     });
-    console.log('🛡️ [MAIN] Bloqueador de anuncios declarativo registrado a nivel de red (Default + persist:youtube)');
+    logger.debug('🛡️ [MAIN] Bloqueador de anuncios declarativo registrado a nivel de red (Default + persist:youtube)');
   } catch (err) {
     console.error('❌ [MAIN] Error al registrar bloqueador de anuncios en persist:youtube:', err);
   }
