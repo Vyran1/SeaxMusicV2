@@ -96,6 +96,9 @@
       "private": true
     }
   },
+  "overrides": {
+    "node-abi": "^4.39.0"
+  },
   "devDependencies": {
     "@electron/rebuild": "^4.2.1",
     "electron": "^45.0.0",
