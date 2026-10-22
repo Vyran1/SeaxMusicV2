@@ -3,7 +3,7 @@ const { ipcMain, app, BrowserWindow } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const Store = require('electron-store');
+const Store = require('electron-store').default || require('electron-store');
 const state = require('../state');
 
 // Almacén seguro con validación estricta del esquema de datos

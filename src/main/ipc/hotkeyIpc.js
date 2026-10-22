@@ -1,6 +1,6 @@
 const logger = require('../utils/logger');
 const { app, globalShortcut, ipcMain } = require('electron');
-const Store = require('electron-store');
+const Store = require('electron-store').default || require('electron-store');
 const state = require('../state');
 
 // Inicializar el almacén para los atajos de teclado con valores seguros por defecto

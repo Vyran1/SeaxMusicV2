@@ -1,6 +1,6 @@
 {
   "name": "seaxmusic",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "SeaxMusic",
   "author": "Vyran",
   "main": "src/main/main.js",
@@ -97,16 +97,16 @@
     }
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.2.0",
-    "electron": "^30.5.0",
+    "@electron/rebuild": "^4.2.1",
+    "electron": "^45.0.0",
     "electron-builder": "^26.4.0",
-    "eslint": "^10.8.0",
+    "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.1.8",
-    "prettier": "^3.9.6"
+    "prettier": "^3.9.10"
   },
   "dependencies": {
     "discord-rpc": "^4.0.1",
-    "electron-store": "^8.2.0",
+    "electron-store": "^12.0.0",
     "electron-updater": "^6.7.3"
   }
 }

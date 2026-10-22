@@ -2,7 +2,7 @@ const logger = require('./utils/logger');
 const { app, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const Store = require('electron-store');
+const Store = require('electron-store').default || require('electron-store');
 
 // Esquema de validación estricto para los datos de sesión del usuario
 const userDataSchema = {
