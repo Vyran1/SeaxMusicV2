@@ -721,9 +721,7 @@
 
       // Action Handlers for controls
       el.playPauseBtn.addEventListener('click', () => {
-        isPlaying = !isPlaying;
-        updatePlayPauseUI();
-        window.pipAPI.sendControl(isPlaying ? 'play' : 'pause');
+        window.pipAPI.sendControl(isPlaying ? 'pause' : 'play');
       });
 
       el.prevBtn.addEventListener('click', () => {

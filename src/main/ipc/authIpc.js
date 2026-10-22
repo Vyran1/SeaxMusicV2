@@ -1,14 +1,14 @@
+const logger = require('../utils/logger');
 const { ipcMain } = require('electron');
-const fs = require('fs');
 const state = require('../state');
 const { createLoginWindow } = require('../windows/loginWindow');
 
 // En dev mode, limpiar datos de sesión anterior para testing
 if (process.argv.includes('--dev')) {
-  console.log('[DEV] Dev mode: Limpiando datos de sesión anterior del store...');
+  logger.debug('[DEV] Dev mode: Limpiando datos de sesión anterior del store...');
   try {
     state.sessionStore.clear();
-    console.log('[SESSION] Datos de sesión anterior borrados del store');
+    logger.debug('[SESSION] Datos de sesión anterior borrados del store');
   } catch (error) {
     console.error('Error limpiando datos del store:', error);
   }
@@ -54,11 +54,11 @@ ipcMain.handle('clear-user-data', async () => {
 ipcMain.on('youtube-login-success', (event, userInfo) => {
   // Evitar procesar múltiples veces
   if (state.loginProcessed) {
-    console.log('[LOGIN] Login ya procesado, ignorando...');
+    logger.debug('[LOGIN] Login ya procesado, ignorando...');
     return;
   }
 
-  console.log('[LOGIN] YouTube login detectado:', userInfo);
+  logger.debug('[LOGIN] YouTube login detectado:', userInfo);
   state.loginProcessed = true;
 
   // Los datos ya vienen extraídos desde backend-preload.js
@@ -78,19 +78,19 @@ ipcMain.on('youtube-login-success', (event, userInfo) => {
       }
     });
 
-    console.log('[NOTIFY] Notificación enviada a la app principal');
+    logger.debug('[NOTIFY] Notificación enviada a la app principal');
   }
 
   // ⭐ Cerrar loginWindow después del login exitoso (siempre, exceptuando DEV)
   const isDevMode = process.argv.includes('--dev');
 
-  console.log('[LOGIN] Verificando cierre de ventana - isDevMode:', isDevMode, 'loginWindow existe:', !!state.loginWindow);
+  logger.debug('[LOGIN] Verificando cierre de ventana - isDevMode:', isDevMode, 'loginWindow existe:', !!state.loginWindow);
 
   if (!isDevMode && state.loginWindow && !state.loginWindow.isDestroyed()) {
-    console.log('[LOGIN] Programando cierre de ventana de login en 1 segundo...');
+    logger.debug('[LOGIN] Programando cierre de ventana de login en 1 segundo...');
     setTimeout(() => {
       if (state.loginWindow && !state.loginWindow.isDestroyed()) {
-        console.log('[LOGIN] Cerrando ventana de login automáticamente');
+        logger.debug('[LOGIN] Cerrando ventana de login automáticamente');
         try {
           state.loginWindow.close();
         } catch (e) {
@@ -98,13 +98,13 @@ ipcMain.on('youtube-login-success', (event, userInfo) => {
         }
         state.loginWindow = null;
       } else {
-        console.log('[LOGIN] La ventana ya no existe o fue destruida');
+        logger.debug('[LOGIN] La ventana ya no existe o fue destruida');
       }
     }, 1000);
   } else if (isDevMode) {
-    console.log('[DEV] Login window permanece abierta para debug');
+    logger.debug('[DEV] Login window permanece abierta para debug');
   } else {
-    console.log('[LOGIN] No hay loginWindow para cerrar');
+    logger.debug('[LOGIN] No hay loginWindow para cerrar');
   }
 
   // Reset flag después de un tiempo MUY largo para evitar loops
@@ -113,12 +113,12 @@ ipcMain.on('youtube-login-success', (event, userInfo) => {
   }, 120000); // 2 minutos
 });
 
-ipcMain.on('youtube-logout-success', (event) => {
-  console.log('[LOGOUT] YouTube logout detectado');
+ipcMain.on('youtube-logout-success', () => {
+  logger.debug('[LOGOUT] YouTube logout detectado');
 
   // ⭐ Resetear flag de login para permitir nuevo login
   state.loginProcessed = false;
-  console.log('[LOGOUT] Flag loginProcessed reseteado');
+  logger.debug('[LOGOUT] Flag loginProcessed reseteado');
 
   if (state.mainWindow && !state.mainWindow.isDestroyed()) {
     state.mainWindow.webContents.send('youtube-user-logged-out', {
@@ -126,14 +126,14 @@ ipcMain.on('youtube-logout-success', (event) => {
       timestamp: new Date().toISOString()
     });
 
-    console.log('[NOTIFY] Notificación de logout enviada a la app principal');
+    logger.debug('[NOTIFY] Notificación de logout enviada a la app principal');
   }
 });
 
 // ⭐ CORRECCIÓN: Logout mejorado
 ipcMain.handle('logout-youtube', async () => {
   try {
-    console.log('[LOGOUT] Iniciando logout de YouTube...');
+    logger.debug('[LOGOUT] Iniciando logout de YouTube...');
 
     const ytSession = state.getYouTubeSession();
 
@@ -141,13 +141,13 @@ ipcMain.handle('logout-youtube', async () => {
       await ytSession.clearStorageData({
         storages: ['cookies', 'localstorage', 'sessionstorage', 'indexdb', 'websql', 'serviceworkers', 'cachestorage']
       });
-      console.log('[LOGOUT] Storage y cookies limpiadas correctamente');
+      logger.debug('[LOGOUT] Storage y cookies limpiadas correctamente');
     } catch (e) {
       console.error('[LOGOUT] Error limpiando storage:', e);
     }
 
     if (state.youtubeWindow && !state.youtubeWindow.isDestroyed()) {
-      console.log('[LOGOUT] Navegando a logout en ventana existente...');
+      logger.debug('[LOGOUT] Navegando a logout en ventana existente...');
 
       state.youtubeWindow.loadURL('https://accounts.google.com/Logout');
 
@@ -155,7 +155,7 @@ ipcMain.handle('logout-youtube', async () => {
 
       if (state.youtubeWindow && !state.youtubeWindow.isDestroyed()) {
         state.youtubeWindow.loadURL('https://www.youtube.com');
-        console.log('[LOGOUT] YouTube recargado después del logout');
+        logger.debug('[LOGOUT] YouTube recargado después del logout');
       }
     }
 

@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { app, globalShortcut, ipcMain } = require('electron');
 const Store = require('electron-store');
 const state = require('../state');
@@ -27,12 +28,12 @@ function registerAllHotkeys() {
 
   // Si los atajos están desactivados en ajustes, detenerse aquí
   if (!hotkeyStore.get('enabled')) {
-    console.log('[HOTKEYS] Los atajos globales están desactivados en la configuración.');
+    logger.debug('[HOTKEYS] Los atajos globales están desactivados en la configuración.');
     return;
   }
 
   const hotkeys = hotkeyStore.get('hotkeys');
-  console.log('[HOTKEYS] Registrando atajos globales en el sistema:', hotkeys);
+  logger.debug('[HOTKEYS] Registrando atajos globales en el sistema:', hotkeys);
 
   for (const [action, accelerator] of Object.entries(hotkeys)) {
     if (!accelerator || accelerator.trim() === '') {
@@ -41,7 +42,7 @@ function registerAllHotkeys() {
 
     try {
       const registered = globalShortcut.register(accelerator, () => {
-        console.log(`[HOTKEYS] Atajo disparado: ${action} (${accelerator})`);
+        logger.debug(`[HOTKEYS] Atajo disparado: ${action} (${accelerator})`);
         
         // Notificar a la ventana principal del disparador
         if (state.mainWindow && !state.mainWindow.isDestroyed()) {
@@ -70,7 +71,7 @@ if (app.isReady()) {
 // Limpiar shortcuts al cerrar la aplicación de forma limpia
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
-  console.log('[HOTKEYS] Todos los atajos globales han sido liberados.');
+  logger.debug('[HOTKEYS] Todos los atajos globales han sido liberados.');
 });
 
 // ===== CONTROLADORES IPC =====

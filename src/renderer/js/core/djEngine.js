@@ -137,7 +137,7 @@ class DJEngine {
     });
 
     this.saveData();
-    console.log('[DJ ENGINE] 🎵 Track registrado:', track.title, '- Artista:', artist);
+    Logger.debug('[DJ ENGINE] 🎵 Track registrado:', track.title, '- Artista:', artist);
   }
 
   // ⭐ Extraer artista del título
@@ -176,7 +176,7 @@ class DJEngine {
   // ⭐ Obtener artistas top
   getTopArtists(limit = 10) {
     return Object.entries(this.artistStats)
-      .filter(([artist, data]) => data.count >= 2) // Mínimo 2 plays
+      .filter(([, data]) => data.count >= 2) // Mínimo 2 plays
       .sort((a, b) => b[1].count - a[1].count)
       .slice(0, limit)
       .map(([artist, data]) => ({
@@ -435,7 +435,7 @@ class DJEngine {
   // ⭐ Crear o actualizar playlist real en la comunidad (como DJ Bot)
   createCommunityPlaylist(autoPlaylist) {
     if (!autoPlaylist?.tracks?.length || autoPlaylist.tracks.length < 3) {
-      console.log('[DJ ENGINE] No hay suficientes tracks para crear playlist');
+      Logger.debug('[DJ ENGINE] No hay suficientes tracks para crear playlist');
       return null;
     }
 
@@ -491,7 +491,7 @@ class DJEngine {
       match.description = autoPlaylist.description || match.description;
       playlistManager.upsertGlobalPlaylist(match);
       if (playlistManager.refreshSidebar) playlistManager.refreshSidebar();
-      console.log('[DJ ENGINE] ✅ Playlist actualizada en comunidad:', match.name, '-', match.tracks.length, 'tracks');
+      Logger.debug('[DJ ENGINE] ✅ Playlist actualizada en comunidad:', match.name, '-', match.tracks.length, 'tracks');
       return match;
     }
 
@@ -517,7 +517,7 @@ class DJEngine {
     };
     playlistManager.upsertGlobalPlaylist(playlist);
     if (playlistManager.refreshSidebar) playlistManager.refreshSidebar();
-    console.log('[DJ ENGINE] ✅ Playlist creada en comunidad:', playlist.name, '-', formattedTracks.length, 'tracks');
+    Logger.debug('[DJ ENGINE] ✅ Playlist creada en comunidad:', playlist.name, '-', formattedTracks.length, 'tracks');
     return playlist;
   }
 
@@ -552,7 +552,7 @@ class DJEngine {
     });
 
     if (created.length > 0) {
-      console.log('[DJ ENGINE] 📢 Publicadas', created.length, 'playlists en la comunidad');
+      Logger.debug('[DJ ENGINE] 📢 Publicadas', created.length, 'playlists en la comunidad');
     }
 
     return created;
@@ -901,7 +901,7 @@ class DJEngine {
       }
     }
 
-    console.log('[DJ ENGINE] 🎧 Reproduciendo playlist:', playlist.name, '- Cover:', playlistCover);
+    Logger.debug('[DJ ENGINE] 🎧 Reproduciendo playlist:', playlist.name, '- Cover:', playlistCover);
   }
 
   // 📌 Guardar/actualizar playlist DJ local para poder abrirla en vista
@@ -1033,6 +1033,5 @@ class DJEngine {
 window.djEngine = new DJEngine();
 
 // Exportar para uso
-console.log('[DJ ENGINE] 🎧 Sistema DJ inicializado');
-
+Logger.debug('[DJ ENGINE] 🎧 Sistema DJ inicializado');
 

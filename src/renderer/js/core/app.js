@@ -1,5 +1,5 @@
 // Main application logic
-console.log('🎵 SeaxMusic initializing...');
+Logger.debug('🎵 SeaxMusic initializing...');
 
 // Check if Electron API is available
 if (!window.electronAPI) {
@@ -162,37 +162,16 @@ function getNextTrackForDjMix() {
     }
   }
   if (queue.length && idx >= 0 && idx + 1 < queue.length) {
-    // ⭐ Diversidad: buscar entre los próximos DJ_CONFIG.WINDOW_SIZE el mejor candidato
-    const windowSize = Math.min(DJ_CONFIG.WINDOW_SIZE, queue.length - (idx + 1));
-    const currentArtist = normalizeArtistDJ(appState.currentTrack?.artist || appState.currentTrack?.channel || '');
-    const recentSet = getRecentPlayedSet(APP_TIMINGS.RECENT_PLAYED_LIMIT);
-    let bestIdx = -1;
-    for (let offset = 0; offset < windowSize; offset++) {
-      const t = queue[idx + 1 + offset];
-      const a = normalizeArtistDJ(t.artist || t.channel);
-      if (!a || a === currentArtist) continue;
-      if (recentSet.has(t.videoId)) continue;
-      bestIdx = idx + 1 + offset;
-      break;
-    }
-    if (bestIdx === -1) {
-      for (let offset = 0; offset < windowSize; offset++) {
-        const t = queue[idx + 1 + offset];
-        const a = normalizeArtistDJ(t.artist || t.channel);
-        if (a && a !== currentArtist) { bestIdx = idx + 1 + offset; break; }
-      }
-    }
-    if (bestIdx === -1) {
-      for (let offset = 0; offset < windowSize; offset++) {
-        const t = queue[idx + 1 + offset];
-        if (!recentSet.has(t.videoId)) { bestIdx = idx + 1 + offset; break; }
-      }
-    }
+    const bestIdx = window.RecommendationEngine.chooseNextIndex(queue, idx, {
+      currentTrack: appState.currentTrack,
+      recentHistory: appState.recentHistory,
+      windowSize: DJ_CONFIG.WINDOW_SIZE
+    });
     if (bestIdx !== -1 && bestIdx !== idx + 1) {
       const [chosen] = queue.splice(bestIdx, 1);
       queue.splice(idx + 1, 0, chosen);
       appState.playQueue = queue;
-      console.log(`[DJ MIX] 🔀 Rotando artista: ${currentArtist || '?'} -> ${chosen.artist} (saltados ${bestIdx - (idx + 1)})`);
+      Logger.debug(`[DJ MIX] 🔀 Siguiente pista diversa: ${chosen.artist || chosen.channel || 'Artista desconocido'}`);
     }
     const next = queue[idx + 1];
     if (next && currentId && next.videoId === currentId) {
@@ -231,46 +210,6 @@ function advanceQueueIndexForDjMix() {
     return true;
   }
   return false;
-}
-
-function normalizeArtistDJ(name) {
-  return (name || '').toLowerCase().trim().replace(/\s+/g, ' ');
-}
-
-function getRecentPlayedSet(limit = APP_TIMINGS.RECENT_PLAYED_LIMIT) {
-  const hist = appState.recentHistory || [];
-  return new Set(hist.slice(0, limit).map(h => h.videoId));
-}
-
-function diversifyQueueByArtist(queue, fromIndex = -1) {
-  if (!queue || queue.length <= 3) return queue;
-  const recentSet = getRecentPlayedSet(APP_TIMINGS.RECENT_PLAYED_LIMIT);
-  const played = queue.slice(0, fromIndex + 1);
-  const pool = queue.slice(fromIndex + 1);
-  const diversified = [];
-  let lastArtist = '';
-  if (played.length) {
-    lastArtist = normalizeArtistDJ(played[played.length - 1]?.artist || played[played.length - 1]?.channel || '');
-  }
-  const currentArtist = normalizeArtistDJ(appState.currentTrack?.artist || appState.currentTrack?.channel || '');
-  if (currentArtist) lastArtist = currentArtist;
-  while (pool.length) {
-    let idx = pool.findIndex(t => {
-      const a = normalizeArtistDJ(t.artist || t.channel);
-      return a !== lastArtist && a !== '' && !recentSet.has(t.videoId);
-    });
-    if (idx === -1) {
-      idx = pool.findIndex(t => normalizeArtistDJ(t.artist || t.channel) !== lastArtist && normalizeArtistDJ(t.artist || t.channel) !== '');
-    }
-    if (idx === -1) {
-      idx = pool.findIndex(t => !recentSet.has(t.videoId));
-    }
-    if (idx === -1) idx = 0;
-    const [next] = pool.splice(idx, 1);
-    diversified.push(next);
-    lastArtist = normalizeArtistDJ(next.artist || next.channel);
-  }
-  return [...played, ...diversified];
 }
 
 function setDjInactiveMode(target, inactive) {
@@ -486,19 +425,34 @@ function initDjMixWrappers() {
 // ===== SISTEMA DE COLA DE REPRODUCCIÓN =====
 
 function setPlayQueue(tracks, startIndex = 0) {
-  // Guardar una copia real del array
-  appState.playQueue = [...tracks];
-  appState.playQueueIndex = startIndex;
+  const selectedTrack = tracks?.[startIndex] || tracks?.[0];
+  if (!selectedTrack?.videoId) {
+    clearPlayQueue();
+    return;
+  }
+
+  // La canción elegida siempre se mantiene primero. El resto se ordena para
+  // que una sesión no repita artista o canción aunque DJ Mix esté apagado.
+  const queueFromSelection = [
+    selectedTrack,
+    ...tracks.filter((track, index) => index !== startIndex && track?.videoId !== selectedTrack.videoId)
+  ];
+  appState.playQueue = window.RecommendationEngine.diversifyQueue(queueFromSelection, {
+    fromIndex: 0,
+    currentTrack: selectedTrack,
+    recentHistory: appState.recentHistory
+  });
+  appState.playQueueIndex = 0;
   
   // Si Shuffle está activo en el reproductor, guardar original y mezclar las restantes
   if (window.musicPlayer?.isShuffle) {
-    console.log('[QUEUE] Shuffle activo al establecer cola. Guardando copia original...');
-    appState.originalPlayQueue = [...tracks];
+    Logger.debug('[QUEUE] Shuffle activo al establecer cola. Guardando copia original...');
+    appState.originalPlayQueue = [...appState.playQueue];
     
     // Mezclar las canciones que están después del índice inicial para no interrumpir el tema seleccionado
-    if (tracks.length > startIndex + 1) {
-      const played = appState.playQueue.slice(0, startIndex + 1);
-      const unplayed = appState.playQueue.slice(startIndex + 1);
+    if (appState.playQueue.length > 1) {
+      const played = appState.playQueue.slice(0, 1);
+      const unplayed = appState.playQueue.slice(1);
       
       // Mezcla aleatoria de los temas no reproducidos
       for (let i = unplayed.length - 1; i > 0; i--) {
@@ -511,16 +465,10 @@ function setPlayQueue(tracks, startIndex = 0) {
     appState.originalPlayQueue = null;
   }
   
-  // ⭐ Diversificar cola por artista cuando DJ Mix está activo (evitar mismo artista seguido)
-  if (appState.playQueue.length > 3 && appState.djMixEnabled) {
-    const before = appState.playQueue.map(t => normalizeArtistDJ(t.artist || t.channel)).join(',');
-    appState.playQueue = diversifyQueueByArtist(appState.playQueue, startIndex);
-    const after = appState.playQueue.map(t => normalizeArtistDJ(t.artist || t.channel)).join(',');
-    if (before !== after) console.log('[QUEUE] 🔀 Cola diversificada por artista (DJ Mix)');
-  }
+  Logger.debug('[QUEUE] ✨ Cola inteligente: diversidad de artistas y canciones activada');
 
-  console.log('[QUEUE] ✅ Cola establecida:', appState.playQueue.length, 'canciones, iniciando en índice', startIndex);
-  console.log('[QUEUE] Tracks:', appState.playQueue.map(t => t.title).join(', '));
+  Logger.debug('[QUEUE] ✅ Cola establecida:', appState.playQueue.length, 'canciones, iniciando en índice 0');
+  Logger.debug('[QUEUE] Tracks:', appState.playQueue.map(t => t.title).join(', '));
 
   if (window.musicPlayer?.updateSkipPreviews) {
     window.musicPlayer.updateSkipPreviews();
@@ -534,73 +482,48 @@ function setPlayQueue(tracks, startIndex = 0) {
 }
 
 function playNextInQueue() {
-  console.log('[QUEUE] playNextInQueue llamado. Cola:', appState.playQueue?.length, 'Índice actual:', appState.playQueueIndex);
+  Logger.debug('[QUEUE] playNextInQueue llamado. Cola:', appState.playQueue?.length, 'Índice actual:', appState.playQueueIndex);
 
   if (!appState.playQueue || appState.playQueue.length === 0) {
-    console.log('[QUEUE] Cola vacía');
+    Logger.debug('[QUEUE] Cola vacía');
     return false;
   }
 
   appState.playQueueIndex++;
-  console.log('[QUEUE] Nuevo índice:', appState.playQueueIndex, '/', appState.playQueue.length);
+  Logger.debug('[QUEUE] Nuevo índice:', appState.playQueueIndex, '/', appState.playQueue.length);
 
   const repeatMode = window.musicPlayer?.repeatMode || 'off';
 
   if (appState.playQueueIndex >= appState.playQueue.length) {
     if (repeatMode === 'all') {
-      console.log('[QUEUE] Fin de la cola - Repetición completa activa. Volviendo a empezar...');
+      Logger.debug('[QUEUE] Fin de la cola - Repetición completa activa. Volviendo a empezar...');
       appState.playQueueIndex = 0;
     } else {
-      console.log('[QUEUE] Fin de la cola - Deteniendo reproducción');
+      Logger.debug('[QUEUE] Fin de la cola - Deteniendo reproducción');
       appState.playQueueIndex = appState.playQueue.length; // Posición al final
       return false;
     }
   }
 
-  // ⭐ DJ Mix: evitar mismo artista seguido buscando en ventana DJ_CONFIG.WINDOW_SIZE
-  if (appState.djMixEnabled && appState.playQueue.length > 3) {
-    const prevArtist = normalizeArtistDJ(appState.currentTrack?.artist || appState.currentTrack?.channel || appState.recentHistory?.[0]?.artist || '');
-    const currArtist = normalizeArtistDJ(appState.playQueue[appState.playQueueIndex]?.artist || appState.playQueue[appState.playQueueIndex]?.channel || '');
-    if (prevArtist && currArtist && prevArtist === currArtist) {
-      const recentSet = getRecentPlayedSet(APP_TIMINGS.RECENT_PLAYED_LIMIT);
-      const windowEnd = Math.min(appState.playQueue.length, appState.playQueueIndex + DJ_CONFIG.WINDOW_SIZE);
-      let swapIdx = -1;
-      for (let i = appState.playQueueIndex + 1; i < windowEnd; i++) {
-        const cand = appState.playQueue[i];
-        const ca = normalizeArtistDJ(cand.artist || cand.channel);
-        if (ca && ca !== prevArtist && !recentSet.has(cand.videoId)) { swapIdx = i; break; }
-      }
-      if (swapIdx === -1) {
-        for (let i = appState.playQueueIndex + 1; i < windowEnd; i++) {
-          const cand = appState.playQueue[i];
-          const ca = normalizeArtistDJ(cand.artist || cand.channel);
-          if (ca && ca !== prevArtist) { swapIdx = i; break; }
-        }
-      }
-      if (swapIdx !== -1) {
-        const [chosen] = appState.playQueue.splice(swapIdx, 1);
-        appState.playQueue.splice(appState.playQueueIndex, 0, chosen);
-        console.log(`[QUEUE] 🔀 Evitando repeat de artista: ${prevArtist} -> ${chosen.artist}`);
-      }
+  // Elegir dinámicamente la mejor alternativa de la siguiente ventana. Esto
+  // funciona con DJ activo o desactivado; DJ solo añade la transición fluida.
+  const betterIndex = window.RecommendationEngine.chooseNextIndex(
+    appState.playQueue,
+    appState.playQueueIndex - 1,
+    {
+      currentTrack: appState.currentTrack,
+      recentHistory: appState.recentHistory,
+      windowSize: DJ_CONFIG.WINDOW_SIZE
     }
-    // También evitar repetir misma canción dentro de ventana reciente
-    const recentSet2 = getRecentPlayedSet(APP_TIMINGS.RECENT_PLAYED_LIMIT);
-    if (recentSet2.has(appState.playQueue[appState.playQueueIndex]?.videoId)) {
-      let altIdx = -1;
-      const windowEnd2 = Math.min(appState.playQueue.length, appState.playQueueIndex + DJ_CONFIG.WINDOW_SIZE);
-      for (let i = appState.playQueueIndex + 1; i < windowEnd2; i++) {
-        if (!recentSet2.has(appState.playQueue[i].videoId)) { altIdx = i; break; }
-      }
-      if (altIdx !== -1) {
-        const [alt] = appState.playQueue.splice(altIdx, 1);
-        appState.playQueue.splice(appState.playQueueIndex, 0, alt);
-        console.log(`[QUEUE] 🔀 Evitando canción reciente: ${alt.title}`);
-      }
-    }
+  );
+  if (betterIndex > appState.playQueueIndex) {
+    const [betterTrack] = appState.playQueue.splice(betterIndex, 1);
+    appState.playQueue.splice(appState.playQueueIndex, 0, betterTrack);
+    Logger.debug(`[QUEUE] ✨ Recomendación diversa: ${betterTrack.title}`);
   }
 
   const track = appState.playQueue[appState.playQueueIndex];
-  console.log('[QUEUE] Reproduciendo siguiente:', track.title, '(' + (appState.playQueueIndex + 1) + '/' + appState.playQueue.length + ')');
+  Logger.debug('[QUEUE] Reproduciendo siguiente:', track.title, '(' + (appState.playQueueIndex + 1) + '/' + appState.playQueue.length + ')');
 
   // ⭐ Actualizar UI con dirección 'next' para animación carrusel
   if (window.updateTrackInfo) {
@@ -659,7 +582,7 @@ function playNextInQueue() {
 
 function playPrevInQueue() {
   if (!appState.playQueue || appState.playQueue.length === 0) {
-    console.log('[QUEUE] Cola vacía');
+    Logger.debug('[QUEUE] Cola vacía');
     return false;
   }
 
@@ -668,17 +591,17 @@ function playPrevInQueue() {
 
   if (appState.playQueueIndex < 0) {
     if (repeatMode === 'all') {
-      console.log('[QUEUE] Inicio de la cola - Repetición completa activa. Saltando al final...');
+      Logger.debug('[QUEUE] Inicio de la cola - Repetición completa activa. Saltando al final...');
       appState.playQueueIndex = appState.playQueue.length - 1;
     } else {
-      console.log('[QUEUE] Inicio de la cola - Deteniendo retroceso');
+      Logger.debug('[QUEUE] Inicio de la cola - Deteniendo retroceso');
       appState.playQueueIndex = 0;
       return false;
     }
   }
 
   const track = appState.playQueue[appState.playQueueIndex];
-  console.log('[QUEUE] Reproduciendo anterior:', track.title, '(' + (appState.playQueueIndex + 1) + '/' + appState.playQueue.length + ')');
+  Logger.debug('[QUEUE] Reproduciendo anterior:', track.title, '(' + (appState.playQueueIndex + 1) + '/' + appState.playQueue.length + ')');
 
   // ⭐ Actualizar UI con dirección 'prev' para animación carrusel
   if (window.updateTrackInfo) {
@@ -742,7 +665,7 @@ function clearPlayQueue() {
   if (window.playlistManager) {
     window.playlistManager.currentPlayingPlaylist = null;
   }
-  console.log('[QUEUE] Cola limpiada');
+  Logger.debug('[QUEUE] Cola limpiada');
 }
 
 function addToQueue(track) {
@@ -752,6 +675,11 @@ function addToQueue(track) {
     appState.playQueue = [];
   }
 
+  if (appState.playQueue.some(item => item.videoId === track.videoId)) {
+    Logger.debug('[QUEUE] Canción ya existente, no se añade dos veces:', track.title);
+    return;
+  }
+
   appState.playQueue.push(track);
   
   // Si originalPlayQueue está activo, añadir también ahí para preservar la cola original
@@ -759,7 +687,7 @@ function addToQueue(track) {
     appState.originalPlayQueue.push(track);
   }
 
-  console.log('[QUEUE] ➕ Canción añadida a la cola:', track.title, 'Total en cola:', appState.playQueue.length);
+  Logger.debug('[QUEUE] ➕ Canción añadida a la cola:', track.title, 'Total en cola:', appState.playQueue.length);
 
   // Sincronizar UI de skip previews si existe
   if (window.musicPlayer?.updateSkipPreviews) {
@@ -781,7 +709,7 @@ function addToQueue(track) {
   if (window.uiUtils?.showNotification) {
     window.uiUtils.showNotification(`Añadida a la cola: ${track.title}`, 'info');
   } else {
-    console.log(`[QUEUE] Añadida a la cola: ${track.title}`);
+    Logger.debug(`[QUEUE] Añadida a la cola: ${track.title}`);
   }
 }
 
@@ -806,7 +734,7 @@ async function loadFavoritesFromStorage() {
     }
     if (window.electronAPI && window.electronAPI.getFavorites) {
       appState.favorites = await window.electronAPI.getFavorites();
-      console.log('💖 Favoritos cargados:', appState.favorites.length);
+      Logger.debug('💖 Favoritos cargados:', appState.favorites.length);
       loadFavoritesContent(); // Actualizar UI
     }
   } catch (e) {
@@ -874,7 +802,7 @@ function updateLikeButton() {
 // ===== LOADING OVERLAY FUNCTIONS =====
 function showLoader(message = 'Cargando tu música...') {
   if (window.appState && !window.appState.loaderAllowed && !window.appState.isSwitchingAccount) {
-    console.log('⏭️ Loader ignorado: no permitido en este estado');
+    Logger.debug('⏭️ Loader ignorado: no permitido en este estado');
     return;
   }
   const overlay = document.getElementById('loadingOverlay');
@@ -901,7 +829,7 @@ let updateModalOpen = false;
 function hideLoader() {
   // No ocultar el loader si el modal de update está abierto
   if (updateModalOpen) {
-    console.log('⏳ Loader bloqueado: modal de actualización abierto');
+    Logger.debug('⏳ Loader bloqueado: modal de actualización abierto');
     return;
   }
 
@@ -916,7 +844,7 @@ function hideLoader() {
 
 function checkAllContentLoaded() {
   if (appState.contentLoaded.favorites && appState.contentLoaded.history) {
-    console.log('✅ Todo el contenido cargado');
+    Logger.debug('✅ Todo el contenido cargado');
     setTimeout(() => hideLoader(), 300);
     if (appState.isSwitchingAccount) {
       appState.isSwitchingAccount = false;
@@ -927,7 +855,7 @@ function checkAllContentLoaded() {
 
 // Initialize the application
 async function initApp() {
-  console.log('🚀 Initializing SeaxMusic...');
+  Logger.debug('🚀 Initializing SeaxMusic...');
 
   // ⭐ Mostrar versión de la app
   const appVersionElement = document.getElementById('appVersion');
@@ -943,7 +871,7 @@ async function initApp() {
   // ⭐ Escuchar logs del auto-updater para debug
   if (window.electronAPI && window.electronAPI.onUpdateLog) {
     window.electronAPI.onUpdateLog((message) => {
-      console.log('[AUTO-UPDATE]', message);
+      Logger.debug('[AUTO-UPDATE]', message);
     });
   }
 
@@ -974,11 +902,11 @@ async function initApp() {
 
   try {
     // Siempre abrir YouTube backend al iniciar (necesario para reproducción)
-    console.log('🎬 Abriendo YouTube backend...');
+    Logger.debug('🎬 Abriendo YouTube backend...');
     const result = await window.electronAPI.createBackendPlayer('youtube-backend');
     if (result.success) {
       appState.currentPlayerId = result.playerId;
-      console.log('✅ YouTube Backend window opened:', result.playerId);
+      Logger.debug('✅ YouTube Backend window opened:', result.playerId);
     }
   } catch (error) {
     console.error('❌ Error during initialization:', error);
@@ -1073,7 +1001,7 @@ async function initApp() {
 
   // Escuchar cuando se comienza la reproducción
   if (window.electronAPI && window.electronAPI.onAudioStarted) {
-    window.electronAPI.onAudioStarted((data) => {
+    window.electronAPI.onAudioStarted(() => {
       appState.isPlaying = true;
       if (window.musicPlayer) {
         window.musicPlayer.isPlaying = true;
@@ -1091,7 +1019,7 @@ async function initApp() {
 
   // Escuchar cuando se pausa la reproducción
   if (window.electronAPI && window.electronAPI.onAudioPaused) {
-    window.electronAPI.onAudioPaused((data) => {
+    window.electronAPI.onAudioPaused(() => {
       appState.isPlaying = false;
       if (window.musicPlayer) {
         window.musicPlayer.isPlaying = false;
@@ -1103,7 +1031,7 @@ async function initApp() {
   // ⭐ Escuchar cuando termina un video para reproducir siguiente de la cola
   if (window.electronAPI && window.electronAPI.onVideoEnded) {
     window.electronAPI.onVideoEnded(() => {
-      console.log('[QUEUE] Video terminado, verificando cola...');
+      Logger.debug('[QUEUE] Video terminado, verificando cola...');
       // Fallback DJ: si hay track precargado y no se mezcló, intentar ahora
       if (appState.djMixEnabled && !appState.djMixInProgress && appState.djMixNextTrack) {
         const currentId = appState.currentTrack?.videoId || null;
@@ -1165,7 +1093,7 @@ async function initApp() {
   // ⭐ Escuchar actualizaciones de info del video (para favoritos)
   if (window.electronAPI && window.electronAPI.onUpdateVideoInfo) {
     window.electronAPI.onUpdateVideoInfo((videoInfo) => {
-      console.log('📺 Video info actualizada:', videoInfo);
+      Logger.debug('📺 Video info actualizada:', videoInfo);
 
       const prevId = appState.currentTrack?.videoId || null;
 
@@ -1232,7 +1160,7 @@ async function initApp() {
   // Escuchar login de YouTube
   if (window.electronAPI && window.electronAPI.onYouTubeUserLoggedIn) {
     window.electronAPI.onYouTubeUserLoggedIn((data) => {
-      console.log('✅ YouTube user logged in:', data);
+      Logger.debug('✅ YouTube user logged in:', data);
       appState.youtubeUser = data.user;
       appState.isLoggedIn = true;
 
@@ -1243,8 +1171,8 @@ async function initApp() {
 
   // Escuchar logout de YouTube
   if (window.electronAPI && window.electronAPI.onYouTubeUserLoggedOut) {
-    window.electronAPI.onYouTubeUserLoggedOut((data) => {
-      console.log('❌ YouTube user logged out');
+    window.electronAPI.onYouTubeUserLoggedOut(() => {
+      Logger.debug('❌ YouTube user logged out');
       appState.youtubeUser = null;
       appState.isLoggedIn = false;
     });
@@ -1253,7 +1181,7 @@ async function initApp() {
   // ⭐ Escuchar cuando se debe actualizar el historial (nueva canción)
   if (window.electronAPI && window.electronAPI.onRefreshHistory) {
     window.electronAPI.onRefreshHistory(() => {
-      console.log('🔄 Actualizando historial por cambio de canción...');
+      Logger.debug('🔄 Actualizando historial por cambio de canción...');
       // Esperar para que YouTube registre la reproducción
       setTimeout(() => {
         loadRecentlyPlayed(true); // true = silencioso
@@ -1270,7 +1198,7 @@ async function initApp() {
   // ⭐ Escuchar cuando se abre el modal de actualización
   if (window.electronAPI && window.electronAPI.onUpdateModalOpened) {
     window.electronAPI.onUpdateModalOpened(() => {
-      console.log('🔒 Modal de actualización abierto, bloqueando loader');
+      Logger.debug('🔒 Modal de actualización abierto, bloqueando loader');
       updateModalOpen = true;
     });
   }
@@ -1278,7 +1206,7 @@ async function initApp() {
   // ⭐ Escuchar cuando se cierra el modal de actualización
   if (window.electronAPI && window.electronAPI.onUpdateModalClosed) {
     window.electronAPI.onUpdateModalClosed(() => {
-      console.log('✅ Modal de actualización cerrado, desbloqueando loader');
+      Logger.debug('✅ Modal de actualización cerrado, desbloqueando loader');
       updateModalOpen = false;
       hideLoader();
     });
@@ -1287,7 +1215,7 @@ async function initApp() {
   // ⭐ Cargar contenido inicial
   checkInitialSession();
 
-  console.log('✨ SeaxMusic ready!');
+  Logger.debug('✨ SeaxMusic ready!');
 }
 
 // ⭐ Verificar si hay sesión guardada para mostrar loader
@@ -1306,7 +1234,7 @@ async function checkInitialSession() {
       updateLoaderStatus('Bienvenido de vuelta...');
     }
   } catch (e) {
-    console.log('No hay sesión previa');
+    Logger.debug('No hay sesión previa');
   }
 
   // Cargar contenido
@@ -1325,102 +1253,6 @@ function loadFavoritesContent() {
   checkAllContentLoaded();
 
   renderHomeModules();
-}
-
-// ⭐ Mostrar favoritos en el grid (con botón de quitar)
-function displayFavoritesInGrid(gridElement, videos) {
-  gridElement.innerHTML = '';
-
-  videos.forEach(video => {
-    const card = document.createElement('div');
-    card.className = 'music-card favorite-card';
-    card.setAttribute('data-video-id', video.videoId);
-
-    const artistName = video.channel || video.artist || 'SeaxMusic';
-    const videoTitle = video.title || 'Sin título';
-
-    card.innerHTML = `
-      <div class="card-image">
-        ${createImageWithFallback(video)}
-        <div class="card-overlay">
-          <button class="play-card-btn"><i class="fas fa-play"></i></button>
-          <button class="add-queue-card-btn" title="Añadir a la cola"><i class="fas fa-plus"></i></button>
-        </div>
-        <button class="remove-favorite-btn" title="Quitar de favoritos">
-          <i class="fas fa-heart-broken"></i>
-        </button>
-        ${video.duration ? `<span class="card-duration">${video.duration}</span>` : ''}
-      </div>
-      <div class="card-info">
-        <p class="card-title" title="${videoTitle}">${videoTitle}</p>
-        <p class="card-artist" title="${artistName}">${artistName}</p>
-      </div>
-    `;
-    const favoriteBg = video.thumbnail || (video.videoId ? `https://i.ytimg.com/vi/${video.videoId}/maxresdefault.jpg` : './assets/img/icon.png');
-    card.style.setProperty('--card-bg', `url('${favoriteBg}')`);
-
-    // Click en botón de quitar favorito
-    const removeBtn = card.querySelector('.remove-favorite-btn');
-    removeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      removeFromFavorites(video.videoId);
-      console.log('💔 Quitado de favoritos:', videoTitle);
-    });
-
-    // Click en botón de añadir a la cola
-    const addQueueBtn = card.querySelector('.add-queue-card-btn');
-    addQueueBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      window.addToQueue(video);
-    });
-
-    // Click para reproducir
-    card.addEventListener('click', () => {
-      console.log('🎵 Reproduciendo favorito:', videoTitle);
-
-      // Actualizar track actual
-      appState.currentTrack = {
-        videoId: video.videoId,
-        title: videoTitle,
-        artist: artistName,
-        thumbnail: video.thumbnail,
-        channel: video.channel || artistName
-      };
-      if (window.musicPlayer) {
-        window.musicPlayer.currentTrack = appState.currentTrack;
-      }
-
-      // Actualizar UI
-      document.getElementById('trackName').textContent = videoTitle;
-      document.getElementById('trackArtist').textContent = artistName;
-      document.getElementById('trackImage').src = video.thumbnail;
-
-      // Actualizar botón like
-      updateLikeButton();
-
-      // Reproducir en YouTube
-      if (window.electronAPI && window.electronAPI.playVideo) {
-        window.electronAPI.playVideo(video.videoId, videoTitle, artistName);
-      }
-    });
-
-    gridElement.appendChild(card);
-  });
-}
-
-// ⭐ Placeholder para cuando no hay favoritos
-function displayFavoritesPlaceholder(gridElement) {
-  gridElement.innerHTML = `
-    <div class="music-card placeholder-card empty-favorites">
-      <div class="card-image" style="background: linear-gradient(135deg, #282828, #E13838);">
-        <i class="fas fa-heart" style="font-size: 48px; color: rgba(255,255,255,0.3);"></i>
-      </div>
-      <div class="card-info">
-        <p class="card-title">Sin favoritos aún</p>
-        <p class="card-artist">Dale ❤️ a una canción</p>
-      </div>
-    </div>
-  `;
 }
 
 // Load recently played
@@ -1463,7 +1295,7 @@ function loadRecentlyPlayed(silent = false) {
       .then(response => {
         appState.contentLoaded.history = true;
         if (response.success && response.videos.length > 0) {
-          console.log('📺 Historial recibido:', response.videos.length, 'videos');
+          Logger.debug('📺 Historial recibido:', response.videos.length, 'videos');
 
           // ⭐ Guardar historial en appState para Now Playing
           appState.recentHistory = response.videos.map(v => ({
@@ -1497,28 +1329,10 @@ function loadRecentlyPlayed(silent = false) {
   }
 }
 
-// Mostrar videos en un grid (para historial)
-// ⭐ Obtener mejor thumbnail con fallbacks
-function getBestThumbnail(video) {
-  const videoId = video.videoId || '';
-  const defaultImg = './assets/img/icon.png';
-
-  // Si ya tiene thumbnail, usarlo
-  if (video.thumbnail && video.thumbnail.startsWith('http')) {
-    return video.thumbnail;
-  }
-
-  // Intentar obtener maxresdefault de YouTube
-  if (videoId) {
-    return `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
-  }
-
-  return defaultImg;
-}
-
 // ⭐ Crear HTML de imagen con fallbacks
 function createImageWithFallback(video) {
-  const videoId = video.videoId || '';
+  // El ID se usa dentro de un onerror (JS en atributo): solo caracteres válidos de ID de YouTube
+  const videoId = String(video.videoId || '').replace(/[^\w-]/g, '');
   const defaultImg = './assets/img/icon.png';
 
   // Orden de prioridad: thumbnail original → maxresdefault → hqdefault → icon
@@ -1527,7 +1341,7 @@ function createImageWithFallback(video) {
     : (videoId ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : defaultImg);
 
   return `
-    <img class="card-img" src="${primarySrc}" 
+    <img class="card-img" src="${window.escapeHtml(primarySrc)}"
          onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${videoId}/hqdefault.jpg'; this.onerror=function(){this.src='./assets/img/icon.png'};"
          alt="" loading="lazy">
   `;
@@ -1555,8 +1369,8 @@ function displayVideosInGrid(gridElement, videos) {
         ${video.duration ? `<span class="card-duration">${video.duration}</span>` : ''}
       </div>
       <div class="card-info">
-        <p class="card-title" title="${videoTitle}">${videoTitle}</p>
-        <p class="card-artist" title="${artistName}">${artistName}</p>
+        <p class="card-title" title="${window.escapeHtml(videoTitle)}">${window.escapeHtml(videoTitle)}</p>
+        <p class="card-artist" title="${window.escapeHtml(artistName)}">${window.escapeHtml(artistName)}</p>
       </div>
     `;
     const fallbackBg = video.thumbnail || (video.videoId ? `https://i.ytimg.com/vi/${video.videoId}/maxresdefault.jpg` : './assets/img/icon.png');
@@ -1571,7 +1385,7 @@ function displayVideosInGrid(gridElement, videos) {
 
     // Click para reproducir
     card.addEventListener('click', () => {
-      console.log('🎵 Reproduciendo:', videoTitle);
+      Logger.debug('🎵 Reproduciendo:', videoTitle);
 
       // ⭐ Actualizar track actual (para favoritos)
       appState.currentTrack = {
@@ -1627,7 +1441,7 @@ function displayPlaceholderContent(gridElement, type) {
       <div class="card-image" style="background: linear-gradient(135deg, #282828, #E13838);">
         <i class="fas ${item.icon}" style="font-size: 48px; color: rgba(255,255,255,0.3);"></i>
       </div>
-      <p class="card-title">${item.title}</p>
+      <p class="card-title">${window.escapeHtml(item.title)}</p>
     `;
     gridElement.appendChild(card);
   });
@@ -1676,7 +1490,7 @@ function getSeaxVibesMix() {
   if (window.djEngine) {
     const djMix = window.djEngine.generateSeaxVibes();
     if (djMix?.tracks?.length >= 5) {
-      console.log('[SEAX VIBES] 🔥 Usando DJ Engine mix:', djMix.tracks.length, 'canciones');
+      Logger.debug('[SEAX VIBES] 🔥 Usando DJ Engine mix:', djMix.tracks.length, 'canciones');
       return djMix.tracks.slice(0, 12);
     }
   }
@@ -1746,8 +1560,8 @@ function renderHomeMusicGrid(gridEl, videos, emptyLabel) {
         ${video.duration ? `<span class="card-duration">${video.duration}</span>` : ''}
       </div>
       <div class="card-info">
-        <p class="card-title" title="${videoTitle}">${videoTitle}</p>
-        <p class="card-artist" title="${artistName}">${artistName}</p>
+        <p class="card-title" title="${window.escapeHtml(videoTitle)}">${window.escapeHtml(videoTitle)}</p>
+        <p class="card-artist" title="${window.escapeHtml(artistName)}">${window.escapeHtml(artistName)}</p>
       </div>
     `;
     const fallbackBg = video.thumbnail || (video.videoId ? `https://i.ytimg.com/vi/${video.videoId}/maxresdefault.jpg` : './assets/img/icon.png');
@@ -1813,8 +1627,8 @@ function renderUserPlaylist() {
         <span class="card-badge">${trackCount} canciones</span>
       </div>
       <div class="card-info">
-        <p class="card-title" title="${playlist.name}">${playlist.name}</p>
-        <p class="card-artist">${playlist.description || 'Tu playlist'}</p>
+        <p class="card-title" title="${window.escapeHtml(playlist.name)}">${window.escapeHtml(playlist.name)}</p>
+        <p class="card-artist">${window.escapeHtml(playlist.description || 'Tu playlist')}</p>
       </div>
     `;
 
@@ -1886,10 +1700,10 @@ function renderDJPlaylists() {
 
     const coverHtml = thumbs.length >= 4
       ? `<div class="dj-cover-collage">
-          ${thumbs.map(src => `<img src="${src}" alt="">`).join('')}
+          ${thumbs.map(src => `<img src="${window.escapeHtml(src)}" alt="">`).join('')}
         </div>`
       : thumbs.length > 0
-        ? `<img src="${thumbs[0]}" alt="" class="dj-cover-single">`
+        ? `<img src="${window.escapeHtml(thumbs[0])}" alt="" class="dj-cover-single">`
         : `<div class="dj-cover-icon"><i class="fas ${playlist.icon || 'fa-music'}"></i></div>`;
 
     card.innerHTML = `
@@ -1903,8 +1717,8 @@ function renderDJPlaylists() {
         </div>
       </div>
       <div class="dj-card-info">
-        <h4>${playlist.name}</h4>
-        <p>${playlist.description}</p>
+        <h4>${window.escapeHtml(playlist.name)}</h4>
+        <p>${window.escapeHtml(playlist.description)}</p>
         <span class="dj-track-count">${playlist.tracks.length} canciones</span>
       </div>
     `;
@@ -1972,9 +1786,9 @@ function renderDynamicCards() {
     <button class="home-action-card ${card.accent}" data-action="${card.id}" ${card.track ? '' : 'data-empty=\"true\"'}>
       <div class="action-card-icon"><i class="fas ${card.icon}"></i></div>
       <div class="action-card-text">
-        <span class="action-card-title">${card.title}</span>
-        <span class="action-card-subtitle">${card.subtitle}</span>
-        <span class="action-card-hint">${card.hint}</span>
+        <span class="action-card-title">${window.escapeHtml(card.title)}</span>
+        <span class="action-card-subtitle">${window.escapeHtml(card.subtitle)}</span>
+        <span class="action-card-hint">${window.escapeHtml(card.hint)}</span>
       </div>
       <div class="action-card-cta">
         <i class="fas fa-arrow-right"></i>
@@ -2014,8 +1828,8 @@ function renderMoments() {
     <button class="moment-card ${item.accent}" data-moment="${item.id}">
       <div class="moment-card-icon"><i class="fas ${item.icon}"></i></div>
       <div class="moment-card-text">
-        <span class="moment-title">${item.title}</span>
-        <span class="moment-subtitle">${item.subtitle}</span>
+        <span class="moment-title">${window.escapeHtml(item.title)}</span>
+        <span class="moment-subtitle">${window.escapeHtml(item.subtitle)}</span>
       </div>
       <div class="moment-card-glow"></div>
     </button>
@@ -2101,7 +1915,7 @@ function wireHomeActions() {
   if (djPublishBtn) {
     djPublishBtn.onclick = () => {
       if (!window.djEngine) {
-        console.log('[DJ] No hay DJ Engine disponible');
+        Logger.debug('[DJ] No hay DJ Engine disponible');
         return;
       }
 
@@ -2274,16 +2088,16 @@ async function renderTopArtists() {
       thumb = `https://i.ytimg.com/vi/${artist.videoId}/hqdefault.jpg`;
     }
     return `
-      <button class="artist-bubble-card" data-artist="${artist.name}">
+      <button class="artist-bubble-card" data-artist="${window.escapeHtml(artist.name)}">
         <div class="artist-avatar-container">
-          <img class="artist-avatar-img" src="${thumb}" 
-               onerror="this.onerror=null; this.src='./assets/img/icon.png';" 
-               alt="${artist.name}" loading="lazy">
+          <img class="artist-avatar-img" src="${window.escapeHtml(thumb)}"
+               onerror="this.onerror=null; this.src='./assets/img/icon.png';"
+               alt="${window.escapeHtml(artist.name)}" loading="lazy">
           <div class="artist-play-overlay">
             <i class="fas fa-play"></i>
           </div>
         </div>
-        <span class="artist-bubble-name">${artist.name}</span>
+        <span class="artist-bubble-name">${window.escapeHtml(artist.name)}</span>
       </button>
     `;
   }).join('');
@@ -2293,7 +2107,7 @@ async function renderTopArtists() {
       const artistName = card.dataset.artist;
       if (!artistName) return;
 
-      console.log(`[ARTIST MIX] 🎧 Iniciando mix para el artista: ${artistName}`);
+      Logger.debug(`[ARTIST MIX] 🎧 Iniciando mix para el artista: ${artistName}`);
       
       if (typeof showLoader === 'function') {
         showLoader(`Cargando Mix de ${artistName}...`);
@@ -2306,14 +2120,14 @@ async function renderTopArtists() {
         });
 
         if (localTracks.length >= 3) {
-          console.log(`[ARTIST MIX] Usando ${localTracks.length} canciones locales para el mix.`);
+          Logger.debug(`[ARTIST MIX] Usando ${localTracks.length} canciones locales para el mix.`);
           if (typeof hideLoader === 'function') hideLoader();
           playTrack(localTracks[0], localTracks, 0);
           return;
         }
 
         if (window.electronAPI && window.electronAPI.searchYouTube) {
-          console.log(`[ARTIST MIX] Buscando canciones en YouTube para: ${artistName}`);
+          Logger.debug(`[ARTIST MIX] Buscando canciones en YouTube para: ${artistName}`);
           const response = await window.electronAPI.searchYouTube(`${artistName} mix canciones`);
           
           if (typeof hideLoader === 'function') hideLoader();
@@ -2329,7 +2143,7 @@ async function renderTopArtists() {
 
             playTrack(tracks[0], tracks, 0);
           } else {
-            console.log('[ARTIST MIX] No se encontraron videos, abriendo búsqueda');
+            Logger.debug('[ARTIST MIX] No se encontraron videos, abriendo búsqueda');
             openSearchWithArtist(artistName);
           }
         } else {
@@ -2419,7 +2233,7 @@ function saveCurrentTrack() {
       const payload = { ...appState.currentTrack, savedAt: new Date().toISOString() };
       if (sm) sm.setJSON(sm.KEYS.LAST_TRACK, payload);
       else localStorage.setItem(LAST_TRACK_KEY, JSON.stringify(payload));
-      console.log('[PERSIST] 💾 Canción guardada:', appState.currentTrack.title);
+      Logger.debug('[PERSIST] 💾 Canción guardada:', appState.currentTrack.title);
     } catch (e) {
       console.error('[PERSIST] Error guardando canción:', e);
     }
@@ -2449,7 +2263,7 @@ function restoreLastTrack() {
           window.updateLikeButton();
         }
 
-        console.log('[PERSIST] 🔄 Canción restaurada (pausada):', track.title);
+        Logger.debug('[PERSIST] 🔄 Canción restaurada (pausada):', track.title);
 
         // Limpiar después de restaurar
         const sm2 = window.StorageManager;
@@ -2519,3 +2333,13 @@ window.favoritesManager = {
     return appState.favorites || [];
   }
 };
+
+// Sincronización en tiempo real: cuando cualquier ventana cambia favoritos, todas se actualizan
+if (window.electronAPI?.onFavoritesChanged) {
+  window.electronAPI.onFavoritesChanged((favorites) => {
+    appState.favorites = Array.isArray(favorites) ? favorites : [];
+    loadFavoritesContent();
+    updateLikeButton();
+    window.libraryManager?.refresh();
+  });
+}

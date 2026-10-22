@@ -25,7 +25,7 @@ const Logger = (() => {
 
   return {
     LEVELS,
-    setLevel(l) { if (LEVELS[l] != null) currentLevel = LEVELS[l]; },
+    setLevel(l) { if (LEVELS[l] !== undefined) currentLevel = LEVELS[l]; },
     isDev,
     debug(...args) { if (shouldLog('debug')) console.debug(...fmt('debug', args)); },
     info(...args) { if (shouldLog('info')) console.info(...fmt('info', args)); },

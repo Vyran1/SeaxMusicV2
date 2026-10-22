@@ -502,7 +502,7 @@ class ConfigManager {
       return;
     }
 
-    console.log(`[CONFIG] Guardando atajo para "${action}":`, accelerator);
+    Logger.debug(`[CONFIG] Guardando atajo para "${action}":`, accelerator);
 
     const res = await window.electronAPI.setHotkey(action, accelerator);
 

@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { autoUpdater } = require('electron-updater');
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
@@ -30,7 +31,7 @@ class AppUpdater {
     }
     
     configureAutoUpdater() {
-        console.log('🔧 [AUTO-UPDATER] Configurando...');
+        logger.debug('🔧 [AUTO-UPDATER] Configurando...');
         
         // Configuración básica
         autoUpdater.autoDownload = true;
@@ -44,11 +45,11 @@ class AppUpdater {
             releaseType: 'release'
         };
 
-        console.log('🔧 [AUTO-UPDATER] Feed URL config:', JSON.stringify(feedURL));
+        logger.debug('🔧 [AUTO-UPDATER] Feed URL config:', JSON.stringify(feedURL));
         
         try {
             autoUpdater.setFeedURL(feedURL);
-            console.log('✅ [AUTO-UPDATER] Feed URL configurado correctamente');
+            logger.debug('✅ [AUTO-UPDATER] Feed URL configurado correctamente');
         } catch (err) {
             console.error('❌ [AUTO-UPDATER] Error configurando Feed URL:', err.message);
         }
@@ -62,7 +63,7 @@ class AppUpdater {
     async diagnoseGitHubAccess() {
         const mainWindow = BrowserWindow.getAllWindows()[0];
         const sendLog = (msg) => {
-            console.log(msg);
+            logger.debug(msg);
             if (mainWindow && !mainWindow.isDestroyed()) {
                 if (mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
                     mainWindow.webContents.send('update-log', msg);
@@ -176,7 +177,7 @@ class AppUpdater {
                             const releases = JSON.parse(data);
                             resolve(releases);
                         } else {
-                            console.log('⚠️ GitHub API respondió con:', res.statusCode);
+                            logger.debug('⚠️ GitHub API respondió con:', res.statusCode);
                             resolve([]);
                         }
                     } catch (e) {
@@ -227,7 +228,7 @@ class AppUpdater {
                                 url: c.html_url || (c.author && c.author.html_url) || ''
                             })));
                         } else {
-                            console.log('⚠️ GitHub commits responded with:', res.statusCode);
+                            logger.debug('⚠️ GitHub commits responded with:', res.statusCode);
                             resolve([]);
                         }
                     } catch (e) {
@@ -327,7 +328,7 @@ async fetchReleaseCommits(currentVersion, latestTag) {
             if (fs.existsSync(this.updateInfoPath)) {
                 const data = fs.readFileSync(this.updateInfoPath, 'utf8');
                 this.pendingUpdateInfo = JSON.parse(data);
-                console.log('📦 Actualización pendiente cargada:', this.pendingUpdateInfo.version);
+                logger.debug('📦 Actualización pendiente cargada:', this.pendingUpdateInfo.version);
                 return this.pendingUpdateInfo;
             }
         } catch (e) {
@@ -350,7 +351,7 @@ async fetchReleaseCommits(currentVersion, latestTag) {
                 timestamp: new Date().toISOString()
             };
             fs.writeFileSync(this.updateInfoPath, JSON.stringify(saveData, null, 2), 'utf8');
-            console.log('💾 Actualización pendiente guardada:', info.version);
+            logger.debug('💾 Actualización pendiente guardada:', info.version);
         } catch (e) {
             console.error('❌ Error guardando actualización pendiente:', e);
         }
@@ -363,7 +364,7 @@ async fetchReleaseCommits(currentVersion, latestTag) {
         try {
             if (fs.existsSync(this.updateInfoPath)) {
                 fs.unlinkSync(this.updateInfoPath);
-                console.log('🗑️ Actualización pendiente eliminada');
+                logger.debug('🗑️ Actualización pendiente eliminada');
             }
             this.pendingUpdateInfo = null;
         } catch (e) {
@@ -381,7 +382,7 @@ async fetchReleaseCommits(currentVersion, latestTag) {
         if (pending) {
             // Verificar que la versión pendiente sea MAYOR que la actual
             if (this.isVersionGreater(pending.version, currentVersion)) {
-                console.log('🔔 Mostrando actualización pendiente:', pending.version, '> actual:', currentVersion);
+                logger.debug('🔔 Mostrando actualización pendiente:', pending.version, '> actual:', currentVersion);
                 
                 if ((!pending.releaseNotes || (Array.isArray(pending.releaseNotes) && pending.releaseNotes.length === 0))) {
                     const releases = await this.fetchGitHubReleases();
@@ -405,7 +406,7 @@ async fetchReleaseCommits(currentVersion, latestTag) {
                 return true;
             } else {
                 // Si la versión pendiente es igual o menor, eliminarla
-                console.log('🗑️ Versión pendiente obsoleta:', pending.version, '<= actual:', currentVersion);
+                logger.debug('🗑️ Versión pendiente obsoleta:', pending.version, '<= actual:', currentVersion);
                 this.clearPendingUpdate();
             }
         }
@@ -415,15 +416,15 @@ async fetchReleaseCommits(currentVersion, latestTag) {
     setupEventListeners() {
         // Verificando actualizaciones
         autoUpdater.on('checking-for-update', () => {
-            console.log('🔍 [UPDATE-EVENT] Buscando actualizaciones...');
+            logger.debug('🔍 [UPDATE-EVENT] Buscando actualizaciones...');
             this.sendStatusToWindow('checking-for-update');
             this.sendLogToRenderer('🔍 Buscando actualizaciones...');
         });
         
         // Actualización disponible
         autoUpdater.on('update-available', (info) => {
-            console.log('✅ [UPDATE-EVENT] Actualización disponible:', info.version);
-            console.log('✅ [UPDATE-EVENT] Info completa:', JSON.stringify(info, null, 2));
+            logger.debug('✅ [UPDATE-EVENT] Actualización disponible:', info.version);
+            logger.debug('✅ [UPDATE-EVENT] Info completa:', JSON.stringify(info, null, 2));
             this.updateAvailable = true;
             this.sendStatusToWindow('update-available', info);
             this.sendLogToRenderer('✅ Actualización disponible: ' + info.version);
@@ -431,8 +432,8 @@ async fetchReleaseCommits(currentVersion, latestTag) {
         
         // No hay actualizaciones
         autoUpdater.on('update-not-available', (info) => {
-            console.log('ℹ️ [UPDATE-EVENT] No hay actualizaciones disponibles');
-            console.log('ℹ️ [UPDATE-EVENT] Versión actual es la más reciente:', info ? info.version : 'unknown');
+            logger.debug('ℹ️ [UPDATE-EVENT] No hay actualizaciones disponibles');
+            logger.debug('ℹ️ [UPDATE-EVENT] Versión actual es la más reciente:', info ? info.version : 'unknown');
             this.sendStatusToWindow('update-not-available', info);
             this.sendLogToRenderer('ℹ️ No hay actualizaciones - versión actual: ' + (info ? info.version : 'unknown'));
         });
@@ -460,14 +461,14 @@ async fetchReleaseCommits(currentVersion, latestTag) {
             const logMessage = `Velocidad: ${this.formatBytes(progressObj.bytesPerSecond)}/s - ` +
                               `${Math.round(progressObj.percent)}% - ` +
                               `${this.formatBytes(progressObj.transferred)} / ${this.formatBytes(progressObj.total)}`;
-            console.log('📥', logMessage);
+            logger.debug('📥', logMessage);
             this.sendStatusToWindow('download-progress', progressObj);
             this.sendLogToRenderer('📥 Descargando: ' + Math.round(progressObj.percent) + '%');
         });
         
         // Actualización descargada
         autoUpdater.on('update-downloaded', async (info) => {
-            console.log('✅ Actualización descargada:', info.version);
+            logger.debug('✅ Actualización descargada:', info.version);
             this.sendLogToRenderer('✅ Actualización descargada: ' + info.version);
             this.updateDownloaded = true;
             
@@ -498,7 +499,7 @@ async fetchReleaseCommits(currentVersion, latestTag) {
     // Verificar actualizaciones manualmente
     checkForUpdates() {
         if (!app.isPackaged) {
-            console.log('🔧 No se verifican actualizaciones en modo desarrollo');
+            logger.debug('🔧 No se verifican actualizaciones en modo desarrollo');
             return Promise.resolve({ updateAvailable: false });
         }
         
@@ -510,7 +511,7 @@ async fetchReleaseCommits(currentVersion, latestTag) {
         // Log inmediato al entrar
         const mainWin = BrowserWindow.getAllWindows()[0];
         const log = (msg) => {
-            console.log('[UPDATER] ' + msg);
+            logger.debug('[UPDATER] ' + msg);
             if (mainWin && !mainWin.isDestroyed()) {
                 if (mainWin && !mainWin.isDestroyed()) {
                     mainWin.webContents.send('update-log', msg);
@@ -584,10 +585,10 @@ async fetchReleaseCommits(currentVersion, latestTag) {
     promptInstallUpdate(info) {
   // Permitir modal en dev mode para testing (--dev flag lo fuerza)
   if (!app.isPackaged && !process.argv.includes('--dev')) {
-    console.log('🔧 Modo desarrollo (sin --dev): Modal de actualización omitido');
+    logger.debug('🔧 Modo desarrollo (sin --dev): Modal de actualización omitido');
     return;
   }
-  console.log('🔧 Mostrando modal de actualización (isPackaged:', app.isPackaged, ')');
+  logger.debug('🔧 Mostrando modal de actualización (isPackaged:', app.isPackaged, ')');
         
         this.mainWindow = BrowserWindow.getAllWindows()[0];
         if (!this.mainWindow) return;
@@ -648,7 +649,7 @@ async fetchReleaseCommits(currentVersion, latestTag) {
         
         // Cuando se cierra el main, cerrar el modal también (sin instalar)
         this._closeMainHandler = () => {
-            console.log('🔒 Main cerrado - cerrando modal de update (sin instalar)');
+            logger.debug('🔒 Main cerrado - cerrando modal de update (sin instalar)');
             // Guardar la actualización pendiente para el próximo inicio
             this.savePendingUpdate(info);
             this.closeUpdateWindow();
@@ -677,8 +678,8 @@ async fetchReleaseCommits(currentVersion, latestTag) {
             updatePath = path.join(__dirname, '../renderer/html/update.html');
         }
 
-        console.log(`[UPDATE] Entorno: ${isDev ? 'DEV' : 'PROD'}`);
-        console.log(`[UPDATE] Cargando modal desde: ${updatePath}`);
+        logger.debug(`[UPDATE] Entorno: ${isDev ? 'DEV' : 'PROD'}`);
+        logger.debug(`[UPDATE] Cargando modal desde: ${updatePath}`);
 
   this.updateWindow.loadFile(updatePath);
 
@@ -691,7 +692,7 @@ async fetchReleaseCommits(currentVersion, latestTag) {
             `(() => { try { const n = localStorage.getItem('seaxmusic_theme') || 'rojo'; return { themeName: n }; } catch(e) { return null; } })()`
           );
         } catch (e) {
-          console.log('⚠️ No se pudo leer tema del mainWindow:', e.message);
+          logger.debug('⚠️ No se pudo leer tema del mainWindow:', e.message);
         }
       }
 
@@ -738,10 +739,10 @@ async fetchReleaseCommits(currentVersion, latestTag) {
   // IPC: Actualizar ahora
   ipcMain.removeAllListeners('update-install');
   ipcMain.on('update-install', () => {
-            console.log('🚀 Usuario eligió instalar actualización');
+            logger.debug('🚀 Usuario eligió instalar actualización');
             
             if (!app.isPackaged) {
-                console.log('DEV MODE: install skipped - mostrando mensaje');
+                logger.debug('DEV MODE: install skipped - mostrando mensaje');
                 // En modo dev, mostrar mensaje en lugar de cerrar silenciosamente
                 if (this.updateWindow && !this.updateWindow.isDestroyed()) {
                     if (this.updateWindow && !this.updateWindow.isDestroyed()) {
@@ -764,7 +765,7 @@ async fetchReleaseCommits(currentVersion, latestTag) {
         // IPC: Más tarde
         ipcMain.removeAllListeners('update-later');
         ipcMain.on('update-later', () => {
-            console.log('⏰ Usuario pospuso la actualización');
+            logger.debug('⏰ Usuario pospuso la actualización');
             // Guardar para mostrar en próximo inicio
             this.savePendingUpdate(info);
             this.closeUpdateWindow();

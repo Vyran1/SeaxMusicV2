@@ -122,7 +122,7 @@
       }
     `;
     document.head.appendChild(style);
-    console.log('[PAGE-TRANS] 💅 Estilos de transición inyectados.');
+    Logger.debug('[PAGE-TRANS] 💅 Estilos de transición inyectados.');
   }
 
   // ─── Helpers ──────────────────────────────────────────────
@@ -152,9 +152,8 @@
   /**
    * Ejecuta una transición animada entre páginas.
    * @param {Function} renderFn - Función que cambia el contenido del DOM
-   * @param {Object} [opts] - Opciones de transición
    */
-  function transitionTo(renderFn, opts = {}) {
+  function transitionTo(renderFn) {
     const area = getContentArea();
     if (!area) {
       // Si no hay área de contenido, ejecutar directamente
@@ -297,7 +296,7 @@
       if (allDone || attempts >= maxAttempts) {
         clearInterval(retryInterval);
         if (allDone) {
-          console.log('[PAGE-TRANS] ✅ Todos los managers parcheados.');
+          Logger.debug('[PAGE-TRANS] ✅ Todos los managers parcheados.');
         } else {
           console.warn('[PAGE-TRANS] ⚠️ Algunos managers no se pudieron parchear.');
         }
@@ -347,7 +346,7 @@
       enhanceNavItems();
     }
 
-    console.log('[PAGE-TRANS] ✅ Sistema de transiciones iniciado.');
+    Logger.debug('[PAGE-TRANS] ✅ Sistema de transiciones iniciado.');
   }
 
   init();

@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { ipcMain } = require('electron');
 const https = require('https');
 const state = require('../state');
@@ -45,21 +46,21 @@ ipcMain.on('video-volume-updated', (event, realVolume) => {
 // Create a new backend YouTube window
 ipcMain.handle('create-backend-player', async (event, playerId) => {
   if (state.youtubeWindow && !state.youtubeWindow.isDestroyed()) {
-    console.log('[REUSE] Reutilizando ventana de YouTube existente');
+    logger.debug('[REUSE] Reutilizando ventana de YouTube existente');
     state.youtubeWindow.focus();
     return { success: true, playerId, reused: true };
   }
 
   state.youtubeWindow = createYouTubeWindow(false);
 
-  console.log('[YOUTUBE] YouTube window creada por create-backend-player');
+  logger.debug('[YOUTUBE] YouTube window creada por create-backend-player');
   state.youtubeWindow.loadURL('https://www.youtube.com');
 
   // En modo dev, mostrar ventana y DevTools inmediatamente
   if (process.argv.includes('--dev')) {
     state.youtubeWindow.show();
     state.youtubeWindow.webContents.openDevTools({ mode: 'detach' });
-    console.log('[DEV] YouTube window visible con DevTools');
+    logger.debug('[DEV] YouTube window visible con DevTools');
   }
 
   const ytWin = state.youtubeWindow;
@@ -144,7 +145,7 @@ ipcMain.handle('dj-swap-active', async () => {
       if (state.youtubeWindow && !state.youtubeWindow.isDestroyed()) {
         if (state.youtubeWindow.webContents.isAudioMuted()) {
           state.youtubeWindow.webContents.setAudioMuted(false);
-          console.log('[DJ] Unmuted new active YouTube window during swap');
+          logger.debug('[DJ] Unmuted new active YouTube window during swap');
         }
         state.youtubeWindow.webContents.send('dj-set-mode', { inactive: false });
       }
@@ -205,7 +206,8 @@ ipcMain.handle('pip-close', async () => {
 });
 
 ipcMain.on('pip-control', (event, { action, value }) => {
-  if (!action) return;
+  const validActions = new Set(['play', 'pause', 'next', 'previous', 'seek', 'collapse', 'expand']);
+  if (!validActions.has(action)) return;
 
   if (action === 'collapse') {
     const { collapsePip } = require('../windows/pipWindow');
@@ -218,16 +220,30 @@ ipcMain.on('pip-control', (event, { action, value }) => {
     return;
   }
 
+  // Reproducir, pausar y buscar no necesitan pasar por la UI principal: al
+  // enviarlos directamente al reproductor de YouTube el widget permanece
+  // operativo incluso si la ventana principal está ocupada o minimizada.
+  if (action === 'play' || action === 'pause' || action === 'seek') {
+    const active = state.getActiveYouTubeWindow();
+    if (active && !active.isDestroyed()) {
+      const safeValue = action === 'seek' && typeof value === 'number'
+        ? Math.max(0, value)
+        : undefined;
+      active.webContents.send('youtube-control', action, safeValue);
+    }
+    return;
+  }
+
+  // Siguiente/anterior usa la cola inteligente en el renderer. Si no está
+  // disponible, degradamos al control nativo de YouTube.
   if (state.mainWindow && !state.mainWindow.isDestroyed()) {
     state.mainWindow.webContents.send('pip-control', { action, value });
     return;
   }
-  if (action === 'seek') {
-    const time = typeof value === 'number' ? value : 0;
-    ipcMain.emit('seek-audio', event, time);
-    return;
+  const active = state.getActiveYouTubeWindow();
+  if (active && !active.isDestroyed()) {
+    active.webContents.send('youtube-control', action);
   }
-  ipcMain.emit('audio-control', event, action, value);
 });
 
 ipcMain.on('dj-control-window', (event, { target, action, value }) => {
@@ -290,16 +306,16 @@ ipcMain.on('audio-frequency-data', (event, data) => {
 // ===== AUDIO CONTROLS AND PLAYBACK CONFIGS =====
 
 ipcMain.on('audio-control', (event, action, value) => {
-  console.log(`[CONTROL] Audio Control Command: ${action}`, value);
+  logger.debug(`[CONTROL] Audio Control Command: ${action}`, value);
 
   const active = state.getActiveYouTubeWindow();
   if (active && !active.isDestroyed()) {
     if (action === 'play' && active.webContents.isAudioMuted()) {
       active.webContents.setAudioMuted(false);
-      console.log('[VOLUME] Unmuted active YouTube window for audio-control play');
+      logger.debug('[VOLUME] Unmuted active YouTube window for audio-control play');
     }
     active.webContents.send('youtube-control', action, value);
-    console.log(`[SENT] Sent to YouTube: ${action}`);
+    logger.debug(`[SENT] Sent to YouTube: ${action}`);
   } else {
     console.warn('[WARNING] YouTube window not available');
   }
@@ -312,13 +328,13 @@ ipcMain.on('retry-youtube-control', (event, { action, value }) => {
 });
 
 ipcMain.on('play-audio', (event, { url, title, artist, playlistInfo }) => {
-  console.log(`[PLAY] Playing: ${title} by ${artist}`);
+  logger.debug(`[PLAY] Playing: ${title} by ${artist}`);
 
   // ⭐ Guardar info de playlist si viene (o mantener la actual)
   const effectivePlaylist = playlistInfo || global.currentPlaylistInfo || null;
   if (effectivePlaylist) {
     global.currentPlaylistInfo = effectivePlaylist;
-    console.log('[PLAY] Playing from playlist:', effectivePlaylist.name, '- Cover:', effectivePlaylist.cover);
+    logger.debug('[PLAY] Playing from playlist:', effectivePlaylist.name, '- Cover:', effectivePlaylist.cover);
   } else {
     global.currentPlaylistInfo = null;
   }
@@ -338,7 +354,7 @@ ipcMain.on('play-audio', (event, { url, title, artist, playlistInfo }) => {
   if (active && !active.isDestroyed()) {
     if (active.webContents.isAudioMuted()) {
       active.webContents.setAudioMuted(false);
-      console.log('[VOLUME] Unmuted active YouTube window for play-audio');
+      logger.debug('[VOLUME] Unmuted active YouTube window for play-audio');
     }
     // ⭐ Navegar directamente sin log extra
     active.loadURL(url);
@@ -350,17 +366,17 @@ ipcMain.on('play-audio', (event, { url, title, artist, playlistInfo }) => {
 // ⭐ Establecer info de playlist actual
 ipcMain.on('set-current-playlist', (event, playlistInfo) => {
   global.currentPlaylistInfo = playlistInfo;
-  console.log('[PLAYLIST] Playlist info establecida:', playlistInfo?.name);
+  logger.debug('[PLAYLIST] Playlist info establecida:', playlistInfo?.name);
 });
 
 // ⭐ Limpiar info de playlist actual
-ipcMain.on('clear-current-playlist', (event) => {
+ipcMain.on('clear-current-playlist', () => {
   global.currentPlaylistInfo = null;
-  console.log('[PLAYLIST] Playlist info limpiada');
+  logger.debug('[PLAYLIST] Playlist info limpiada');
 });
 
 ipcMain.on('seek-audio', (event, time) => {
-  console.log(`[SEEK] Seeking to: ${time}s`);
+  logger.debug(`[SEEK] Seeking to: ${time}s`);
 
   const active = state.getActiveYouTubeWindow();
   if (active && !active.isDestroyed()) {
@@ -378,7 +394,7 @@ ipcMain.on('update-volume', (event, volume) => {
 
   const now = Date.now();
   if (now - lastVolumeLogTime >= VOLUME_LOG_INTERVAL) {
-    console.log(`[VOLUME] Volume: ${Math.round(volume * 100)}%`);
+    logger.debug(`[VOLUME] Volume: ${Math.round(volume * 100)}%`);
     lastVolumeLogTime = now;
   }
 
@@ -389,13 +405,13 @@ ipcMain.on('update-volume', (event, volume) => {
 });
 
 ipcMain.on('force-play-current-video', () => {
-  console.log('[FORCE] Force playing current video');
+  logger.debug('[FORCE] Force playing current video');
 
   const active = state.getActiveYouTubeWindow();
   if (active && !active.isDestroyed()) {
     if (active.webContents.isAudioMuted()) {
       active.webContents.setAudioMuted(false);
-      console.log('[VOLUME] Unmuted active YouTube window for force-play-current-video');
+      logger.debug('[VOLUME] Unmuted active YouTube window for force-play-current-video');
     }
     active.webContents.send('youtube-control', 'play');
   }
@@ -404,7 +420,7 @@ ipcMain.on('force-play-current-video', () => {
 // Handler para modo de repetición
 ipcMain.on('set-repeat-mode', (event, mode) => {
   state.repeatMode = mode;
-  console.log('[REPEAT] Modo de repetición:', mode);
+  logger.debug('[REPEAT] Modo de repetición:', mode);
 
   // Enviar el modo a YouTube window
   const active = state.getActiveYouTubeWindow();
@@ -416,7 +432,7 @@ ipcMain.on('set-repeat-mode', (event, mode) => {
 // Handler para modo shuffle
 ipcMain.on('set-shuffle-mode', (event, enabled) => {
   state.shuffleMode = enabled;
-  console.log('[SHUFFLE] Modo aleatorio:', enabled);
+  logger.debug('[SHUFFLE] Modo aleatorio:', enabled);
 
   // Enviar el modo a YouTube window
   const active = state.getActiveYouTubeWindow();
@@ -428,11 +444,11 @@ ipcMain.on('set-shuffle-mode', (event, enabled) => {
 // Handler para cuando termina un video
 ipcMain.on('video-ended', (event) => {
   if (!state.isEventFromActiveYouTube(event)) return;
-  console.log('[VIDEO] Video terminado - Repeat mode:', state.repeatMode);
+  logger.debug('[VIDEO] Video terminado - Repeat mode:', state.repeatMode);
 
   if (state.repeatMode === 'one' && state.currentVideoUrl) {
     // Repetir la misma canción
-    console.log('[REPEAT] Repitiendo canción actual...');
+    logger.debug('[REPEAT] Repitiendo canción actual...');
     const active = state.getActiveYouTubeWindow();
     if (active && !active.isDestroyed()) {
       active.webContents.send('youtube-control', 'seek', 0);
@@ -444,13 +460,13 @@ ipcMain.on('video-ended', (event) => {
 
   // Siempre notificar al renderer (para la cola de reproducción)
   if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-    console.log('[VIDEO] Notificando video-ended al renderer para cola de reproducción');
+    logger.debug('[VIDEO] Notificando video-ended al renderer para cola de reproducción');
     state.mainWindow.webContents.send('video-ended');
   }
 });
 
-ipcMain.on('autoplay-next', (event, { videoId, title, artist }) => {
-  console.log(`[NEXT] Autoplay next: ${title}`);
+ipcMain.on('autoplay-next', (event, { videoId, title }) => {
+  logger.debug(`[NEXT] Autoplay next: ${title}`);
 
   const active = state.getActiveYouTubeWindow();
   if (active && !active.isDestroyed()) {
@@ -563,10 +579,10 @@ ipcMain.on('video-url-changed', (event, url) => {
     url.includes('signin') ||
     url.includes('ServiceLogin') ||
     url.includes('Logout'))) {
-    console.log('[VIDEO] Ignorando URL de login (no es video)');
+    logger.debug('[VIDEO] Ignorando URL de login (no es video)');
     return;
   }
-  console.log('[VIDEO] Video URL changed:', url);
+  logger.debug('[VIDEO] Video URL changed:', url);
 
   // ⭐ Desbloquear cover para la nueva canción
   discordRPC.unlockCover();
@@ -577,13 +593,13 @@ ipcMain.on('video-url-changed', (event, url) => {
 
 ipcMain.on('video-cover-updated', (event, coverUrl) => {
   if (!state.isEventFromActiveYouTube(event)) return;
-  console.log('[COVER] Cover updated:', coverUrl);
+  logger.debug('[COVER] Cover updated:', coverUrl);
 
   if (state.mainWindow && !state.mainWindow.isDestroyed()) {
     state.mainWindow.webContents.send('update-album-cover', coverUrl);
 
     // ⭐ Actualizar historial cuando cambia de video
-    console.log('[HISTORY] Notificación para actualizar historial');
+    logger.debug('[HISTORY] Notificación para actualizar historial');
     state.mainWindow.webContents.send('refresh-history');
   }
 
@@ -593,14 +609,14 @@ ipcMain.on('video-cover-updated', (event, coverUrl) => {
   // ⭐ Sincronizar volumen cuando cambia de video
   setTimeout(() => {
     if (state.youtubeWindow && !state.youtubeWindow.isDestroyed()) {
-      console.log('[VOLUME] Sincronizando volumen al cambiar video:', Math.round(state.currentAppVolume * 100) + '%');
+      logger.debug('[VOLUME] Sincronizando volumen al cambiar video:', Math.round(state.currentAppVolume * 100) + '%');
       state.youtubeWindow.webContents.send('youtube-control', 'volume', state.currentAppVolume);
     }
   }, 500);
 });
 
 ipcMain.on('youtube-ready', () => {
-  console.log('[OK] YouTube window is ready and communication established');
+  logger.debug('[OK] YouTube window is ready and communication established');
 });
 
 ipcMain.on('video-preview-frame', (event, dataUrl) => {
@@ -614,7 +630,7 @@ ipcMain.on('video-preview-frame', (event, dataUrl) => {
 
 // Handler para solicitar videos destacados (mixes) de YouTube Music
 ipcMain.handle('get-featured-videos', async () => {
-  console.log('[FEATURED] Solicitando videos destacados de YouTube...');
+  logger.debug('[FEATURED] Solicitando videos destacados de YouTube...');
 
   try {
     const auxWindow = createAuxYoutubeWindow();
@@ -624,7 +640,7 @@ ipcMain.handle('get-featured-videos', async () => {
       auxWindow.loadURL('https://www.youtube.com');
 
       auxWindow.webContents.once('did-finish-load', async () => {
-        console.log('[FEATURED] YouTube cargado, esperando contenido...');
+        logger.debug('[FEATURED] YouTube cargado, esperando contenido...');
 
         // ⭐ OPTIMIZADO: Esperar menos tiempo
         await new Promise(r => setTimeout(r, 2500));
@@ -650,14 +666,14 @@ ipcMain.handle('get-featured-videos', async () => {
               const videos = [];
               const maxVideos = 6; // ⭐ AUMENTADO: 6 videos destacados
               
-              console.log('[EXTRACT] ===== Inicio de extracción =====');
-              console.log('[EXTRACT] URL:', window.location.href);
-              console.log('[EXTRACT] DOM listo:', document.readyState);
+              logger.debug('[EXTRACT] ===== Inicio de extracción =====');
+              logger.debug('[EXTRACT] URL:', window.location.href);
+              logger.debug('[EXTRACT] DOM listo:', document.readyState);
               
               // Método 1: Buscar directamente en ytInitialData
               try {
                 if (window.ytInitialData) {
-                  console.log('[EXTRACT] ytInitialData encontrado en window');
+                  logger.debug('[EXTRACT] ytInitialData encontrado en window');
                   
                   const findVideos = (obj, depth = 0) => {
                     if (videos.length >= maxVideos || depth > 20) return;
@@ -681,7 +697,7 @@ ipcMain.handle('get-featured-videos', async () => {
                           url: 'https://www.youtube.com/watch?v=' + videoId,
                           duration: vr.lengthText?.simpleText || ''
                         });
-                        console.log('[EXTRACT] Video encontrado:', title.substring(0, 40));
+                        logger.debug('[EXTRACT] Video encontrado:', title.substring(0, 40));
                       }
                     }
                     
@@ -708,7 +724,7 @@ ipcMain.handle('get-featured-videos', async () => {
               
               // Método 2: Si no encontró videos, buscar en scripts
               if (videos.length < maxVideos) {
-                console.log('[EXTRACT] Buscando en scripts del DOM...');
+                logger.debug('[EXTRACT] Buscando en scripts del DOM...');
                 const scripts = document.querySelectorAll('script');
                 
                 for (const script of scripts) {
@@ -736,7 +752,7 @@ ipcMain.handle('get-featured-videos', async () => {
                           url: 'https://www.youtube.com/watch?v=' + videoId,
                           duration: ''
                         });
-                        console.log('[EXTRACT] Video de script:', videoId);
+                        logger.debug('[EXTRACT] Video de script:', videoId);
                       }
                     }
                   }
@@ -745,7 +761,7 @@ ipcMain.handle('get-featured-videos', async () => {
               
               // Método 3: Buscar en el DOM renderizado
               if (videos.length < maxVideos) {
-                console.log('[EXTRACT] Buscando en DOM renderizado...');
+                logger.debug('[EXTRACT] Buscando en DOM renderizado...');
                 
                 // Buscar todos los elementos que puedan contener videos
                 const selectors = [
@@ -791,17 +807,17 @@ ipcMain.handle('get-featured-videos', async () => {
                       url: 'https://www.youtube.com/watch?v=' + videoId,
                       duration: ''
                     });
-                    console.log('[EXTRACT] Video de DOM:', title.substring(0, 40));
+                    logger.debug('[EXTRACT] Video de DOM:', title.substring(0, 40));
                   }
                 }
               }
               
-              console.log('[EXTRACT] ===== Total videos:', videos.length, '=====');
+              logger.debug('[EXTRACT] ===== Total videos:', videos.length, '=====');
               return videos;
             })()
           `);
 
-          console.log('[FEATURED] Videos encontrados:', videos.length);
+          logger.debug('[FEATURED] Videos encontrados:', videos.length);
           resolve({ success: true, videos });
         } catch (error) {
           console.error('[FEATURED] Error extrayendo:', error);
@@ -811,7 +827,7 @@ ipcMain.handle('get-featured-videos', async () => {
 
       // Timeout de seguridad
       setTimeout(() => {
-        console.log('[FEATURED] Timeout alcanzado');
+        logger.debug('[FEATURED] Timeout alcanzado');
         resolve({ success: false, videos: [] });
       }, 35000);
     });
@@ -823,7 +839,7 @@ ipcMain.handle('get-featured-videos', async () => {
 
 // Handler para solicitar historial de YouTube
 ipcMain.handle('get-history-videos', async () => {
-  console.log('[HISTORY] Solicitando historial de YouTube...');
+  logger.debug('[HISTORY] Solicitando historial de YouTube...');
 
   try {
     const auxWindow = createAuxYoutubeWindow();
@@ -832,11 +848,11 @@ ipcMain.handle('get-history-videos', async () => {
       auxWindow.loadURL('https://www.youtube.com/feed/history');
 
       auxWindow.webContents.once('did-finish-load', async () => {
-        console.log('[HISTORY] Página de historial cargada, esperando contenido...');
+        logger.debug('[HISTORY] Página de historial cargada, esperando contenido...');
 
         try {
           if (auxWindow.isDestroyed()) {
-            console.log('[HISTORY] Ventana cerrada antes de completar');
+            logger.debug('[HISTORY] Ventana cerrada antes de completar');
             resolve([]);
             return;
           }
@@ -877,12 +893,12 @@ ipcMain.handle('get-history-videos', async () => {
             const maxVideos = 10;
             const videos = [];
             
-            console.log('[HISTORY] Extrayendo videos del historial...');
+            logger.debug('[HISTORY] Extrayendo videos del historial...');
             
             // Si redirige a login, no hay sesión
             if (window.location.href.includes('accounts.google.com') || 
                 window.location.href.includes('ServiceLogin')) {
-              console.log('[HISTORY] Redirigido a login');
+              logger.debug('[HISTORY] Redirigido a login');
               return { error: 'not-logged-in', videos: [] };
             }
             
@@ -930,7 +946,7 @@ ipcMain.handle('get-history-videos', async () => {
             const historyItems = Array.from(document.querySelectorAll(
               '.ytLockupViewModelMetadata, .ytLockupMetadataViewModelTextContainer, yt-lockup-metadata-view-model'
             ));
-            console.log('[HISTORY] Items de historial encontrados:', historyItems.length);
+            logger.debug('[HISTORY] Items de historial encontrados:', historyItems.length);
  
             for (const item of historyItems) {
               if (videos.length >= maxVideos) break;
@@ -983,12 +999,12 @@ ipcMain.handle('get-history-videos', async () => {
                 url: 'https://www.youtube.com/watch?v=' + videoId,
                 duration: duration
               });
-              console.log('[HISTORY] Video:', title.substring(0, 40), '|', channel);
+              logger.debug('[HISTORY] Video:', title.substring(0, 40), '|', channel);
             }
             
             // Fallback - Buscar en ytInitialData si no encontró suficientes
             if (videos.length < maxVideos) {
-              console.log('[HISTORY] Buscando en ytInitialData...');
+              logger.debug('[HISTORY] Buscando en ytInitialData...');
               try {
                 if (window.ytInitialData) {
                   const getTextFromRuns = (textObj) => {
@@ -1074,7 +1090,7 @@ ipcMain.handle('get-history-videos', async () => {
                             url: 'https://www.youtube.com/watch?v=' + data.videoId,
                             duration: data.duration
                           });
-                          console.log('[HISTORY] ytInitialData Video:', data.title.substring(0, 40));
+                          logger.debug('[HISTORY] ytInitialData Video:', data.title.substring(0, 40));
                           if (videos.length >= maxVideos) return;
                         }
                       }
@@ -1103,7 +1119,7 @@ ipcMain.handle('get-history-videos', async () => {
             
             // Fallback final - buscar cualquier link a video
             if (videos.length < maxVideos) {
-              console.log('[HISTORY] Fallback: buscando links generales...');
+              logger.debug('[HISTORY] Fallback: buscando links generales...');
               
               const allLinks = document.querySelectorAll('a[href*="/watch?v="]');
               
@@ -1133,14 +1149,14 @@ ipcMain.handle('get-history-videos', async () => {
               }
             }
             
-            console.log('[HISTORY] Total encontrados:', videos.length);;
+            logger.debug('[HISTORY] Total encontrados:', videos.length);;
             return { videos: videos.slice(0, maxVideos) };
           })()
         `;
 
           try {
             if (auxWindow.isDestroyed()) {
-              console.log('[HISTORY] Ventana cerrada antes de extraer');
+              logger.debug('[HISTORY] Ventana cerrada antes de extraer');
               resolve({ success: false, videos: [] });
               return;
             }
@@ -1148,15 +1164,15 @@ ipcMain.handle('get-history-videos', async () => {
             const result = await auxWindow.webContents.executeJavaScript(extractHistoryScript);
 
             if (result.error === 'not-logged-in') {
-              console.log('[HISTORY] Usuario no logueado');
+              logger.debug('[HISTORY] Usuario no logueado');
               resolve({ success: false, videos: [], error: 'not-logged-in' });
             } else {
-              console.log('[HISTORY] Videos del historial:', result.videos.length);
+              logger.debug('[HISTORY] Videos del historial:', result.videos.length);
               resolve({ success: true, videos: result.videos });
             }
           } catch (error) {
             if (error.message && error.message.includes('destroyed')) {
-              console.log('[HISTORY] Ventana cerrada durante extracción');
+              logger.debug('[HISTORY] Ventana cerrada durante extracción');
               resolve({ success: false, videos: [] });
             } else {
               console.error('[HISTORY] Error extrayendo:', error);
@@ -1165,7 +1181,7 @@ ipcMain.handle('get-history-videos', async () => {
           }
         } catch (error) {
           if (error.message && error.message.includes('destroyed')) {
-            console.log('[HISTORY] Ventana cerrada durante carga');
+            logger.debug('[HISTORY] Ventana cerrada durante carga');
           } else {
             console.error('[HISTORY] Error en carga:', error);
           }
@@ -1175,7 +1191,7 @@ ipcMain.handle('get-history-videos', async () => {
 
       // Timeout de seguridad
       setTimeout(() => {
-        console.log('[HISTORY] Timeout alcanzado');
+        logger.debug('[HISTORY] Timeout alcanzado');
         resolve({ success: false, videos: [] });
       }, 45000);
     });
@@ -1281,7 +1297,7 @@ function parseInnertubeVideos(data) {
 }
 
 ipcMain.handle('search-youtube', async (event, query) => {
-  console.log('[SEARCH] Buscando en YouTube (Innertube):', query);
+  logger.debug('[SEARCH] Buscando en YouTube (Innertube):', query);
   try {
     const data = await innertubeFetchWithRetry('search', {
       context: {
@@ -1307,7 +1323,7 @@ ipcMain.handle('search-youtube', async (event, query) => {
 
 ipcMain.handle('search-youtube-more', async (event, continuation) => {
   if (!continuation) return { success: false, videos: [], continuation: null };
-  console.log('[SEARCH] Cargando más resultados...');
+  logger.debug('[SEARCH] Cargando más resultados...');
   try {
     const data = await innertubeFetch('search', {
       context: {
@@ -1324,7 +1340,7 @@ ipcMain.handle('search-youtube-more', async (event, continuation) => {
 
 // Fallback: browser-based search con AbortController y retry
 async function fallbackBrowserSearch(query, retries = 1) {
-  console.log('[SEARCH] Fallback browser para:', query);
+  logger.debug('[SEARCH] Fallback browser para:', query);
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const auxWindow = createAuxYoutubeWindow();
@@ -1399,7 +1415,7 @@ async function fallbackBrowserSearch(query, retries = 1) {
 
 // ===== TOP 100 GLOBAL - YOUTUBE CHARTS OFICIAL =====
 ipcMain.handle('get-youtube-charts', async () => {
-  console.log('[CHARTS] Obteniendo Top 100 Global de YouTube Charts...');
+  logger.debug('[CHARTS] Obteniendo Top 100 Global de YouTube Charts...');
 
   try {
     const auxWindow = createAuxYoutubeWindow();
@@ -1409,7 +1425,7 @@ ipcMain.handle('get-youtube-charts', async () => {
       auxWindow.loadURL(chartsUrl);
 
       auxWindow.webContents.once('did-finish-load', async () => {
-        console.log('[CHARTS] Página de YouTube Charts cargada, esperando renderizado...');
+        logger.debug('[CHARTS] Página de YouTube Charts cargada, esperando renderizado...');
 
         // Esperar más tiempo para que la SPA cargue completamente
         await new Promise(r => setTimeout(r, 8000));
@@ -1427,12 +1443,12 @@ ipcMain.handle('get-youtube-charts', async () => {
             const songs = [];
             const maxSongs = 100;
             
-            console.log('[CHARTS] Iniciando extracción...');
-            console.log('[CHARTS] URL:', window.location.href);
+            logger.debug('[CHARTS] Iniciando extracción...');
+            logger.debug('[CHARTS] URL:', window.location.href);
             
             try {
               const rows = document.querySelectorAll('ytmc-entry-row');
-              console.log('[CHARTS] ytmc-entry-row encontrados:', rows.length);
+              logger.debug('[CHARTS] ytmc-entry-row encontrados:', rows.length);
               
               for (const row of rows) {
                 if (songs.length >= maxSongs) break;
@@ -1511,11 +1527,11 @@ ipcMain.handle('get-youtube-charts', async () => {
                 }
               }
             } catch (e) {
-              console.log('[CHARTS] Error método 1:', e.message);
+              logger.debug('[CHARTS] Error método 1:', e.message);
             }
             
             if (songs.length < 20) {
-              console.log('[CHARTS] Método 2: Buscando en title-container...');
+              logger.debug('[CHARTS] Método 2: Buscando en title-container...');
               try {
                 const containers = document.querySelectorAll('.title-container');
                 
@@ -1564,12 +1580,12 @@ ipcMain.handle('get-youtube-charts', async () => {
                   }
                 }
               } catch (e) {
-                console.log('[CHARTS] Error método 2:', e.message);
+                logger.debug('[CHARTS] Error método 2:', e.message);
               }
             }
             
             if (songs.length < 20) {
-              console.log('[CHARTS] Método 3: Fallback links...');
+              logger.debug('[CHARTS] Método 3: Fallback links...');
               try {
                 const allLinks = document.querySelectorAll('a[href*="watch?v="], [endpoint*="watch?v="]');
                 
@@ -1601,22 +1617,22 @@ ipcMain.handle('get-youtube-charts', async () => {
                   });
                 }
               } catch (e) {
-                console.log('[CHARTS] Error método 3:', e.message);
+                logger.debug('[CHARTS] Error método 3:', e.message);
               }
             }
             
-            console.log('[CHARTS] Total extraídos:', songs.length);
+            logger.debug('[CHARTS] Total extraídos:', songs.length);
             return { songs: songs.slice(0, maxSongs) };
           })()
         `;
 
         try {
           const result = await auxWindow.webContents.executeJavaScript(extractChartsScript);
-          console.log('[CHARTS] Top extraído:', result.songs?.length || 0, 'canciones');
+          logger.debug('[CHARTS] Top extraído:', result.songs?.length || 0, 'canciones');
 
           // Si charts.youtube.com no funciona, usar fallback de búsqueda
           if (!result.songs || result.songs.length < 10) {
-            console.log('[CHARTS] Pocos resultados de Charts, usando fallback de búsqueda...');
+            logger.debug('[CHARTS] Pocos resultados de Charts, usando fallback de búsqueda...');
 
             const searchUrl = 'https://www.youtube.com/results?search_query=top+100+global+songs+2025&sp=EgIQAQ%253D%253D';
 
@@ -1676,7 +1692,7 @@ ipcMain.handle('get-youtube-charts', async () => {
 
                 try {
                   const fbResult = await auxWindow.webContents.executeJavaScript(fallbackScript);
-                  console.log('[CHARTS] Fallback extraído:', fbResult.songs?.length || 0);
+                  logger.debug('[CHARTS] Fallback extraído:', fbResult.songs?.length || 0);
                   resolve({ success: true, songs: fbResult.songs || [] });
                 } catch (e) {
                   resolve({ success: true, songs: result.songs || [] });
@@ -1696,7 +1712,7 @@ ipcMain.handle('get-youtube-charts', async () => {
 
       // Timeout de seguridad
       setTimeout(() => {
-        console.log('[CHARTS] Timeout alcanzado');
+        logger.debug('[CHARTS] Timeout alcanzado');
         resolve({ success: false, songs: [] });
       }, 60000);
     });
@@ -1707,14 +1723,14 @@ ipcMain.handle('get-youtube-charts', async () => {
 });
 
 // IPC Handler: Open YouTube window (keep hidden for playbacks)
-ipcMain.handle('open-youtube-window', async (event, { videoUrl, title, artist }) => {
+ipcMain.handle('open-youtube-window', async (_event, { videoUrl }) => {
   try {
     if (state.youtubeWindow && !state.youtubeWindow.isDestroyed()) {
       if (state.youtubeWindow.webContents.isAudioMuted()) {
         state.youtubeWindow.webContents.setAudioMuted(false);
-        console.log('[VOLUME] Unmuted active YouTube window for open-youtube-window (reused)');
+        logger.debug('[VOLUME] Unmuted active YouTube window for open-youtube-window (reused)');
       }
-      console.log('[REUSE] Reutilizando ventana de YouTube existente');
+      logger.debug('[REUSE] Reutilizando ventana de YouTube existente');
       state.youtubeWindow.loadURL(videoUrl);
       return { success: true, reused: true };
     }
@@ -1724,19 +1740,19 @@ ipcMain.handle('open-youtube-window', async (event, { videoUrl, title, artist })
     if (state.youtubeWindow && !state.youtubeWindow.isDestroyed()) {
       if (state.youtubeWindow.webContents.isAudioMuted()) {
         state.youtubeWindow.webContents.setAudioMuted(false);
-        console.log('[VOLUME] Unmuted active YouTube window for open-youtube-window (new)');
+        logger.debug('[VOLUME] Unmuted active YouTube window for open-youtube-window (new)');
       }
     }
 
-    console.log('[URL] Abriendo YouTube en nueva ventana:', videoUrl);
+    logger.debug('[URL] Abriendo YouTube en nueva ventana:', videoUrl);
     state.youtubeWindow.loadURL(videoUrl);
 
     state.youtubeWindow.webContents.on('did-finish-load', () => {
-      console.log('[WINDOW] YouTube cargado - Inyectando script de monitoreo');
+      logger.debug('[WINDOW] YouTube cargado - Inyectando script de monitoreo');
 
       const detectionScript = `
         (function() {
-          console.log('[SCRIPT] YouTube monitoring script injected');
+          logger.debug('[SCRIPT] YouTube monitoring script injected');
           
           let lastLoginStatus = null;
           let loginCheckInterval = null;
@@ -1768,7 +1784,7 @@ ipcMain.handle('open-youtube-window', async (event, { videoUrl, title, artist })
                 lastLoginStatus = currentStatus;
                 
                 if (currentStatus === true) {
-                  console.log('[OK] Usuario LOGUEADO en YouTube');
+                  logger.debug('[OK] Usuario LOGUEADO en YouTube');
                   if (window.youtubeAPI && window.youtubeAPI.notifyLogin) {
                     window.youtubeAPI.notifyLogin({
                       isLoggedIn: true,
@@ -1778,7 +1794,7 @@ ipcMain.handle('open-youtube-window', async (event, { videoUrl, title, artist })
                     });
                   }
                 } else if (currentStatus === false) {
-                  console.log('[LOGOUT] Usuario DESLOGUEADO en YouTube');
+                  logger.debug('[LOGOUT] Usuario DESLOGUEADO en YouTube');
                   if (window.youtubeAPI && window.youtubeAPI.notifyLogout) {
                     window.youtubeAPI.notifyLogout({
                       isLoggedIn: false,
@@ -1788,7 +1804,7 @@ ipcMain.handle('open-youtube-window', async (event, { videoUrl, title, artist })
                 }
               } else if (lastLoginStatus === null) {
                 lastLoginStatus = currentStatus;
-                console.log('[INIT] Estado inicial:', currentStatus ? 'LOGGED IN' : 'NOT LOGGED IN');
+                logger.debug('[INIT] Estado inicial:', currentStatus ? 'LOGGED IN' : 'NOT LOGGED IN');
               }
             } catch (error) {
               console.error('Error checking YouTube status:', error);
@@ -1810,7 +1826,7 @@ ipcMain.handle('open-youtube-window', async (event, { videoUrl, title, artist })
               });
               
               observer.observe(observeTarget, config);
-              console.log('[OBSERVER] MutationObserver iniciado');
+              logger.debug('[OBSERVER] MutationObserver iniciado');
             }
           } catch (error) {
             console.error('Error creating MutationObserver:', error);
@@ -1829,12 +1845,12 @@ ipcMain.handle('open-youtube-window', async (event, { videoUrl, title, artist })
             if (loginCheckInterval) clearInterval(loginCheckInterval);
           });
           
-          console.log('[OK] YouTube monitoring completamente iniciado');
+          logger.debug('[OK] YouTube monitoring completamente iniciado');
         })();
       `;
 
       state.youtubeWindow.webContents.executeJavaScript(detectionScript)
-        .then(() => console.log('[OK] Script de monitoreo inyectado'))
+        .then(() => logger.debug('[OK] Script de monitoreo inyectado'))
         .catch(err => console.error('Error inyectando script:', err));
     });
 

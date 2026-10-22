@@ -251,6 +251,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     });
   },
 
+  // ===== SINCRONIZACIÓN DE FAVORITOS (tiempo real entre ventanas) =====
+  onFavoritesChanged: (callback) => {
+    const handler = (event, favorites) => callback(favorites);
+    ipcRenderer.on('favorites-changed', handler);
+    return () => ipcRenderer.removeListener('favorites-changed', handler);
+  },
+
   // ===== TOASTS =====
   onShowToast: (callback) => {
     ipcRenderer.on('show-toast', (event, data) => callback(data));

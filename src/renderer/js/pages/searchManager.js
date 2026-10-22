@@ -8,6 +8,7 @@ class SearchManager {
     this.searchBtn = null;
     this.isSearchPageActive = false;
     this.currentQuery = '';
+    this.currentResults = [];
     this.continuation = null;
     this.isLoadingMore = false;
     this.RECENT_SEARCHES_KEY = 'seaxmusic_recent_searches';
@@ -53,13 +54,29 @@ class SearchManager {
       return;
     }
     container.style.display = 'block';
-    list.innerHTML = searches.map(q => `
-      <div class="search-recent-item" data-query="${q.replace(/"/g, '&quot;')}" role="listitem" tabindex="0" aria-label="Buscar ${this.escapeHtml(q)}">
-        <i class="fas fa-history search-recent-icon" aria-hidden="true"></i>
-        <span class="search-recent-query">${this.escapeHtml(q)}</span>
-        <button class="search-recent-remove" data-query="${q.replace(/"/g, '&quot;')}" aria-label="Eliminar ${this.escapeHtml(q)}"><i class="fas fa-times" aria-hidden="true"></i></button>
-      </div>
-    `).join('');
+    // Las búsquedas pueden provenir de texto pegado por el usuario. Construir el
+    // contenido con el DOM evita que una búsqueda se interprete como HTML.
+    list.replaceChildren(...searches.map(query => {
+      const item = document.createElement('div');
+      item.className = 'search-recent-item';
+      item.dataset.query = query;
+      item.setAttribute('role', 'listitem');
+      item.tabIndex = 0;
+      item.setAttribute('aria-label', `Buscar ${query}`);
+      item.innerHTML = '<i class="fas fa-history search-recent-icon" aria-hidden="true"></i>';
+
+      const label = document.createElement('span');
+      label.className = 'search-recent-query';
+      label.textContent = query;
+
+      const remove = document.createElement('button');
+      remove.className = 'search-recent-remove';
+      remove.dataset.query = query;
+      remove.setAttribute('aria-label', `Eliminar ${query}`);
+      remove.innerHTML = '<i class="fas fa-times" aria-hidden="true"></i>';
+      item.append(label, remove);
+      return item;
+    }));
 
     list.querySelectorAll('.search-recent-item').forEach(item => {
       item.addEventListener('click', (e) => {
@@ -83,12 +100,6 @@ class SearchManager {
     });
   }
 
-  escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
   init() {
     // Escuchar navegación a búsqueda
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -102,7 +113,7 @@ class SearchManager {
   }
   
   async showSearchPage(addToHistory = true) {
-    console.log('[SEARCH] Mostrando página de búsqueda...');
+    Logger.debug('[SEARCH] Mostrando página de búsqueda...');
     
     // Agregar al historial de navegación
     if (addToHistory && window.navigationHistory) {
@@ -278,8 +289,9 @@ class SearchManager {
       return;
     }
 
-    console.log('🔍 Buscando en SeaxMusic:', query);
+    Logger.debug('🔍 Buscando en SeaxMusic:', query);
     this.currentQuery = query;
+    this.currentResults = [];
     this.continuation = null;
     
     // Guardar en búsquedas recientes
@@ -309,20 +321,21 @@ class SearchManager {
         if (searchLoading) searchLoading.style.display = 'none';
         
         if (response.success && response.videos && response.videos.length > 0) {
-          console.log('✅ Resultados encontrados:', response.videos.length);
+          Logger.debug('✅ Resultados encontrados:', response.videos.length);
           if (resultsCount) {
             resultsCount.textContent = `${response.videos.length} resultados para "${query}"`;
           }
           this.continuation = response.continuation || null;
+          this.currentResults = response.videos;
           this.displaySearchResults(response.videos);
         } else {
-          console.log('❌ No se encontraron resultados');
+          Logger.debug('❌ No se encontraron resultados');
           if (searchNoResults) searchNoResults.style.display = 'flex';
           if (resultsCount) resultsCount.textContent = `Sin resultados para "${query}"`;
         }
       } else {
         // Fallback: Abrir YouTube directamente
-        console.log('⚠️ API de búsqueda no disponible, abriendo YouTube...');
+        Logger.debug('⚠️ API de búsqueda no disponible, abriendo YouTube...');
         if (searchLoading) searchLoading.style.display = 'none';
         
         const youtubeSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
@@ -374,6 +387,7 @@ class SearchManager {
         const response = await window.electronAPI.searchYouTubeMore(this.continuation);
         if (response.success && response.videos?.length > 0) {
           this.continuation = response.continuation || null;
+          this.currentResults.push(...response.videos);
           this.appendSearchResults(response.videos);
         } else {
           this.continuation = null;
@@ -415,34 +429,57 @@ class SearchManager {
   createResultCard(video) {
     const card = document.createElement('div');
     card.className = 'music-card search-result-card';
-    card.setAttribute('data-video-id', video.videoId);
+    card.dataset.videoId = video.videoId || '';
 
     const artistName = video.channel || video.artist || 'SeaxMusic';
     const videoTitle = video.title || 'Sin título';
     const videoId = video.videoId || '';
 
-    const thumbnailSrc = video.thumbnail && video.thumbnail.startsWith('http')
+    const thumbnailSrc = this.getSafeImageUrl(video.thumbnail)
       ? video.thumbnail
       : (videoId ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : './assets/img/icon.png');
 
-    card.innerHTML = `
-      <div class="card-image">
-        <img class="card-img" src="${thumbnailSrc}"
-             onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${videoId}/hqdefault.jpg'; this.onerror=function(){this.src='./assets/img/icon.png'};"
-             alt="${videoTitle}" loading="lazy">
-        <div class="card-overlay">
-          <button class="play-card-btn"><i class="fas fa-play"></i></button>
-          <button class="add-queue-card-btn" title="Añadir a la cola"><i class="fas fa-plus"></i></button>
-        </div>
-        ${video.duration ? `<span class="card-duration">${video.duration}</span>` : ''}
-      </div>
-      <div class="card-info">
-        <p class="card-title" title="${videoTitle}">${videoTitle}</p>
-        <p class="card-artist" title="${artistName}">${artistName}</p>
-        ${video.isVerified ? '<span class="channel-badge"><i class="fas fa-check-circle"></i> Artista oficial</span>' : ''}
-      </div>
-    `;
-    card.style.setProperty('--card-bg', `url('${thumbnailSrc}')`);
+    const image = document.createElement('img');
+    image.className = 'card-img';
+    image.src = thumbnailSrc;
+    image.alt = videoTitle;
+    image.loading = 'lazy';
+    image.addEventListener('error', () => {
+      image.onerror = null;
+      image.src = videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : './assets/img/icon.png';
+    });
+
+    const imageWrap = document.createElement('div');
+    imageWrap.className = 'card-image';
+    const overlay = document.createElement('div');
+    overlay.className = 'card-overlay';
+    overlay.innerHTML = '<button class="play-card-btn"><i class="fas fa-play"></i></button><button class="add-queue-card-btn" title="Añadir a la cola"><i class="fas fa-plus"></i></button>';
+    imageWrap.append(image, overlay);
+    if (video.duration) {
+      const duration = document.createElement('span');
+      duration.className = 'card-duration';
+      duration.textContent = video.duration;
+      imageWrap.appendChild(duration);
+    }
+
+    const info = document.createElement('div');
+    info.className = 'card-info';
+    const title = document.createElement('p');
+    title.className = 'card-title';
+    title.title = videoTitle;
+    title.textContent = videoTitle;
+    const artist = document.createElement('p');
+    artist.className = 'card-artist';
+    artist.title = artistName;
+    artist.textContent = artistName;
+    info.append(title, artist);
+    if (video.isVerified) {
+      const badge = document.createElement('span');
+      badge.className = 'channel-badge';
+      badge.innerHTML = '<i class="fas fa-check-circle"></i> Artista oficial';
+      info.appendChild(badge);
+    }
+    card.append(imageWrap, info);
 
     const addQueueBtn = card.querySelector('.add-queue-card-btn');
     if (addQueueBtn) {
@@ -464,12 +501,22 @@ class SearchManager {
 
     return card;
   }
+
+  getSafeImageUrl(value) {
+    if (typeof value !== 'string') return false;
+    try {
+      const url = new URL(value);
+      return url.protocol === 'https:' || url.protocol === 'http:';
+    } catch {
+      return false;
+    }
+  }
   
   playVideo(video) {
     const videoTitle = video.title || 'Sin título';
     const artistName = video.channel || video.artist || 'SeaxMusic';
     
-    console.log('🎵 Reproduciendo desde búsqueda:', videoTitle);
+    Logger.debug('🎵 Reproduciendo desde búsqueda:', videoTitle);
     
     const currentTrack = {
       videoId: video.videoId,
@@ -478,6 +525,14 @@ class SearchManager {
       channel: artistName,
       thumbnail: video.thumbnail
     };
+
+    // Convertir los resultados de la búsqueda en una sesión inteligente. Así,
+    // al terminar la canción elegida, SeaxMusic rota artistas y evita repetir
+    // temas aunque el modo DJ esté apagado.
+    if (window.setPlayQueue && this.currentResults.length > 1) {
+      const selectedIndex = this.currentResults.findIndex(result => result.videoId === video.videoId);
+      window.setPlayQueue(this.currentResults, Math.max(0, selectedIndex));
+    }
 
     // Actualizar track actual compartido
     if (window.appState) {
@@ -522,7 +577,7 @@ class SearchManager {
       if (window.electronAPI && window.electronAPI.closeYouTubeWindow) {
         const result = await window.electronAPI.closeYouTubeWindow();
         if (result.success) {
-          console.log('✅ Ventana de YouTube cerrada');
+          Logger.debug('✅ Ventana de YouTube cerrada');
         }
       }
     } catch (error) {

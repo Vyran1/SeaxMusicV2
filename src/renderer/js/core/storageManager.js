@@ -25,7 +25,7 @@ const StorageManager = (() => {
       const v = localStorage.getItem(VERSION_KEY);
       if (v !== String(VERSION)) {
         localStorage.setItem(VERSION_KEY, String(VERSION));
-        console.log(`[STORAGE] Version ${VERSION} inicializada`);
+        Logger.debug(`[STORAGE] Version ${VERSION} inicializada`);
       }
     } catch (e) { console.warn('[STORAGE] ensureVersion error', e); }
   }
@@ -53,13 +53,13 @@ const StorageManager = (() => {
     // Limpia claves no críticas o antiguas (auto playlists cache, historial cache)
     const expendable = [KEYS.DJ_AUTOPLAYLISTS, KEYS.HISTORY, KEYS.RECENT_SEARCHES];
     for (const k of expendable) {
-      try { localStorage.removeItem(k); console.log(`[STORAGE] cleaned ${k}`); } catch {}
+      try { localStorage.removeItem(k); Logger.debug(`[STORAGE] cleaned ${k}`); } catch {}
     }
   }
 
   function getJSON(key, fallback = null) {
     const raw = safeGet(key);
-    if (raw == null) return fallback;
+    if (raw === null) return fallback;
     try { const parsed = JSON.parse(raw); return parsed ?? fallback; } catch (e) {
       console.warn(`[STORAGE] JSON parse failed for ${key}, removing`, e);
       try { localStorage.removeItem(key); } catch {}
@@ -100,7 +100,7 @@ const StorageManager = (() => {
     setJSON,
     remove,
     clearAll: clearPrefixed,
-    getOrDefault: (k, def) => { const v = safeGet(k); return v == null ? def : v; }
+    getOrDefault: (k, def) => { const v = safeGet(k); return v === null ? def : v; }
   };
 })();
 

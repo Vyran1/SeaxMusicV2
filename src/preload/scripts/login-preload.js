@@ -32,9 +32,6 @@ function checkYouTubeLoginStatus() {
     const hasAvatarImg = topbarMenuButton?.querySelector('img[src*="ggpht"]') || 
                          topbarMenuButton?.querySelector('img[src*="lh3"]');
     
-    // Buscar el botón de usuario en la barra superior
-    const userButton = document.querySelector('button[aria-label*="Cuenta"], button[aria-label*="gusto"], button[aria-label*="perfil"]');
-    
     // Buscar el img del avatar
     const profileImage = hasAvatarImg || 
                         document.querySelector('#avatar-button img[src*="ggpht"]') || 

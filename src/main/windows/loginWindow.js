@@ -1,10 +1,11 @@
+const logger = require('../utils/logger');
 const { BrowserWindow } = require('electron');
 const path = require('path');
 const state = require('../state');
 
 function createLoginWindow() {
   if (state.loginWindow && !state.loginWindow.isDestroyed()) {
-    console.log('[LOGIN] Cerrando ventana de login anterior');
+    logger.debug('[LOGIN] Cerrando ventana de login anterior');
     try { state.loginWindow.close(); } catch (e) {}
     state.loginWindow = null;
   }
@@ -29,13 +30,13 @@ function createLoginWindow() {
     modal: true
   });
 
-  console.log('[LOGIN] Ventana pequeña de login creada (compartiendo sesión)');
+  logger.debug('[LOGIN] Ventana pequeña de login creada (compartiendo sesión)');
 
   // URL directa de login de Google para YouTube
   state.loginWindow.loadURL('https://accounts.google.com/ServiceLogin?service=youtube&hl=es&continue=https://www.youtube.com/signin?action_handle_signin=true&next=%2F');
 
   state.loginWindow.once('ready-to-show', () => {
-    console.log('[LOGIN] Ventana lista, mostrando...');
+    logger.debug('[LOGIN] Ventana lista, mostrando...');
     if (state.loginWindow && !state.loginWindow.isDestroyed()) {
       state.loginWindow.show();
       state.loginWindow.focus();
@@ -48,11 +49,11 @@ function createLoginWindow() {
 
   // Inyectar script de detección de login
   state.loginWindow.webContents.on('did-finish-load', () => {
-    console.log('[LOGIN] Página de login cargada, inyectando detector...');
+    logger.debug('[LOGIN] Página de login cargada, inyectando detector...');
 
     const loginDetectionScript = `
       (function() {
-        console.log('[LOGIN-DETECT] Script de detección iniciado');
+        logger.debug('[LOGIN-DETECT] Script de detección iniciado');
         
         let checkInterval = null;
         
@@ -62,7 +63,7 @@ function createLoginWindow() {
             const hasUserButton = !!document.querySelector('ytd-topbar-menu-button-renderer img[src*="ggpht"], #avatar img[src*="ggpht"]');
             
             if (isYouTube && hasUserButton) {
-              console.log('[LOGIN-DETECT] Login exitoso detectado!');
+              logger.debug('[LOGIN-DETECT] Login exitoso detectado!');
               
               // ⭐ Abrir menú de usuario para extraer datos correctos
               const userButton = document.querySelector('ytd-topbar-menu-button-renderer button, #avatar-btn');
@@ -96,7 +97,7 @@ function createLoginWindow() {
                   // Cerrar menú
                   userButton.click();
                   
-                  console.log('[LOGIN-DETECT] Datos:', userName, userHandle, avatarUrl ? 'avatar OK' : 'sin avatar');
+                  logger.debug('[LOGIN-DETECT] Datos:', userName, userHandle, avatarUrl ? 'avatar OK' : 'sin avatar');
                   
                   // Usar loginAPI (del login-preload.js) o youtubeAPI (fallback)
                   const api = window.loginAPI || window.youtubeAPI;
@@ -132,24 +133,24 @@ function createLoginWindow() {
           if (checkInterval) clearInterval(checkInterval);
         });
         
-        console.log('[LOGIN-DETECT] Detector configurado');
+        logger.debug('[LOGIN-DETECT] Detector configurado');
       })();
     `;
 
     if (state.loginWindow && !state.loginWindow.isDestroyed()) {
       state.loginWindow.webContents.executeJavaScript(loginDetectionScript)
-        .then(() => console.log('[LOGIN] Script de detección inyectado'))
+        .then(() => logger.debug('[LOGIN] Script de detección inyectado'))
         .catch(err => console.error('[LOGIN] Error inyectando script:', err));
     }
   });
 
   state.loginWindow.on('closed', () => {
-    console.log('[LOGIN] Ventana de login cerrada');
+    logger.debug('[LOGIN] Ventana de login cerrada');
     state.loginWindow = null;
 
     // Recargar youtubeWindow para actualizar sesión
     if (state.youtubeWindow && !state.youtubeWindow.isDestroyed()) {
-      console.log('[LOGIN] Recargando ventana de YouTube para actualizar sesión...');
+      logger.debug('[LOGIN] Recargando ventana de YouTube para actualizar sesión...');
       const currentUrl = state.youtubeWindow.webContents.getURL();
       state.youtubeWindow.loadURL(currentUrl);
     }

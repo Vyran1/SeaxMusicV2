@@ -1,3 +1,4 @@
+const logger = require('./utils/logger');
 const { app, BrowserWindow, powerSaveBlocker } = require('electron');
 const path = require('path');
 const state = require('./state');
@@ -59,7 +60,7 @@ app.whenReady().then(() => {
   // Mantener reproducción estable en segundo plano (evita suspensión del sistema)
   if (powerSaveBlocker && !powerSaveBlocker.isStarted(state.powerSaveBlockerId || -1)) {
     state.powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension');
-    console.log('[POWER] powerSaveBlocker started:', state.powerSaveBlockerId);
+    logger.debug('[POWER] powerSaveBlocker started:', state.powerSaveBlockerId);
   }
 
   // Inicializar Auto-Updater
@@ -71,23 +72,23 @@ app.whenReady().then(() => {
   // Crear ventana de YouTube activa automáticamente al iniciar
   if (!state.youtubeWindow || state.youtubeWindow.isDestroyed()) {
     state.youtubeWindow = createYouTubeWindow(false);
-    console.log('[YOUTUBE] YouTube window creada al iniciar (compartiendo sesión persistente)');
+    logger.debug('[YOUTUBE] YouTube window creada al iniciar (compartiendo sesión persistente)');
     state.youtubeWindow.loadURL('https://www.youtube.com');
 
       // Mostrar y abrir DevTools en modo desarrollo
       if (process.argv.includes('--dev')) {
         state.youtubeWindow.show();
         state.youtubeWindow.webContents.openDevTools({ mode: 'detach' });
-        console.log('[DEV] YouTube window visible con DevTools');
+        logger.debug('[DEV] YouTube window visible con DevTools');
       }
 
       // Inyectar script de monitoreo cuando cargue
       state.youtubeWindow.webContents.on('did-finish-load', () => {
-        console.log('[YOUTUBE] YouTube cargado - Inyectando script de monitoreo');
+        logger.debug('[YOUTUBE] YouTube cargado - Inyectando script de monitoreo');
 
         const monitoringScript = `
           (function() {
-            console.log('[MONITOR] YouTube monitoring iniciado');
+            logger.debug('[MONITOR] YouTube monitoring iniciado');
 
             window.checkYouTubeStatus = function() {
               try {
@@ -95,7 +96,7 @@ app.whenReady().then(() => {
                 const hasLogout = !!document.querySelector('a[href*="logout"]');
                 const isLoggedIn = hasAvatar || hasLogout;
 
-                console.log('[MONITOR] Estado actual:', isLoggedIn ? 'LOGGED IN' : 'NOT LOGGED IN');
+                logger.debug('[MONITOR] Estado actual:', isLoggedIn ? 'LOGGED IN' : 'NOT LOGGED IN');
 
                 return isLoggedIn;
               } catch (e) {
@@ -126,16 +127,16 @@ app.whenReady().then(() => {
   const isDevMode = process.argv.includes('--dev');
   const isPackaged = app.isPackaged;
 
-  console.log('========================================');
-  console.log('🔍 DIAGNÓSTICO DE ENTORNO:');
-  console.log('   app.isPackaged:', isPackaged);
-  console.log('   isDevMode (--dev flag):', isDevMode);
-  console.log('   process.argv:', process.argv);
-  console.log('   Versión:', app.getVersion());
-  console.log('========================================');
+  logger.debug('========================================');
+  logger.debug('🔍 DIAGNÓSTICO DE ENTORNO:');
+  logger.debug('   app.isPackaged:', isPackaged);
+  logger.debug('   isDevMode (--dev flag):', isDevMode);
+  logger.debug('   process.argv:', process.argv);
+  logger.debug('   Versión:', app.getVersion());
+  logger.debug('========================================');
 
   if (isDevMode) {
-    console.log('🔧 Modo desarrollo detectado - forzando modal de update');
+    logger.debug('🔧 Modo desarrollo detectado - forzando modal de update');
 
     // Notificar al renderer que se va a abrir el modal
     setTimeout(() => {
@@ -147,7 +148,7 @@ app.whenReady().then(() => {
     const showDevUpdateModal = () => {
       setTimeout(() => {
         if (state.appUpdater && typeof state.appUpdater.promptInstallUpdate === 'function') {
-          console.log('🔧 Mostrando modal de update en modo dev');
+          logger.debug('🔧 Mostrando modal de update en modo dev');
           state.appUpdater.promptInstallUpdate({
             version: '2.0.99-dev',
             releaseNotes: [
@@ -168,7 +169,7 @@ app.whenReady().then(() => {
       }
     }
   } else {
-    console.log('🚀 MODO PRODUCCIÓN - Iniciando verificación de actualizaciones...');
+    logger.debug('🚀 MODO PRODUCCIÓN - Iniciando verificación de actualizaciones...');
 
     if (state.mainWindow && !state.mainWindow.isDestroyed()) {
       state.mainWindow.webContents.send('update-log', '🚀 MODO PRODUCCIÓN - Verificando actualizaciones...');
@@ -176,29 +177,29 @@ app.whenReady().then(() => {
 
     setTimeout(async () => {
       if (state.appUpdater) {
-        console.log('📦 appUpdater existe, verificando...');
+        logger.debug('📦 appUpdater existe, verificando...');
 
         if (state.mainWindow && !state.mainWindow.isDestroyed()) {
           state.mainWindow.webContents.send('update-log', '📦 Verificando actualizaciones pendientes...');
         }
 
         const hasPending = await state.appUpdater.checkAndShowPendingUpdate();
-        console.log('📦 ¿Hay actualización pendiente?', hasPending);
+        logger.debug('📦 ¿Hay actualización pendiente?', hasPending);
 
         if (!hasPending) {
-          console.log('🔍 No hay pendiente, buscando nuevas actualizaciones...');
+          logger.debug('🔍 No hay pendiente, buscando nuevas actualizaciones...');
           if (state.mainWindow && !state.mainWindow.isDestroyed()) {
             state.mainWindow.webContents.send('update-log', '🔍 Buscando nuevas actualizaciones en GitHub...');
           }
 
           try {
             const currentVer = app.getVersion();
-            console.log('📌 [MAIN] Versión actual de la app:', currentVer);
+            logger.debug('📌 [MAIN] Versión actual de la app:', currentVer);
             if (state.mainWindow && !state.mainWindow.isDestroyed()) {
               state.mainWindow.webContents.send('update-log', '📌 Versión instalada: ' + currentVer);
             }
 
-            console.log('🔍 [MAIN] Llamando state.appUpdater.checkForUpdatesAndNotify()...');
+            logger.debug('🔍 [MAIN] Llamando state.appUpdater.checkForUpdatesAndNotify()...');
             if (state.mainWindow && !state.mainWindow.isDestroyed()) {
               state.mainWindow.webContents.send('update-log', '🔍 Iniciando verificación con state.appUpdater...');
             }
@@ -213,7 +214,7 @@ app.whenReady().then(() => {
           }
         }
       } else {
-        console.log('❌ state.appUpdater es NULL!');
+        logger.debug('❌ state.appUpdater es NULL!');
         if (state.mainWindow && !state.mainWindow.isDestroyed()) {
           state.mainWindow.webContents.send('update-log', '❌ ERROR: state.appUpdater es NULL');
         }
@@ -236,7 +237,7 @@ app.on('window-all-closed', () => {
 
   if (process.platform !== 'darwin') {
     if (isDevMode) {
-      console.log('[DEV] Todas las ventanas cerradas - app continúa en segundo plano para debug');
+      logger.debug('[DEV] Todas las ventanas cerradas - app continúa en segundo plano para debug');
     } else {
       app.quit();
     }

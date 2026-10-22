@@ -1,4 +1,5 @@
-const { ipcMain, app } = require('electron');
+const logger = require('../utils/logger');
+const { ipcMain, app, BrowserWindow } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -57,7 +58,7 @@ function getFavoritesStore(user) {
     try {
       const rawData = fs.readFileSync(filePath, 'utf8').trim();
       if (rawData.startsWith('[')) {
-        console.log(`[MIGRATION] Formato array legacy detectado en ${name}.json. Migrando a electron-store...`);
+        logger.debug(`[MIGRATION] Formato array legacy detectado en ${name}.json. Migrando a electron-store...`);
         const legacyArray = JSON.parse(rawData);
         
         // Crear un respaldo atómico de seguridad antes de transformar el archivo
@@ -66,7 +67,7 @@ function getFavoritesStore(user) {
         // Re-escribir en formato compatible con el esquema de electron-store
         const compatObject = { favorites: Array.isArray(legacyArray) ? legacyArray : [] };
         fs.writeFileSync(filePath, JSON.stringify(compatObject, null, 2), 'utf8');
-        console.log(`[MIGRATION] Migración completada para ${name}.json. Respaldo guardado en ${name}.json.bak`);
+        logger.debug(`[MIGRATION] Migración completada para ${name}.json. Respaldo guardado en ${name}.json.bak`);
       }
     } catch (e) {
       console.error(`[MIGRATION] Error al convertir array legacy en ${name}.json:`, e);
@@ -92,7 +93,7 @@ function getFavoritesStore(user) {
           const compatObject = { favorites: legacyArray };
           fs.writeFileSync(filePath, JSON.stringify(compatObject, null, 2), 'utf8');
           fs.writeFileSync(flagPath, new Date().toISOString(), 'utf8');
-          console.log('[MIGRATION] Migrados favoritos legacy globales a nuevo usuario registrado');
+          logger.debug('[MIGRATION] Migrados favoritos legacy globales a nuevo usuario registrado');
         }
       } catch (e) {
         console.error('[MIGRATION] Error migrando favoritos globales a usuario:', e);
@@ -127,7 +128,7 @@ function saveFavorites(favorites) {
     const user = getCurrentUserData();
     const store = getFavoritesStore(user);
     store.set('favorites', favorites);
-    console.log('[FAVORITES] Guardados:', favorites.length, 'favoritos mediante electron-store');
+    logger.debug('[FAVORITES] Guardados:', favorites.length, 'favoritos mediante electron-store');
     return true;
   } catch (e) {
     console.error('[FAVORITES] Error guardando favoritos en el store:', e);
@@ -135,16 +136,26 @@ function saveFavorites(favorites) {
   }
 }
 
+// Envía el estado actual de favoritos a todas las ventanas abiertas (sincronización en tiempo real)
+function broadcastFavorites(favorites) {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+      win.webContents.send('favorites-changed', favorites);
+    }
+  }
+}
+
 // ===== REGISTRO IPC =====
 
 ipcMain.handle('get-favorites', async () => {
   const favorites = loadFavorites();
-  console.log('[FAVORITES] Cargando favoritos:', favorites.length);
+  logger.debug('[FAVORITES] Cargando favoritos:', favorites.length);
   return favorites;
 });
 
 ipcMain.handle('save-favorites', async (event, favorites) => {
   const success = saveFavorites(favorites);
+  if (success) broadcastFavorites(loadFavorites());
   return { success };
 });
 
@@ -153,7 +164,8 @@ ipcMain.handle('add-favorite', async (event, video) => {
   if (!favorites.some(v => v.videoId === video.videoId)) {
     favorites.unshift(video);
     saveFavorites(favorites);
-    console.log('[FAVORITES] Agregado:', video.title);
+    broadcastFavorites(favorites);
+    logger.debug('[FAVORITES] Agregado:', video.title);
     return { success: true, favorites };
   }
   return { success: false, message: 'Ya existe', favorites };
@@ -165,7 +177,8 @@ ipcMain.handle('remove-favorite', async (event, videoId) => {
   if (index !== -1) {
     favorites.splice(index, 1);
     saveFavorites(favorites);
-    console.log('[FAVORITES] Eliminado videoId:', videoId);
+    broadcastFavorites(favorites);
+    logger.debug('[FAVORITES] Eliminado videoId:', videoId);
     return { success: true, favorites };
   }
   return { success: false, message: 'No encontrado', favorites };
@@ -185,14 +198,16 @@ ipcMain.handle('toggle-favorite', async (event, payload) => {
   if (index !== -1) {
     favorites.splice(index, 1);
     saveFavorites(favorites);
-    console.log('[FAVORITES] Toggle: eliminado', videoId);
+    broadcastFavorites(favorites);
+    logger.debug('[FAVORITES] Toggle: eliminado', videoId);
     return { success: true, action: 'removed', favorites };
   }
 
   if (typeof payload === 'object' && payload.videoId) {
     favorites.unshift(payload);
     saveFavorites(favorites);
-    console.log('[FAVORITES] Toggle: agregado', payload.title || videoId);
+    broadcastFavorites(favorites);
+    logger.debug('[FAVORITES] Toggle: agregado', payload.title || videoId);
     return { success: true, action: 'added', favorites };
   }
 

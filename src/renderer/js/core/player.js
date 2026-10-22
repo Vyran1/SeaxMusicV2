@@ -197,7 +197,7 @@ class MusicPlayer {
     // ⭐ Escuchar eventos de atajos de teclado globales
     if (window.electronAPI?.onGlobalHotkeyTriggered) {
       window.electronAPI.onGlobalHotkeyTriggered(({ action }) => {
-        console.log('[PLAYER] Acción de atajo global recibida:', action);
+        Logger.debug('[PLAYER] Acción de atajo global recibida:', action);
         switch (action) {
           case 'playPause':
             this.togglePlay();
@@ -333,7 +333,7 @@ class MusicPlayer {
     this.updatePlayButton();
     
     const action = this.isPlaying ? 'play' : 'pause';
-    console.log('🎵 Toggle Play/Pause:', action);
+    Logger.debug('🎵 Toggle Play/Pause:', action);
     
     // ⭐ Actualizar Now Playing si está activo
     if (window.nowPlayingManager) {
@@ -366,20 +366,20 @@ class MusicPlayer {
   }
   
   async previous() {
-    console.log('⏮️ Previous track');
+    Logger.debug('⏮️ Previous track');
     
     // Si hay una cola de reproducción activa con tracks
     if (window.appState && window.appState.playQueue && window.appState.playQueue.length > 0) {
       // Si el audio ha transcurrido más de 3 segundos o es la primera canción (índice 0): Reiniciar canción.
       if (this.currentTime >= 3 || window.appState.playQueueIndex === 0) {
-        console.log('⏮️ Reiniciando canción actual (tiempo transcurrido >= 3s o es la primera canción)');
+        Logger.debug('⏮️ Reiniciando canción actual (tiempo transcurrido >= 3s o es la primera canción)');
         this.seekTo(0);
         if (!this.isPlaying) {
           this.togglePlay();
         }
       } else {
         // De lo contrario (tiempo < 3s y índice > 0): Ir a la anterior en cola.
-        console.log('⏮️ Yendo a la canción anterior en la cola');
+        Logger.debug('⏮️ Yendo a la canción anterior en la cola');
         if (window.playPrevInQueue) {
           window.playPrevInQueue();
         }
@@ -389,7 +389,7 @@ class MusicPlayer {
       if (this.currentTime < 3 && window.appState && window.appState.recentHistory && window.appState.recentHistory.length > 1) {
         // El elemento 0 es la actual (o muy reciente). El elemento 1 es la anterior real.
         const prevTrack = window.appState.recentHistory[1];
-        console.log('⏮️ No hay cola, buscando anterior en historial:', prevTrack.title);
+        Logger.debug('⏮️ No hay cola, buscando anterior en historial:', prevTrack.title);
         
         // Remover el primer elemento (el actual) para que al volver a unshift no hagamos bucles redundantes directos
         window.appState.recentHistory.shift();
@@ -417,14 +417,14 @@ class MusicPlayer {
         }
       } else {
         // Si no hay historial anterior o va >= 3s, reiniciar video actual a 0
-        console.log('⏮️ Reiniciando video actual a 0');
+        Logger.debug('⏮️ Reiniciando video actual a 0');
         this.seekTo(0);
       }
     }
   }
   
   async next() {
-    console.log('⏭️ Next track - Cola:', window.appState?.playQueue?.length, 'Índice:', window.appState?.playQueueIndex);
+    Logger.debug('⏭️ Next track - Cola:', window.appState?.playQueue?.length, 'Índice:', window.appState?.playQueueIndex);
 
     // DJ Mix: si hay siguiente precargado, cambiar instantáneo
     if (window.appState?.djMixEnabled && window.appState?.djMixNextTrack && window.djMixImmediateSwap) {
@@ -437,16 +437,16 @@ class MusicPlayer {
     
     // ⭐ Usar cola de reproducción si hay tracks
     if (window.appState && window.appState.playQueue && window.appState.playQueue.length > 0) {
-      console.log('⏭️ Intentando usar cola de playlist...');
+      Logger.debug('⏭️ Intentando usar cola de playlist...');
       if (window.playNextInQueue && window.playNextInQueue()) {
-        console.log('⏭️ ✅ Usando siguiente de cola');
+        Logger.debug('⏭️ ✅ Usando siguiente de cola');
         return;
       }
-      console.log('⏭️ Cola terminada o error');
+      Logger.debug('⏭️ Cola terminada o error');
     }
     
     // Si no hay cola o llegamos al final: usar YouTube normal
-    console.log('⏭️ Usando YouTube autoplay');
+    Logger.debug('⏭️ Usando YouTube autoplay');
     if (window.electronAPI && window.electronAPI.send) {
       const playFn = () => window.electronAPI.send('audio-control', 'next');
       if (window.runDjMixTransition) {
@@ -473,7 +473,7 @@ class MusicPlayer {
         if (window.appState.playQueue && window.appState.playQueue.length > 0) {
           // Solo guardar cola original UNA VEZ (evita corrupción al re-activar)
           if (!window.appState.originalPlayQueue) {
-            console.log('[SHUFFLE] Guardando cola original...');
+            Logger.debug('[SHUFFLE] Guardando cola original...');
             window.appState.originalPlayQueue = [...window.appState.playQueue];
           }
           
@@ -491,7 +491,7 @@ class MusicPlayer {
         }
       } else {
         if (window.appState.originalPlayQueue && window.appState.originalPlayQueue.length > 0) {
-          console.log('[SHUFFLE] Desactivando Shuffle. Restaurando cola original...');
+          Logger.debug('[SHUFFLE] Desactivando Shuffle. Restaurando cola original...');
           const currentTrack = window.appState.playQueue[window.appState.playQueueIndex];
           window.appState.playQueue = [...window.appState.originalPlayQueue];
           
@@ -526,7 +526,7 @@ class MusicPlayer {
       window.electronAPI.send('set-shuffle-mode', this.isShuffle);
     }
     
-    console.log('Shuffle:', this.isShuffle);
+    Logger.debug('Shuffle:', this.isShuffle);
   }
   
   toggleRepeat() {
@@ -570,7 +570,7 @@ class MusicPlayer {
       window.nowPlayingManager.syncRepeatButton();
     }
     
-    console.log('Repeat mode:', this.repeatMode);
+    Logger.debug('Repeat mode:', this.repeatMode);
   }
   
   seek(event) {
@@ -579,7 +579,7 @@ class MusicPlayer {
     const percent = (event.clientX - rect.left) / rect.width;
     const seekTime = percent * this.duration;
     
-    console.log('⏩ Seek to:', seekTime);
+    Logger.debug('⏩ Seek to:', seekTime);
     this.updateProgress(percent * 100);
     
     // Enviar comando seek a YouTube
@@ -792,14 +792,18 @@ class MusicPlayer {
     if (!track) return;
     
     // Usar favoritesManager para toggle y persistir
+    let isLiked = false;
     if (window.favoritesManager) {
-      await window.favoritesManager.toggleFavorite(track);
+      isLiked = await window.favoritesManager.toggleFavorite(track);
     }
     
     // Actualizar UI de ambos lugares después de que cambie el estado
     this.updateLikeButton();
     if (window.nowPlayingManager) {
       window.nowPlayingManager.updateLikeButton();
+    }
+    if (isLiked) {
+      window.playLikeAnimation?.(this.getEl('likeBtn'));
     }
   }
   
@@ -822,7 +826,7 @@ class MusicPlayer {
   }
   
   toggleFullscreen() {
-    console.log('Toggle fullscreen/mini player');
+    Logger.debug('Toggle fullscreen/mini player');
     // TODO: Implement fullscreen/mini player view
   }
   
@@ -851,7 +855,7 @@ class MusicPlayer {
           window.appState.recentHistory.pop();
         }
         
-        console.log('[HISTORY] Track agregado al historial dinámico:', track.title);
+        Logger.debug('[HISTORY] Track agregado al historial dinámico:', track.title);
       }
     }
     
@@ -953,7 +957,7 @@ window.updateTrackInfo = function(track, direction) {
 // ⭐ Escuchar actualizaciones de info de video en tiempo real
 if (window.electronAPI && window.electronAPI.onUpdateVideoInfo) {
   window.electronAPI.onUpdateVideoInfo((videoInfo) => {
-    console.log('[PLAYER] Video info recibido:', videoInfo);
+    Logger.debug('[PLAYER] Video info recibido:', videoInfo);
     
     // Actualizar currentTrack con la nueva info
     if (!player.currentTrack) {
@@ -1032,7 +1036,7 @@ if (window.electronAPI && window.electronAPI.onUpdateVideoInfo) {
         if (window.appState.recentHistory.length > 50) {
           window.appState.recentHistory.pop();
         }
-        console.log('[HISTORY] Nueva canción agregada al historial dinámico desde IPC:', track.title || track.videoId);
+        Logger.debug('[HISTORY] Nueva canción agregada al historial dinámico desde IPC:', track.title || track.videoId);
       } else {
         // Misma canción, actualizar metadatos conforme vayan llegando
         if (track.title) firstInHistory.title = track.title;
@@ -1094,7 +1098,7 @@ if (window.electronAPI && window.electronAPI.onAudioPaused) {
 // ⭐ Escuchar actualizaciones de cover
 if (window.electronAPI && window.electronAPI.onUpdateAlbumCover) {
   window.electronAPI.onUpdateAlbumCover((coverUrl) => {
-    console.log('[PLAYER] Cover actualizado:', coverUrl);
+    Logger.debug('[PLAYER] Cover actualizado:', coverUrl);
     const trackImage = document.getElementById('trackImage');
     if (trackImage && coverUrl) {
       trackImage.src = coverUrl;

@@ -23,7 +23,7 @@ class LyricsService {
         this.preloadAbortController = null;
         this.preloadingTrack = null;
 
-        console.log('🎤 LyricsService v2 initialized');
+        Logger.debug('🎤 LyricsService v2 initialized');
     }
 
     /**
@@ -39,7 +39,7 @@ class LyricsService {
 
         // Si ya está en caché, no hacer nada
         if (this.cache.has(cacheKey)) {
-            console.log(`🎤 [PRELOAD] Ya en caché: "${cleanTrack}"`);
+            Logger.debug(`🎤 [PRELOAD] Ya en caché: "${cleanTrack}"`);
             return;
         }
 
@@ -57,7 +57,7 @@ class LyricsService {
         this.preloadAbortController = new AbortController();
         const signal = this.preloadAbortController.signal;
 
-        console.log(`🎤 [PRELOAD] Precargando: "${cleanTrack}" - "${cleanArtist}"`);
+        Logger.debug(`🎤 [PRELOAD] Precargando: "${cleanTrack}" - "${cleanArtist}"`);
 
         try {
             // Búsqueda silenciosa en segundo plano
@@ -68,7 +68,7 @@ class LyricsService {
                 const data = await response.json();
                 if (data && (data.syncedLyrics || data.plainLyrics)) {
                     this.addToCache(cacheKey, data);
-                    console.log(`✅ [PRELOAD] Precargado: "${cleanTrack}"`);
+                    Logger.debug(`✅ [PRELOAD] Precargado: "${cleanTrack}"`);
                     return;
                 }
             }
@@ -83,7 +83,7 @@ class LyricsService {
                     const best = results.find(r => r.syncedLyrics) || results.find(r => r.plainLyrics);
                     if (best) {
                         this.addToCache(cacheKey, best);
-                        console.log(`✅ [PRELOAD] Precargado: "${cleanTrack}"`);
+                        Logger.debug(`✅ [PRELOAD] Precargado: "${cleanTrack}"`);
                         return;
                     }
                 }
@@ -94,7 +94,7 @@ class LyricsService {
 
         } catch (error) {
             if (error.name !== 'AbortError') {
-                console.log(`⚠️ [PRELOAD] Error: ${error.message}`);
+                Logger.debug(`⚠️ [PRELOAD] Error: ${error.message}`);
             }
         } finally {
             if (this.preloadingTrack === cacheKey) {
@@ -113,7 +113,7 @@ class LyricsService {
     /**
      * Buscar letras - con cancelación y caché
      */
-    async searchLyrics(trackName, artistName, trackId = null) {
+    async searchLyrics(trackName, artistName) {
         // Cancelar búsqueda anterior si existe
         if (this.abortController) {
             this.abortController.abort();
@@ -131,20 +131,20 @@ class LyricsService {
         const cleanArtist = this.cleanSearchTerm(artistName);
 
         if (!cleanTrack) {
-            console.log('🎤 No hay título para buscar');
+            Logger.debug('🎤 No hay título para buscar');
             return null;
         }
 
         // Verificar caché
         const cacheKey = this.getCacheKey(cleanTrack, cleanArtist);
         if (this.cache.has(cacheKey)) {
-            console.log(`🎤 [${searchId}] Usando caché para: "${cleanTrack}"`);
+            Logger.debug(`🎤 [${searchId}] Usando caché para: "${cleanTrack}"`);
             const cached = this.cache.get(cacheKey);
             if (cached === null) return null; // Cacheado como no encontrado
             return this.processLyricsResult(cached, searchId);
         }
 
-        console.log(`🔍 [${searchId}] Buscando: "${cleanTrack}" - "${cleanArtist}"`);
+        Logger.debug(`🔍 [${searchId}] Buscando: "${cleanTrack}" - "${cleanArtist}"`);
 
         try {
             // Búsqueda rápida: intentar ambos endpoints en paralelo
@@ -152,7 +152,7 @@ class LyricsService {
 
             // Verificar que sigue siendo la búsqueda actual
             if (searchId !== this.currentSearchId) {
-                console.log(`⏭️ [${searchId}] Resultado ignorado (búsqueda cancelada)`);
+                Logger.debug(`⏭️ [${searchId}] Resultado ignorado (búsqueda cancelada)`);
                 return null;
             }
 
@@ -163,12 +163,12 @@ class LyricsService {
                 return this.processLyricsResult(result, searchId);
             }
 
-            console.log(`❌ [${searchId}] No se encontraron letras`);
+            Logger.debug(`❌ [${searchId}] No se encontraron letras`);
             return null;
 
         } catch (error) {
             if (error.name === 'AbortError') {
-                console.log(`⏭️ [${searchId}] Búsqueda abortada`);
+                Logger.debug(`⏭️ [${searchId}] Búsqueda abortada`);
                 return null;
             }
             console.error(`❌ [${searchId}] Error:`, error.message);
@@ -207,14 +207,14 @@ class LyricsService {
             if (response.ok) {
                 const data = await response.json();
                 if (data && (data.syncedLyrics || data.plainLyrics)) {
-                    console.log(`✅ [${searchId}] Encontrado con búsqueda exacta`);
+                    Logger.debug(`✅ [${searchId}] Encontrado con búsqueda exacta`);
                     return data;
                 }
             }
         } catch (e) {
             if (e.name === 'AbortError') {
                 if (signal?.aborted) throw e; // Cancelación del usuario
-                console.log(`⏱️ [${searchId}] Timeout en búsqueda exacta`);
+                Logger.debug(`⏱️ [${searchId}] Timeout en búsqueda exacta`);
             }
         }
 
@@ -232,13 +232,13 @@ class LyricsService {
                     // Priorizar letras sincronizadas
                     const withSync = results.find(r => r.syncedLyrics);
                     if (withSync) {
-                        console.log(`✅ [${searchId}] Encontrado con búsqueda general (sincronizado)`);
+                        Logger.debug(`✅ [${searchId}] Encontrado con búsqueda general (sincronizado)`);
                         return withSync;
                     }
                     // Fallback a letras planas
                     const withPlain = results.find(r => r.plainLyrics);
                     if (withPlain) {
-                        console.log(`✅ [${searchId}] Encontrado con búsqueda general (plano)`);
+                        Logger.debug(`✅ [${searchId}] Encontrado con búsqueda general (plano)`);
                         return withPlain;
                     }
                 }
@@ -246,7 +246,7 @@ class LyricsService {
         } catch (e) {
             if (e.name === 'AbortError') {
                 if (signal?.aborted) throw e;
-                console.log(`⏱️ [${searchId}] Timeout en búsqueda general`);
+                Logger.debug(`⏱️ [${searchId}] Timeout en búsqueda general`);
             }
         }
 
@@ -263,7 +263,7 @@ class LyricsService {
                 if (results?.length > 0) {
                     const withSync = results.find(r => r.syncedLyrics);
                     if (withSync) {
-                        console.log(`✅ [${searchId}] Encontrado solo con título`);
+                        Logger.debug(`✅ [${searchId}] Encontrado solo con título`);
                         return withSync;
                     }
                 }
@@ -271,7 +271,7 @@ class LyricsService {
         } catch (e) {
             if (e.name === 'AbortError') {
                 if (signal?.aborted) throw e;
-                console.log(`⏱️ [${searchId}] Timeout en búsqueda por título`);
+                Logger.debug(`⏱️ [${searchId}] Timeout en búsqueda por título`);
             }
         }
 
@@ -310,7 +310,7 @@ class LyricsService {
         // Parsear letras
         if (data.syncedLyrics) {
             this.parsedLyrics = this.parseSyncedLyrics(data.syncedLyrics);
-            console.log(`🎤 ${this.parsedLyrics.length} líneas sincronizadas`);
+            Logger.debug(`🎤 ${this.parsedLyrics.length} líneas sincronizadas`);
         } else if (data.plainLyrics) {
             this.parsedLyrics = data.plainLyrics.split('\n')
                 .map((line, index) => ({
@@ -319,7 +319,7 @@ class LyricsService {
                     index
                 }))
                 .filter(l => l.text);
-            console.log(`🎤 ${this.parsedLyrics.length} líneas (sin sincronizar)`);
+            Logger.debug(`🎤 ${this.parsedLyrics.length} líneas (sin sincronizar)`);
         }
 
         return this.currentLyrics;

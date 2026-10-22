@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const state = require('../state');
@@ -33,7 +34,7 @@ function createMainWindow() {
 
     if (isDevMode) {
       // ⭐ DEV MODE: Mantener ventanas abiertas para debug
-      console.log('[DEV] Ventana principal cerrada - YouTube y Login permanecen abiertas para debug');
+      logger.debug('[DEV] Ventana principal cerrada - YouTube y Login permanecen abiertas para debug');
       // No cerrar youtubeWindow ni loginWindow
     } else {
       // ⭐ PROD MODE: Cerrar todo al cerrar main

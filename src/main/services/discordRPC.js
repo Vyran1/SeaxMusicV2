@@ -1,3 +1,4 @@
+const logger = require('../utils/logger');
 /**
  * Discord Rich Presence para SeaxMusic
  * Muestra la canción actual y estado en Discord
@@ -41,12 +42,12 @@ class DiscordRichPresence {
    */
   async initialize() {
     try {
-      console.log('[DISCORD] Inicializando Discord Rich Presence...');
+      logger.debug('[DISCORD] Inicializando Discord Rich Presence...');
       
       this.client = new RPC.Client({ transport: 'ipc' });
       
       this.client.on('ready', () => {
-        console.log('[DISCORD] ✅ Conectado a Discord como', this.client.user.username);
+        logger.debug('[DISCORD] ✅ Conectado a Discord como', this.client.user.username);
         this.isConnected = true;
         this.reconnectAttempts = 0;
         
@@ -55,7 +56,7 @@ class DiscordRichPresence {
       });
 
       this.client.on('disconnected', () => {
-        console.log('[DISCORD] ❌ Desconectado de Discord');
+        logger.debug('[DISCORD] ❌ Desconectado de Discord');
         this.isConnected = false;
         this.scheduleReconnect();
       });
@@ -75,12 +76,12 @@ class DiscordRichPresence {
    */
   scheduleReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('[DISCORD] Máximo de intentos de reconexión alcanzado');
+      logger.debug('[DISCORD] Máximo de intentos de reconexión alcanzado');
       return;
     }
 
     const delay = Math.min(5000 * Math.pow(2, this.reconnectAttempts), 60000);
-    console.log(`[DISCORD] Reintentando conexión en ${delay/1000}s...`);
+    logger.debug(`[DISCORD] Reintentando conexión en ${delay/1000}s...`);
     
     this.reconnectTimeout = setTimeout(() => {
       this.reconnectAttempts++;
@@ -133,7 +134,7 @@ class DiscordRichPresence {
     if (!sameTrack) {
       this.state.coverLocked = false;
       this.state.trackImage = null;
-      console.log('[DISCORD] Nueva pista detectada, desbloqueando cover');
+      logger.debug('[DISCORD] Nueva pista detectada, desbloqueando cover');
     }
 
     this.state.isPlaying = true;
@@ -146,7 +147,7 @@ class DiscordRichPresence {
     if (trackImage) {
       this.state.trackImage = trackImage;
       this.state.coverLocked = true; // Bloquear después de establecer
-      console.log('[DISCORD] Cover establecido y bloqueado');
+      logger.debug('[DISCORD] Cover establecido y bloqueado');
     }
     this.state.duration = duration;
     this.state.isPaused = false;
@@ -208,10 +209,10 @@ class DiscordRichPresence {
     if (!sameTrack) {
       this.state.coverLocked = false;
       this.state.trackImage = null;
-      console.log('[DISCORD] Nueva pista en playlist, desbloqueando cover');
+      logger.debug('[DISCORD] Nueva pista en playlist, desbloqueando cover');
     }
 
-    console.log('[DISCORD] setPlaylistActivity:', playlistName, '- Cover:', playlistCover);
+    logger.debug('[DISCORD] setPlaylistActivity:', playlistName, '- Cover:', playlistCover);
 
     this.state.isPlaying = true;
     this.state.trackName = trackName;
@@ -223,7 +224,7 @@ class DiscordRichPresence {
     if (playlistCover) {
       this.state.trackImage = playlistCover;
       this.state.coverLocked = true;
-      console.log('[DISCORD] Cover de playlist establecido:', playlistCover);
+      logger.debug('[DISCORD] Cover de playlist establecido:', playlistCover);
     }
     
     this.state.duration = duration;
@@ -372,11 +373,11 @@ class DiscordRichPresence {
   setInitialTrackImage(imageUrl) {
     // ⭐ Solo establecer si el cover NO está bloqueado
     if (!this.state.coverLocked && imageUrl) {
-      console.log('[DISCORD] Estableciendo imagen inicial del track y bloqueando');
+      logger.debug('[DISCORD] Estableciendo imagen inicial del track y bloqueando');
       this.state.trackImage = imageUrl;
       this.state.coverLocked = true; // ⭐ Bloquear para que no se actualice más
     } else {
-      console.log('[DISCORD] Cover ya bloqueado, ignorando nueva imagen');
+      logger.debug('[DISCORD] Cover ya bloqueado, ignorando nueva imagen');
     }
   }
 
@@ -384,7 +385,7 @@ class DiscordRichPresence {
    * Desbloquear el cover (llamar cuando cambia de video/canción)
    */
   unlockCover() {
-    console.log('[DISCORD] Desbloqueando cover para nueva canción');
+    logger.debug('[DISCORD] Desbloqueando cover para nueva canción');
     this.state.coverLocked = false;
     this.state.trackImage = null;
     this.state.playlistName = null; // ⭐ Limpiar info de playlist
@@ -420,13 +421,13 @@ class DiscordRichPresence {
 
     try {
       if (this.currentActivity && this.activityEquals(this.currentActivity, activity)) {
-        console.log('[DISCORD] Actividad idéntica, omitiendo actualización');
+        logger.debug('[DISCORD] Actividad idéntica, omitiendo actualización');
         return;
       }
 
       this.client.setActivity(activity);
       this.currentActivity = activity;
-      console.log('[DISCORD] Actividad actualizada:', activity.details);
+      logger.debug('[DISCORD] Actividad actualizada:', activity.details);
     } catch (error) {
       console.error('[DISCORD] Error actualizando actividad:', error.message);
     }
@@ -449,7 +450,7 @@ class DiscordRichPresence {
         duration: 0,
         currentTime: 0
       };
-      console.log('[DISCORD] Actividad limpiada');
+      logger.debug('[DISCORD] Actividad limpiada');
     } catch (error) {
       console.error('[DISCORD] Error limpiando actividad:', error.message);
     }
@@ -487,7 +488,7 @@ class DiscordRichPresence {
     
     this.isConnected = false;
     this.client = null;
-    console.log('[DISCORD] Cliente destruido');
+    logger.debug('[DISCORD] Cliente destruido');
   }
 }
 

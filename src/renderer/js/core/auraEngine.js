@@ -321,7 +321,7 @@
       if (!window._auraAlbumModeEnabled) return;
       const color = extractDominant(img);
       if (color) {
-        console.log(`[AURA] 🎨 rgb(${color.r}, ${color.g}, ${color.b}), Monochromatic: ${color.isMonochromatic}`);
+        Logger.debug(`[AURA] 🎨 rgb(${color.r}, ${color.g}, ${color.b}), Monochromatic: ${color.isMonochromatic}`);
         isMonochromatic = color.isMonochromatic;
         animateTo(color.r, color.g, color.b);
         const trackImage = document.getElementById('trackImage');
@@ -449,7 +449,7 @@
       }
     `;
     document.head.appendChild(style);
-    console.log('[AURA] 💅 Estilos inyectados.');
+    Logger.debug('[AURA] 💅 Estilos inyectados.');
   }
 
   // ─── Enganchar en el sistema del player ──────────────────
@@ -490,7 +490,7 @@
       };
     }
 
-    console.log('[AURA] 🔗 Conectado al player.');
+    Logger.debug('[AURA] 🔗 Conectado al player.');
   }
 
   // ─── API pública ──────────────────────────────────────────
@@ -502,9 +502,9 @@
   // Solo aplicar color inicial si el modo álbum está activo
   // (de lo contrario, configManager ya aplicó el color fijo)
   if (!window._auraAlbumModeEnabled) {
-    console.log('[AURA] Modo fijo activo — engine en espera.');
+    Logger.debug('[AURA] Modo fijo activo — engine en espera.');
   } else {
-    console.log('[AURA] Modo álbum activo — esperando canción.');
+    Logger.debug('[AURA] Modo álbum activo — esperando canción.');
   }
 
   if (document.readyState === 'loading') {
@@ -513,5 +513,5 @@
     setTimeout(hookIntoPlayer, 300);
   }
 
-  console.log('[AURA] ✅ Aura Engine v2.0 iniciado.');
+  Logger.debug('[AURA] ✅ Aura Engine v2.0 iniciado.');
 })();

@@ -1,3 +1,4 @@
+const logger = require('./utils/logger');
 const { app, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -23,7 +24,7 @@ if (fs.existsSync(userDataPath)) {
   try {
     const rawData = fs.readFileSync(userDataPath, 'utf8').trim();
     if (rawData.startsWith('{')) {
-      console.log('[MIGRATION] Sesión anterior detectada en texto plano. Preparando encriptación segura...');
+      logger.debug('[MIGRATION] Sesión anterior detectada en texto plano. Preparando encriptación segura...');
       initialSessionData = JSON.parse(rawData);
       fs.unlinkSync(userDataPath); // Eliminar archivo viejo para evitar conflictos de lectura con el Store encriptado
     }
@@ -44,7 +45,7 @@ const sessionStore = new Store({
 if (initialSessionData) {
   try {
     sessionStore.set(initialSessionData);
-    console.log('[MIGRATION] Sesión migrada y encriptada exitosamente.');
+    logger.debug('[MIGRATION] Sesión migrada y encriptada exitosamente.');
   } catch (e) {
     console.error('[MIGRATION] Error al guardar sesión migrada en el store:', e);
   }
