@@ -53,6 +53,14 @@ function getBestThumbnail(videoId, url = '') {
   return url.replace(/\/(?:default|mqdefault|hqdefault|sddefault)\.jpg$/, '/maxresdefault.jpg');
 }
 
+// ===== Visibilidad de la ventana principal (la envía main) =====
+// Sin ventana visible no tiene sentido analizar audio ni mandar frecuencias por IPC.
+// Se asume visible hasta que main diga lo contrario.
+let appVisible = true;
+ipcRenderer.on('app-visibility', (event, visible) => {
+  appVisible = !!visible;
+});
+
 // ===== Mantener reproducción en segundo plano (anti-throttle) =====
 try {
   const forceVisible = () => {
@@ -515,7 +523,7 @@ function setupAudioVisualizer(video) {
     seaxDataArray = new Uint8Array(seaxAnalyser.frequencyBinCount);
     
     seaxVisualizerInterval = setInterval(() => {
-      if (video.paused || !seaxAnalyser) return;
+      if (video.paused || !seaxAnalyser || !appVisible) return;
       
       seaxAnalyser.getByteFrequencyData(seaxDataArray);
       

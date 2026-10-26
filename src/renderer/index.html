@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="assets/fonts/fontawesome-all.min.css">
   <link rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
     crossorigin="anonymous">
 
   <!-- Base Styles -->
@@ -33,6 +33,7 @@
   <link rel="stylesheet" href="css/layout/sidebar.css">
   <link rel="stylesheet" href="css/layout/header.css">
   <link rel="stylesheet" href="css/layout/main-content.css">
+  <link rel="stylesheet" href="css/layout/titlebar.css">
 
   <!-- Base Utilities -->
   <link rel="stylesheet" href="css/base/animations.css">
@@ -324,6 +325,19 @@
       <div class="np-queue-container" id="npQueueList">
         <!-- Elements rendered dynamically -->
       </div>
+    </div>
+  </div>
+
+  <!-- Barra de título propia: la ventana no tiene marco nativo -->
+  <div class="titlebar" id="titlebar">
+    <div class="titlebar-drag">
+      <img class="titlebar-logo" src="assets/img/icon.png" alt="">
+      <span class="titlebar-title">SeaxMusic</span>
+    </div>
+    <div class="titlebar-controls">
+      <button class="titlebar-btn" id="tbMinimize" aria-label="Minimizar"><i class="fas fa-minus"></i></button>
+      <button class="titlebar-btn" id="tbMaximize" aria-label="Maximizar"><i class="far fa-square"></i></button>
+      <button class="titlebar-btn titlebar-close" id="tbClose" aria-label="Cerrar"><i class="fas fa-xmark"></i></button>
     </div>
   </div>
 
@@ -751,6 +765,7 @@
 
   <script src="js/utils/constants.js"></script>
   <script src="js/utils/dom.js"></script>
+  <script src="js/utils/titlebar.js"></script>
   <script src="js/utils/logger.js"></script>
   <script src="js/utils/likeMotion.js"></script>
   <script src="js/utils/i18n.js"></script>

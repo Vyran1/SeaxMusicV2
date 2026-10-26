@@ -32,13 +32,10 @@
 /* ⭐ PREMIUM CARD STYLE */
 .playlist-modal-card.premium {
   width: min(580px, 94vw);
-  background: linear-gradient(165deg, #1a1a1f 0%, #0d0d10 100%);
-  border-radius: 24px;
-  border: 1px solid rgba(var(--accent-rgb), 0.15);
-  box-shadow: 
-    0 40px 80px rgba(0, 0, 0, 0.6),
-    0 0 60px rgba(var(--accent-rgb), 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: var(--surface-2);
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--separator);
+  box-shadow: var(--shadow-2);
   padding: 0;
   overflow: hidden;
   position: relative;
@@ -56,15 +53,9 @@
   }
 }
 
+/* Brillo decorativo retirado: el diseño es plano */
 .playlist-modal-glow {
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle at 30% 20%, rgba(var(--accent-rgb), 0.12) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
+  display: none;
 }
 
 .playlist-modal-card.premium .playlist-modal-header {
@@ -101,7 +92,7 @@
 }
 
 .playlist-modal-card.premium .modal-title-group h3 {
-  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  font-family: var(--font-primary);
   font-size: 22px;
   font-weight: 700;
   margin: 0;

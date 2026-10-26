@@ -1,0 +1,65 @@
+/* ===== Barra de título propia (ventana sin marco nativo) ===== */
+.titlebar {
+  flex: 0 0 32px;
+  height: 32px;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  background: var(--surface-0);
+  border-bottom: 1px solid var(--separator);
+  -webkit-app-region: drag;
+  user-select: none;
+  position: relative;
+  z-index: 2000;
+}
+
+.titlebar-drag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.titlebar-logo {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.titlebar-title {
+  font-size: var(--text-caption);
+  font-weight: 600;
+  color: var(--label-secondary);
+  letter-spacing: 0;
+}
+
+/* Los controles no arrastran la ventana */
+.titlebar-controls {
+  display: flex;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.titlebar-btn {
+  width: 46px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--label-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
+}
+
+.titlebar-btn:hover {
+  background: var(--fill-hover);
+  color: var(--label-primary);
+}
+
+.titlebar-close:hover {
+  background: #e81123;
+  color: #ffffff;
+}

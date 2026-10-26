@@ -1,35 +1,45 @@
 /* ===== PILLS & GLASS - Shared component (extraído de home.css/search.css) ===== */
 :root {
   --pill-radius: 999px;
-  --glass-blur: blur(10px);
-  --glass-bg: rgba(255,255,255,0.06);
-  --glass-border: rgba(255,255,255,0.06);
+  --glass-blur: blur(12px);
+  --glass-bg: var(--fill-hover);
+  --glass-border: transparent;
 }
 
-/* Base pill */
+/* Chip base: píldora plana, el acento solo aparece en el estado activo */
 .pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
+  height: 30px;
+  padding: 0 14px;
   border-radius: var(--pill-radius);
-  font-size: 12px;
-  font-weight: 600;
-  border: 1px solid var(--glass-border);
+  font-size: var(--text-body);
+  font-weight: 500;
+  border: none;
   background: var(--glass-bg);
-  color: rgba(255,255,255,0.7);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  color: var(--label-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard);
 }
 
-/* Glass utility */
+.pill:hover {
+  background: var(--fill-active);
+  color: var(--label-primary);
+}
+
+.pill.active,
+.pill[aria-pressed="true"] {
+  background: var(--label-primary);
+  color: #000;
+}
+
+/* Glass utility: sin borde, solo material translúcido */
 .glass {
   background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  border: none;
 }
 
 /* Hero chip now extends .pill */

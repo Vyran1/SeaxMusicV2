@@ -416,7 +416,7 @@ input[type="checkbox"]:checked + .custom-switch .switch-handle {
   border-bottom: 3px solid rgba(255, 255, 255, 0.3);
   border-radius: 8px;
   padding: 5px 12px;
-  font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-primary);
   font-size: 0.85rem;
   font-weight: 700;
   color: #fff;

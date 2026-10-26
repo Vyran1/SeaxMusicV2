@@ -100,10 +100,9 @@
   cursor: pointer;
 }
 
+/* Sin zoom al pasar el mouse: solo una ligera atenuación */
 .track-image:hover {
-  transform: scale(1.08);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
-  border-radius: 10px;
+  opacity: 0.88;
 }
 
 /* Player Center - Premium Controls */

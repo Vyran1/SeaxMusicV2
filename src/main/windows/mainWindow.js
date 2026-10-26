@@ -9,7 +9,11 @@ function createMainWindow() {
     height: 900,
     minWidth: 800,
     minHeight: 600,
-    backgroundColor: '#121212',
+    backgroundColor: '#0d0d0f',
+    // Sin marco nativo: la app dibuja su propia barra de título (renderer/index.html).
+    // thickFrame mantiene el borde para redimensionar en Windows.
+    frame: false,
+    thickFrame: true,
     icon: path.join(__dirname, '../../renderer/assets/icons/icon.ico'),
     webPreferences: {
       nodeIntegration: false,
@@ -26,6 +30,20 @@ function createMainWindow() {
   if (process.argv.includes('--dev')) {
     state.mainWindow.webContents.openDevTools();
   }
+
+  // Avisar al reproductor cuando la ventana principal se ve o deja de verse
+  // (el visualizador y la vista previa solo trabajan con la ventana visible)
+  const broadcastVisibility = () => {
+    const win = state.mainWindow;
+    const visible = !!(win && !win.isDestroyed() && win.isVisible() && !win.isMinimized());
+    const yt = state.getActiveYouTubeWindow();
+    if (yt && !yt.webContents.isDestroyed()) {
+      yt.webContents.send('app-visibility', visible);
+    }
+  };
+  ['show', 'hide', 'minimize', 'restore'].forEach((evt) => {
+    state.mainWindow.on(evt, broadcastVisibility);
+  });
 
   state.mainWindow.on('closed', () => {
     state.mainWindow = null;

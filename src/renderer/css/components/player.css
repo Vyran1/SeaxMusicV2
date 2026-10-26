@@ -1,26 +1,25 @@
-/* Player Bar - Modern Premium Design */
+/* ===== Barra de reproducción (estilo Apple Music) ===== */
 .player-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 90px;
-  background: rgba(18, 18, 18, 0.92);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  height: 72px;
+  background: var(--material);
+  -webkit-backdrop-filter: var(--material-blur);
+  backdrop-filter: var(--material-blur);
+  border-top: 1px solid var(--separator);
   display: flex;
   align-items: center;
-  padding: 0 20px;
-  gap: 20px;
+  padding: 0 16px;
+  gap: 16px;
   z-index: 1000;
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: none;
 }
+
+/* Sin línea de acento decorativa: el separador basta */
 .player-bar::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.5), transparent);
-  z-index: 1001;
+  display: none;
 }
 
 .player-left {
@@ -31,17 +30,27 @@
 .track-info {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+}
+
+/* La portada de la barra debe tener su tamaño fijo, aunque la URL sea de YouTube
+   (reset.css fuerza width/height 100% en esas imágenes con !important) */
+.player-bar .track-image {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px;
+  max-width: 48px;
+  flex-shrink: 0;
 }
 
 .track-image {
-  width: 58px;
-  height: 58px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, var(--bg-tertiary) 0%, #1a1a1a 100%);
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
   object-fit: cover;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: none;
+  transition: opacity var(--duration-base) var(--ease-standard);
 }
 
 .track-details {
@@ -50,12 +59,12 @@
 }
 
 .track-name {
-  font-size: 14px;
+  font-size: var(--text-body);
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--label-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  letter-spacing: 0.2px;
+  letter-spacing: 0;
   margin-bottom: 2px;
 }

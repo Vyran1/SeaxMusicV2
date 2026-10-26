@@ -1,91 +1,36 @@
 /* ===== HOME EXPERIENCE ===== */
 .home-hero {
   position: relative;
-  border-radius: 28px;
+  border-radius: var(--radius-2xl);
   padding: 32px 36px;
-  background: linear-gradient(170deg, rgba(12, 12, 12, 0.97) 0%, rgba(18, 18, 18, 0.98) 100%);
-  border: 1px solid rgba(var(--accent-rgb), 0.18);
+  background: var(--surface-1);
+  border: 1px solid var(--separator);
   overflow: hidden;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: 28px;
-  box-shadow: 0 35px 90px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(var(--accent-rgb), 0.04);
+  box-shadow: none;
 }
 
-.home-hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 15% 20%, rgba(var(--accent-rgb), 0.24), transparent 24%),
-    radial-gradient(circle at 78% 18%, rgba(var(--accent-rgb), 0.14), transparent 22%),
-    linear-gradient(135deg, rgba(var(--accent-rgb), 0.08), transparent 30%);
-  pointer-events: none;
-  z-index: 0;
-}
-
+/* Sin brillos ni barras decorativas: el diseño es plano */
+.home-hero::before,
 .home-hero::after {
-  content: '';
-  position: absolute;
-  top: 12px;
-  left: 14px;
-  right: 14px;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.75), transparent);
-  opacity: 0.8;
-  pointer-events: none;
-  z-index: 1;
+  display: none;
 }
 
+/* Un tinte suave del acento (el Aura Engine lo ajusta por canción), sin animación */
 .home-hero-bg {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(circle at 12% 25%, rgba(var(--accent-rgb), 0.24) 0%, transparent 24%),
-    radial-gradient(circle at 75% 15%, rgba(255, 255, 255, 0.18) 0%, transparent 20%),
-    linear-gradient(135deg, rgba(var(--accent-rgb), 0.18), rgba(8, 8, 8, 0.92));
-  opacity: 0.98;
+  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.12) 0%, transparent 70%);
+  opacity: 1;
   pointer-events: none;
-  background-size: 220% 220%;
   z-index: 0;
-  animation: heroGlow 12s ease-in-out infinite alternate, heroShift 18s linear infinite;
 }
 
-.home-hero-bg::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 40% 60%, rgba(var(--accent-rgb), 0.12), transparent 25%);
-  filter: blur(35px);
-  opacity: 0.8;
-}
-
+.home-hero-bg::before,
 .home-hero-bg::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(110deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
-  mix-blend-mode: screen;
-  transform: translateX(-120%);
-  animation: heroSweep 4.2s linear infinite;
-}
-
-@keyframes heroGlow {
-  0% { transform: scale(1); opacity: 0.75; }
-  100% { transform: scale(1.05); opacity: 1; }
-}
-
-@keyframes heroShift {
-  0% { background-position: 0% 0%; }
-  50% { background-position: 15% 10%; }
-  100% { background-position: 0% 0%; }
-}
-
-@keyframes heroSweep {
-  0% { transform: translateX(-120%); opacity: 0; }
-  45% { opacity: 0.05; }
-  55% { transform: translateX(0%); opacity: 0.18; }
-  100% { transform: translateX(120%); opacity: 0; }
+  display: none;
 }
 
 .home-hero-content,
@@ -135,7 +80,7 @@
 }
 
 .home-hero-title {
-  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  font-family: var(--font-primary);
   font-size: 54px;
   font-weight: 900;
   letter-spacing: -1px;
@@ -291,7 +236,7 @@
 }
 
 .home-row-header h2 {
-  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  font-family: var(--font-primary);
   font-size: 22px;
   margin-bottom: 4px;
 }
@@ -796,39 +741,8 @@
   }
 }
 
-/* ===== BANNER DINÁMICO (Opción E) ===== */
-.home-hero.hero-morning {
-  border-color: rgba(255, 126, 41, 0.3);
-  box-shadow: 0 35px 90px rgba(255, 126, 41, 0.08), 0 10px 40px rgba(0, 0, 0, 0.5);
-}
-.home-hero.hero-morning .home-hero-bg {
-  background: 
-    radial-gradient(circle at 15% 25%, rgba(255, 126, 41, 0.35) 0%, transparent 35%),
-    radial-gradient(circle at 75% 20%, rgba(130, 17, 186, 0.3) 0%, transparent 30%),
-    linear-gradient(135deg, rgba(255, 90, 0, 0.15), rgba(12, 10, 15, 0.98));
-}
-
-.home-hero.hero-afternoon {
-  border-color: rgba(255, 41, 100, 0.3);
-  box-shadow: 0 35px 90px rgba(255, 41, 100, 0.08), 0 10px 40px rgba(0, 0, 0, 0.5);
-}
-.home-hero.hero-afternoon .home-hero-bg {
-  background: 
-    radial-gradient(circle at 20% 30%, rgba(255, 41, 100, 0.35) 0%, transparent 35%),
-    radial-gradient(circle at 80% 25%, rgba(41, 70, 255, 0.3) 0%, transparent 30%),
-    linear-gradient(135deg, rgba(230, 25, 75, 0.15), rgba(8, 8, 12, 0.98));
-}
-
-.home-hero.hero-night {
-  border-color: rgba(0, 195, 255, 0.25);
-  box-shadow: 0 35px 90px rgba(0, 195, 255, 0.06), 0 10px 40px rgba(0, 0, 0, 0.6);
-}
-.home-hero.hero-night .home-hero-bg {
-  background: 
-    radial-gradient(circle at 15% 20%, rgba(0, 195, 255, 0.25) 0%, transparent 35%),
-    radial-gradient(circle at 70% 30%, rgba(140, 41, 255, 0.25) 0%, transparent 30%),
-    linear-gradient(135deg, rgba(0, 36, 125, 0.18), rgba(5, 5, 8, 0.99));
-}
+/* Variantes por hora del día (hero-morning / hero-afternoon / hero-night):
+   unificadas en un único diseño plano, ver el bloque base de .home-hero */
 
 /* ===== BURBUJAS DE ARTISTAS (Opción D) ===== */
 .top-artists-row-container {
@@ -925,7 +839,7 @@
 }
 
 .artist-bubble-name {
-  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  font-family: var(--font-primary);
   font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);

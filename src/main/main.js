@@ -21,6 +21,7 @@ require('./ipc/favoritesIpc');
 require('./ipc/authIpc');
 require('./ipc/systemIpc');
 require('./ipc/hotkeyIpc');
+require('./ipc/windowIpc');
 
 // Content-Security-Policy estricta para el renderer principal
 const { session } = require('electron');
@@ -56,6 +57,17 @@ app.whenReady().then(() => {
 
   // Inicializar ventana principal
   createMainWindow();
+
+  // Métricas de CPU y memoria por proceso (solo --dev) para medir el trabajo en segundo plano
+  if (process.argv.includes('--dev')) {
+    setInterval(() => {
+      app.getAppMetrics().forEach((m) => {
+        logger.debug('[METRICS]', m.type, 'pid', m.pid,
+          'cpu%', m.cpu.percentCPUUsage.toFixed(1),
+          'memMB', Math.round(m.memory.workingSetSize / 1024));
+      });
+    }, 30000);
+  }
 
   // Mantener reproducción estable en segundo plano (evita suspensión del sistema)
   if (powerSaveBlocker && !powerSaveBlocker.isStarted(state.powerSaveBlockerId || -1)) {

@@ -17,7 +17,7 @@
 }
 
 body {
-  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-family: var(--font-primary);
   background-color: var(--bg-primary);
   color: var(--text-primary);
   overflow: hidden;
@@ -76,29 +76,12 @@ img[src*="img.youtube.com"],
   height: 100% !important;
   object-fit: cover !important;
   object-position: center center !important;
-  /* ⭐ ZOOM 35% para eliminar bordes negros de YouTube */
-  transform: scale(1.35);
-  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Zoom mínimo para recortar bordes negros de YouTube (variable global) */
+  transform: scale(var(--art-zoom));
 }
 
-/* Efecto hover en imágenes - zoom extra */
-.music-card:hover .card-img,
-.music-card:hover img,
-.library-card:hover img,
-.search-result-card:hover .card-img {
-  transform: scale(1.45);
-}
-
-/* Track image del player bar - tamaño fijo SIN zoom */
+/* Track image del player bar: tamaño y encuadre en components/player.css */
 .player-bar .track-image {
-  width: 56px !important;
-  height: 56px !important;
-  min-width: 56px !important;
-  flex-shrink: 0 !important;
-  object-fit: cover;
+  flex-shrink: 0;
   object-position: center center;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  /* ⭐ Sin zoom - ya está bien encuadrada */
-  transform: scale(1) !important;
 }

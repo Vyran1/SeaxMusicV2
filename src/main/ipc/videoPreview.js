@@ -30,14 +30,17 @@ async function startVideoPreviewInternal(state) {
 
   active.webContents.send('video-preview-start');
 
+  // ~5 fps: suficiente para la vista previa y mucho menos CPU que 150 ms
   state.videoPreviewTimer = setInterval(async () => {
     try {
       if (!active || active.isDestroyed() || !state.mainWindow || state.mainWindow.isDestroyed()) return;
+      // Sin ventana principal visible no hay quien vea los fotogramas
+      if (!state.mainWindow.isVisible() || state.mainWindow.isMinimized()) return;
       const image = await active.webContents.capturePage();
       const dataUrl = image.toDataURL();
       state.mainWindow.webContents.send('video-preview-frame', dataUrl);
     } catch (e) { }
-  }, 150);
+  }, 200);
 
   return { success: true };
 }

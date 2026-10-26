@@ -17,57 +17,13 @@ body {
   letter-spacing: -0.01em;
 }
 
-.sidebar {
-  width: 252px;
-  padding: 20px 12px;
-  background: #101011;
-  border-right-color: var(--border-color);
-  box-shadow: none;
-}
+/* Barra lateral y navegación: ver layout/sidebar.css */
 
-.sidebar.collapsed {
-  width: 76px;
-  padding: 20px 8px;
-}
-
-.logo {
-  margin-bottom: 18px;
-}
-
-.logo img {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-}
-
-.nav-menu {
-  gap: 4px;
-  margin-bottom: 16px;
-}
-
-.nav-item {
-  min-height: 44px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  font-weight: 600;
-}
-
-.nav-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.nav-item.active {
-  background: rgba(var(--accent-rgb), 0.14);
-  box-shadow: inset 3px 0 var(--accent-primary);
-}
-
-.playlist-create-btn,
 .hero-btn.primary,
 .search-submit-btn {
   box-shadow: none;
 }
 
-.playlist-create-btn:hover,
 .hero-btn.primary:hover,
 .search-submit-btn:hover {
   transform: translateY(-1px);
@@ -87,60 +43,9 @@ body {
   padding: 28px 36px 116px;
 }
 
-.header {
-  min-height: 68px;
-  padding: 14px 28px;
-  background: rgba(15, 15, 16, 0.88);
-  border-bottom-color: var(--border-color);
-  box-shadow: none;
-  backdrop-filter: blur(24px) saturate(130%);
-  -webkit-backdrop-filter: blur(24px) saturate(130%);
-}
+/* Cabecera y perfil: ver layout/header.css */
 
-.nav-btn {
-  width: 36px;
-  height: 36px;
-  border: 0;
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: none;
-}
-
-.nav-btn:hover:not(:disabled) {
-  transform: none;
-  background: rgba(255, 255, 255, 0.12);
-  box-shadow: none;
-}
-
-.user-profile {
-  border-color: var(--border-color);
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow: none;
-}
-
-.user-profile:hover {
-  transform: none;
-  background: rgba(255, 255, 255, 0.09);
-  box-shadow: none;
-}
-
-.home-hero {
-  grid-template-columns: minmax(0, 1fr) 300px;
-  padding: 30px 32px;
-  border-radius: 20px;
-  border-color: rgba(255, 255, 255, 0.08);
-  background: linear-gradient(135deg, #1b1b1e, #121213 65%);
-  box-shadow: none;
-}
-
-.home-hero::after,
-.home-hero-bg::after {
-  display: none;
-}
-
-.home-hero-bg {
-  animation: none;
-  opacity: 0.65;
-}
+/* Héroe del inicio: ver pages/home.css */
 
 .home-hero-title,
 .search-banner-title {
@@ -164,60 +69,7 @@ body {
   box-shadow: none;
 }
 
-.music-card,
-.home-action-card,
-.library-card,
-.global-playlist-card {
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: none;
-}
-
-.music-card::before,
-.music-card::after {
-  opacity: 0 !important;
-}
-
-.music-card:hover,
-.home-action-card:hover {
-  transform: translateY(-3px) !important;
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.16);
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
-}
-
-.card-image,
-.library-card-image,
-.search-result-card .card-image,
-.music-card .card-image {
-  border-radius: 12px;
-  box-shadow: none !important;
-}
-
-.music-card .card-img,
-.music-card img,
-.search-result-card .card-img,
-.search-result-card img,
-.library-card img {
-  transform: scale(1.02) !important;
-}
-
-.music-card:hover .card-img,
-.music-card:hover img,
-.search-result-card:hover .card-img,
-.library-card:hover img {
-  transform: scale(1.07) !important;
-}
-
-.add-queue-card-btn {
-  background: rgba(20, 20, 22, 0.82);
-  border-color: rgba(255, 255, 255, 0.14);
-  box-shadow: none;
-}
-
-.add-queue-card-btn:hover {
-  box-shadow: none;
-  transform: scale(1.06) !important;
-}
+/* Tarjetas (music-card, portadas, botón de cola): ver components/cards.css */
 
 /* Motion language adapted from beUI: spring press, compact state swap and
    opt-in confirmation feedback for intentional actions. */
@@ -291,23 +143,7 @@ body {
   to { opacity: 0; transform: translate(calc(-50% + var(--spark-x)), calc(-50% + var(--spark-y))) scale(1); }
 }
 
-.player-bar {
-  height: 88px;
-  background: rgba(20, 20, 22, 0.94);
-  border-top-color: var(--border-color);
-  box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.16);
-  backdrop-filter: blur(24px) saturate(130%);
-  -webkit-backdrop-filter: blur(24px) saturate(130%);
-}
-
-.player-bar::before {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.track-image {
-  border-radius: 10px;
-  box-shadow: none;
-}
+/* Barra de reproducción: ver components/player.css */
 
 .search-banner {
   min-height: 238px;

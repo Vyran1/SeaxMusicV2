@@ -251,6 +251,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     });
   },
 
+  // ===== Barra de título propia (ventana sin marco) =====
+  windowControls: {
+    minimize: () => ipcRenderer.invoke('window-minimize'),
+    toggleMaximize: () => ipcRenderer.invoke('window-toggle-maximize'),
+    isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
+    close: () => ipcRenderer.invoke('window-close')
+  },
+
   // ===== SINCRONIZACIÓN DE FAVORITOS (tiempo real entre ventanas) =====
   onFavoritesChanged: (callback) => {
     const handler = (event, favorites) => callback(favorites);

@@ -1,28 +1,36 @@
-﻿:root {
-  /* Dark theme colors */
-  --bg-primary: #121212;
-  --bg-secondary: #181818;
-  --bg-tertiary: #282828;
-  --bg-hover: #2a2a2a;
+﻿/* ===== Sistema de diseño SeaxMusic (estilo Apple Music, solo oscuro) =====
+   Fuente única de verdad. Los nombres antiguos (--bg-*, --text-*, --accent-primary…)
+   quedan como alias para no romper el CSS existente durante la migración. */
+:root {
+  /* Superficies: de fondo a elevado */
+  --surface-0: #0d0d0f;
+  --surface-1: #151517;
+  --surface-2: #1d1d20;
+  --surface-3: #2a2a2e;
 
-  /* Accent colors */
-  --accent-primary: #E13838;
-  --accent-hover: #F04848;
-  --accent-dark: #C12828;
-  --accent-rgb: 225, 56, 56;
+  /* Separadores y estados */
+  --separator: rgba(255, 255, 255, 0.08);
+  --fill-hover: rgba(255, 255, 255, 0.06);
+  --fill-active: rgba(255, 255, 255, 0.10);
+
+  /* Texto (jerarquía) */
+  --label-primary: #FFFFFF;
+  --label-secondary: rgba(235, 235, 245, 0.62);
+  --label-tertiary: rgba(235, 235, 245, 0.34);
+
+  /* Acento: rojo estilo Apple Music. El Aura Engine puede sobrescribirlo por canción. */
+  --accent: #FA243C;
+  --accent-hover: #FF4D63;
+  --accent-dark: #D41C32;
+  --accent-rgb: 250, 36, 60;
   --accent-soft: rgba(var(--accent-rgb), 0.14);
-  --accent-border: rgba(var(--accent-rgb), 0.28);
+  --accent-border: rgba(var(--accent-rgb), 0.32);
 
-  /* Text colors */
-  --text-primary: #FFFFFF;
-  --text-secondary: #B3B3B3;
-  --text-muted: #9B9B9B;
+  /* Materiales translúcidos (barra inferior y lateral) */
+  --material: rgba(21, 21, 23, 0.72);
+  --material-blur: blur(28px) saturate(180%);
 
-  /* UI elements */
-  --border-color: #333333;
-  --shadow: rgba(0, 0, 0, 0.5);
-
-  /* Spacing tokens */
+  /* Espaciado */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 16px;
@@ -30,22 +38,54 @@
   --space-xl: 32px;
   --space-2xl: 40px;
 
-  /* Radius tokens */
-  --radius-sm: 4px;
+  /* Radios */
+  --radius-sm: 6px;
   --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 16px;
   --radius-full: 50%;
 
-  /* Typography tokens */
-  --text-xs: 11px;
-  --text-sm: 13px;
-  --text-base: 14px;
-  --text-lg: 16px;
-  --text-xl: 20px;
-  --text-2xl: 24px;
-  --text-3xl: 32px;
-  --font-primary: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-display: 'Space Grotesk', 'Manrope', sans-serif;
+  /* Sombras: dos niveles, nada de brillos decorativos */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.36);
+
+  /* Portadas: zoom mínimo para recortar bordes negros de las miniaturas de YouTube */
+  --art-zoom: 1.02;
+
+  /* Movimiento */
+  --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+
+  /* Escala tipográfica */
+  --text-caption: 12px;
+  --text-body: 14px;
+  --text-headline: 16px;
+  --text-title: 20px;
+  --text-large-title: 34px;
+
+  /* Tipografía: una sola familia */
+  --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: var(--font-primary);
   --font-mono: 'SF Mono', 'Fira Code', monospace;
+
+  /* ----- Alias de compatibilidad (no usar en código nuevo) ----- */
+  --bg-primary: var(--surface-0);
+  --bg-secondary: var(--surface-1);
+  --bg-tertiary: var(--surface-2);
+  --bg-hover: var(--fill-hover);
+  --accent-primary: var(--accent);
+  --text-primary: var(--label-primary);
+  --text-secondary: var(--label-secondary);
+  --text-muted: var(--label-tertiary);
+  --border-color: var(--separator);
+  --shadow: rgba(0, 0, 0, 0.36);
+  --text-xs: var(--text-caption);
+  --text-sm: 13px;
+  --text-base: var(--text-body);
+  --text-lg: var(--text-headline);
+  --text-xl: var(--text-title);
+  --text-2xl: 24px;
+  --text-3xl: var(--text-large-title);
 }
