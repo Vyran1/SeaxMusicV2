@@ -37,4 +37,27 @@ describe('recommendation engine', () => {
     assert.equal(engine.normalizeArtist('  Bad Bunny - Topic '), 'bad bunny');
     assert.equal(engine.normalizeArtist('BAD BUNNY VEVO'), 'bad bunny');
   });
+
+  it('no repite la misma canción con otro videoId o artista (mismo título)', () => {
+    const sameName = [
+      { videoId: 'a1', title: 'Hola (Official Video)', artist: 'Artista A' },
+      { videoId: 'b1', title: 'Hola', artist: 'Artista B' },
+      { videoId: 'c1', title: 'Otra canción', artist: 'Artista C' }
+    ];
+    const unique = engine.uniqueTracks(sameName);
+    assert.deepEqual(unique.map(t => t.videoId), ['a1', 'c1']);
+  });
+
+  it('penaliza una canción cuyo título acaba de sonar aunque sea otro videoId', () => {
+    const queue = [
+      { videoId: 'x0', title: 'Hola', artist: 'Artista A' },
+      { videoId: 'x1', title: 'Hola (Official Video)', artist: 'Artista B' },
+      { videoId: 'x2', title: 'Tema nuevo', artist: 'Artista C' }
+    ];
+    const index = engine.chooseNextIndex(queue, 0, {
+      currentTrack: queue[0],
+      recentHistory: [{ videoId: 'x0', title: 'Hola' }]
+    });
+    assert.equal(queue[index].videoId, 'x2');
+  });
 });
