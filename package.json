@@ -1,6 +1,6 @@
 {
   "name": "seaxmusic",
-  "version": "3.3.2",
+  "version": "3.4.0",
   "description": "SeaxMusic",
   "author": "Vyran <ccalvo640@gmail.com>",
   "main": "src/main/main.js",
