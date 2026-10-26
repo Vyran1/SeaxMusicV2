@@ -31,6 +31,10 @@ function createPipWindow() {
   } catch (e) { }
 
   state.pipWindow.loadFile(path.join(__dirname, '../../renderer/html/pip.html'));
+  // Solo en desarrollo: consola del widget para diagnosticar datos que no llegan
+  if (process.argv.includes('--dev')) {
+    state.pipWindow.webContents.openDevTools({ mode: 'detach' });
+  }
   state.pipWindow.webContents.once('did-finish-load', () => {
     if (state.pipWindow && !state.pipWindow.isDestroyed()) {
       if (state.lastVideoInfo) {
